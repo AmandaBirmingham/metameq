@@ -701,11 +701,11 @@ if __name__ == "__main__":
     output_dir = "/Users/abirmingham/Desktop/"
     output_base = "test_extended_metadata"
 
-    main_config_dict = extract_config_dict(None)
+    main_config_dict = extract_config_dict("/Users/abirmingham/Work/Repositories/qiimp2/nph_config.yaml")
 
     # TODO: remove hardcoding of path
     #package_config_dict = extract_config_dict("/Users/abirmingham/Work/Repositories/qiimp2/temp.yaml")
-    package_config_dict = extract_config_dict("/Users/abirmingham/Library/Application Support/JetBrains/PyCharm2023.3/scratches/temp2.yaml")
+    package_config_dict = extract_config_dict("/Users/abirmingham/Work/Repositories/qiimp2/standards.yaml")
     flattened_hosts_dict = _read_package_config(package_config_dict, None, None)
     main_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = flattened_hosts_dict
 
