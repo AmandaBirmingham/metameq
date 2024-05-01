@@ -1,0 +1,84 @@
+"default": "not applicable"
+"study_start_date": "10/21/2008"
+"study_specific_fields":
+  "metadata_fields":
+    country:
+      allowed:
+        - "USA"
+      default: "USA"
+      type: string
+    dna_extracted:
+      allowed:
+        - 'TRUE'
+      default: 'TRUE'
+      type: string
+    title:
+      default: "NPH"
+      type: string
+  "host_type_specific_metadata":
+    "human":
+      "metadata_fields":
+        elevation:
+          default: 0
+          type: number
+        geo_loc_name:
+          allowed:
+            - 'USA'
+          default: 'USA'
+          type: string
+        host_height:
+          allowed:
+            - "not provided"
+          default: "not provided"
+          type: string
+        host_weight:
+          allowed:
+            - "not provided"
+          default: "not provided"
+          type: string
+        latitude:
+          default: 40
+          type: number
+        longitude:
+          default: -100
+          type: number
+        physical_specimen_location:
+          allowed:
+            - 'UCSD'
+          default: "UCSD"
+          type: string
+        physical_specimen_remaining:
+          allowed:
+            - 'TRUE'
+          default: 'TRUE'
+          type: string
+      "sample_type_specific_metadata":
+        "feces":
+          "metadata_fields":
+            qiita_sample_type:
+              allowed:
+                - "feces"
+              default: "feces"
+              empty: false
+              is_phi: false
+              required: false
+              type: string
+    "control":
+      "default_value": "not applicable"
+      "sample_type_specific_metadata":
+        "shield blank":
+          "metadata_fields":
+            qiita_sample_type:
+              allowed:
+                - "control shield"
+              default: "control shield"
+              empty: false
+              is_phi: false
+              required: false
+              type: string
+"metadata_transformers":
+  "pre_population":
+    "host_age":
+      "source": "age"
+      "function": "pass_through"
+
