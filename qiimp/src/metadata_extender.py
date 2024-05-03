@@ -4,7 +4,7 @@ import os
 import pandas
 import yaml
 from datetime import datetime
-from dateutil import parser
+import qiimp.src.metadata_transformers as transformers
 
 # Load in the config file
 # Load in the user-supplied metadata file into a pandas dataframe
@@ -23,6 +23,7 @@ QC_NOTE_KEY = "qc_note"
 
 # config keys
 METADATA_FIELDS_KEY = "metadata_fields"
+STUDY_SPECIFIC_METADATA_KEY = "study_specific_metadata"
 HOST_TYPE_SPECIFIC_METADATA_KEY = "host_type_specific_metadata"
 SAMPLE_TYPE_KEY = "sample_type"
 SAMPLE_TYPE_SPECIFIC_METADATA_KEY = "sample_type_specific_metadata"
@@ -57,20 +58,22 @@ INTERNAL_COL_KEYS = [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY,
 pandas.set_option("future.no_silent_downcasting", True)
 
 
-def extract_config_dict(config_fp):
+def extract_config_dict(config_fp, starting_fp=None):
     if config_fp is None:
-        parent_dir = get_parent_dir()
-        config_fp = os.path.join(parent_dir, "config.yml")
+        grandparent_dir = _get_grandparent_dir(starting_fp)
+        config_fp = os.path.join(grandparent_dir, "config.yml")
 
     # read in config file
     config_dict = extract_yaml_dict(config_fp)
     return config_dict
 
 
-def get_parent_dir():
-    curr_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_dir = os.path.join(curr_dir, os.pardir)
-    return parent_dir
+def _get_grandparent_dir(starting_fp=None):
+    if starting_fp is None:
+        starting_fp = __file__
+    curr_dir = os.path.dirname(os.path.abspath(starting_fp))
+    grandparent_dir = os.path.join(curr_dir, os.pardir, os.pardir)
+    return grandparent_dir
 
 
 def extract_yaml_dict(yaml_fp):
@@ -79,7 +82,49 @@ def extract_yaml_dict(yaml_fp):
     return yaml_dict
 
 
-def combine_stds_and_study_dicts(
+def generate_extended_metadata_file_from_raw_metadata_file(
+        raw_metadata_fp, study_specific_config, out_dir, out_base):
+
+    # TODO: add sheet name handling?
+    raw_metadata_df = pandas.read_excel(raw_metadata_fp)
+
+    return generate_extended_metadata_file_from_raw_metadata_df(
+        raw_metadata_df, study_specific_config, out_dir, out_base)
+
+
+def generate_extended_metadata_file_from_raw_metadata_df(
+        raw_metadata_df, study_specific_config, out_dir, out_base):
+
+    if study_specific_config:
+        nested_stds_plus_dict = _combine_stds_and_study_config(
+            study_specific_config)
+    else:
+        study_specific_config = extract_config_dict(None)
+        nested_stds_plus_dict = _extract_stds_config(None)
+
+    flattened_hosts_dict = _flatten_nested_stds_dict(
+        nested_stds_plus_dict, None, None)
+    study_specific_config[HOST_TYPE_SPECIFIC_METADATA_KEY] = flattened_hosts_dict
+
+    metadata_df = _populate_metadata_df(raw_metadata_df, study_specific_config)
+
+    _output_to_df(metadata_df, out_dir, out_base, INTERNAL_COL_KEYS)
+    return metadata_df
+
+
+def _combine_stds_and_study_config(study_config_dict, stds_fp=None):
+    stds_nested_dict = _extract_stds_config(stds_fp)
+    study_flat_dict = study_config_dict.get(STUDY_SPECIFIC_METADATA_KEY, {})
+
+    combined_host_types_dict = _make_combined_stds_and_study_host_type_dicts(
+        stds_nested_dict, study_flat_dict)
+
+    stds_plus_study_nested_dict = {
+        HOST_TYPE_SPECIFIC_METADATA_KEY: combined_host_types_dict}
+    return stds_plus_study_nested_dict
+
+
+def _make_combined_stds_and_study_host_type_dicts(
         stds_prev_level_nested_dict, flat_study_dict):
 
     # look at host-specific entries
@@ -159,7 +204,7 @@ def combine_stds_and_study_dicts(
         # note that we DON'T need to recurse into the study dict, because it
         # is explicitly flat, so just sent it in unchanged.
         curr_host_type_wip_nested_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
-            combine_stds_and_study_dicts(
+            _make_combined_stds_and_study_host_type_dicts(
                 curr_host_type_stds_nested_dict,
                 flat_study_dict)
 
@@ -169,6 +214,57 @@ def combine_stds_and_study_dicts(
     return parent_wip_host_types_dict
 
 
+def _extract_stds_config(stds_fp):
+    if not stds_fp:
+        stds_fp = os.path.join(_get_grandparent_dir(), "standards.yml")
+    return extract_config_dict(stds_fp)
+
+
+def _deepcopy_dict(input_dict):
+    output_dict = {}
+    for curr_key, curr_val in input_dict.items():
+        if isinstance(curr_val, dict):
+            output_dict[curr_key] = _deepcopy_dict(curr_val)
+        else:
+            output_dict[curr_key] = copy.deepcopy(curr_val)
+    return output_dict
+
+
+def _update_wip_metadata_dict(
+        curr_wip_metadata_fields_dict, curr_stds_metadata_fields_dict):
+    ALLOWED_KEY = "allowed"
+    ANYOF_KEY = "anyof"
+    TYPE_KEY = "type"
+
+    for curr_metadata_field, curr_stds_metadata_field_dict in curr_stds_metadata_fields_dict.items():
+        if curr_metadata_field not in curr_wip_metadata_fields_dict:
+            curr_wip_metadata_fields_dict[curr_metadata_field] = {}
+
+        if ALLOWED_KEY in curr_stds_metadata_field_dict:
+            # remove the ANYOF_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
+            if ANYOF_KEY in curr_wip_metadata_fields_dict[curr_metadata_field]:
+                del curr_wip_metadata_fields_dict[curr_metadata_field][ANYOF_KEY]
+
+        if ANYOF_KEY in curr_stds_metadata_field_dict:
+            # remove the ALLOWED_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
+            if ALLOWED_KEY in curr_wip_metadata_fields_dict[curr_metadata_field]:
+                del curr_wip_metadata_fields_dict[curr_metadata_field][ALLOWED_KEY]
+
+            # remove the TYPE_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
+            if TYPE_KEY in curr_wip_metadata_fields_dict[curr_metadata_field]:
+                del curr_wip_metadata_fields_dict[curr_metadata_field][TYPE_KEY]
+
+        # TODO: Q: is it possible to have a list of allowed with a default
+        #  at high level, then lower down have a list of allowed WITHOUT
+        #  a default?  If so, how do we handle that?
+
+        # update curr_wip_metadata_fields_dict[curr_metadata_field] with curr_stds_metadata_field_dict
+        curr_wip_metadata_fields_dict[curr_metadata_field].update(curr_stds_metadata_field_dict)
+    # next metadata field
+
+    return curr_wip_metadata_fields_dict
+
+
 # nested_standards_dict is the *nested* dictionary that contains the per-host
 # metadata field values at and below the level we are working on.
 # prev_level_wip_full_host_dict is the dictionary of metadata fields for the host
@@ -176,8 +272,9 @@ def combine_stds_and_study_dicts(
 # host we are currently processing.  It is None if we are at the top level.
 # output_flattened_hosts_dict is the *flattened* dictionary that contains the per-host
 # metadata field values. It will eventually be the output.
-def flatten_nested_stds_dict(
-        nested_standards_dict, prev_level_wip_full_host_dict, output_flattened_hosts_dict):
+def _flatten_nested_stds_dict(nested_standards_dict,
+                              prev_level_wip_full_host_dict,
+                              output_flattened_hosts_dict):
 
     if prev_level_wip_full_host_dict is None:
         prev_level_wip_full_host_dict = {}
@@ -239,148 +336,11 @@ def flatten_nested_stds_dict(
         output_flattened_hosts_dict[curr_host_type] = curr_host_type_wip_full_dict
 
         # recurse into the next level of the config--depth first search
-        output_flattened_hosts_dict = flatten_nested_stds_dict(
+        output_flattened_hosts_dict = _flatten_nested_stds_dict(
             curr_host_type_stds_nested_dict, curr_host_type_wip_full_dict, output_flattened_hosts_dict)
     # next host type
 
     return output_flattened_hosts_dict
-
-
-def make_nph_raw_metadata_df_from_raw_metadata_fp(raw_metadata_fp):
-    raw_metadata_df = pandas.read_csv(raw_metadata_fp, sep="\t")
-    raw_metadata_df[HOSTTYPE_SHORTHAND_KEY] = "human"
-    raw_metadata_df[SAMPLETYPE_SHORTHAND_KEY] = raw_metadata_df[SAMPLE_TYPE_KEY].str.lower()
-    return raw_metadata_df
-
-
-def generate_extended_metadata_file_from_raw_metadata_file(
-        raw_metadata_fp, config, out_dir, out_base):
-
-    # TODO: add sheet name handling?
-    raw_metadata_df = pandas.read_excel(raw_metadata_fp)
-
-    return generate_extended_metadata_file_from_raw_metadata_df(
-        raw_metadata_df, config, out_dir, out_base)
-
-
-def generate_extended_metadata_file_from_raw_metadata_df(
-        raw_metadata_df, config, out_dir, out_base):
-
-    metadata_df = _populate_metadata_df(raw_metadata_df, config)
-
-    _output_to_df(metadata_df, out_dir, out_base, INTERNAL_COL_KEYS)
-    return metadata_df
-
-
-def pass_through(row, source_fields):
-    return _get_one_source_field(row, source_fields, "pass_through")
-
-
-def transform_sex_at_birth_to_sex(row, source_fields):
-    x = _get_one_source_field(
-        row, source_fields, "transform_sex_at_birth_to_sex")
-
-    if pandas.isnull(x):
-        return x
-    if "Female" in x:
-        return "female"
-    # NB: gotta test male second so don't get false pos on fe*male*
-    if "Male" in x:
-        return "male"
-
-    # if we got here, none of our checks recognized the sex at birth value
-    raise ValueError(f"Unrecognized sex: {x}")
-
-
-def transform_age_to_life_stage(row, source_fields):
-    x = _get_one_source_field(
-        row, source_fields, "transform_age_to_life_stage")
-
-    # NB: Input age is assumed to be in years.  Because of this, this function
-    # does NOT attempt to identify neonates--children aged 0-6 *weeks*. All
-    # ages under 17 are considered "child".
-
-    if pandas.isnull(x):
-        return x
-
-    try:
-        x = int(x)
-    except ValueError:
-        raise ValueError(f"{source_fields[0]} must be an integer")
-
-    if x < 17:
-        return "child"
-    return "adult"
-
-
-def format_a_datetime(row, source_fields):
-    x = _get_one_source_field(
-        row, source_fields, "format_a_datetime")
-
-    if pandas.isnull(x):
-        return x
-    if hasattr(x, "strftime"):
-        strftimeable_x = x
-    else:
-        try:
-            strftimeable_x = parser.parse(x)
-        except:
-            raise ValueError(f"{source_fields[0]} cannot be parsed to a date")
-
-    formatted_x = strftimeable_x.strftime('%Y-%m-%d %H:%M')
-    return formatted_x
-
-
-def _get_one_source_field(row, source_fields, func_name):
-    if len(source_fields) != 1:
-        raise ValueError(f"{func_name} requires exactly one source field")
-    return row[source_fields[0]]
-
-
-def _deepcopy_dict(input_dict):
-    output_dict = {}
-    for curr_key, curr_val in input_dict.items():
-        if isinstance(curr_val, dict):
-            output_dict[curr_key] = _deepcopy_dict(curr_val)
-        else:
-            output_dict[curr_key] = copy.deepcopy(curr_val)
-    return output_dict
-
-
-def _update_wip_metadata_dict(
-        curr_wip_metadata_fields_dict, curr_stds_metadata_fields_dict):
-    ALLOWED_KEY = "allowed"
-    ANYOF_KEY = "anyof"
-    TYPE_KEY = "type"
-
-    for curr_metadata_field, curr_stds_metadata_field_dict in curr_stds_metadata_fields_dict.items():
-        if curr_metadata_field not in curr_wip_metadata_fields_dict:
-            curr_wip_metadata_fields_dict[curr_metadata_field] = {}
-
-        if ALLOWED_KEY in curr_stds_metadata_field_dict:
-            # remove the ANYOF_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if ANYOF_KEY in curr_wip_metadata_fields_dict[curr_metadata_field]:
-                del curr_wip_metadata_fields_dict[curr_metadata_field][ANYOF_KEY]
-
-        if ANYOF_KEY in curr_stds_metadata_field_dict:
-            # remove the ALLOWED_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if ALLOWED_KEY in curr_wip_metadata_fields_dict[curr_metadata_field]:
-                del curr_wip_metadata_fields_dict[curr_metadata_field][ALLOWED_KEY]
-
-            # remove the TYPE_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if TYPE_KEY in curr_wip_metadata_fields_dict[curr_metadata_field]:
-                del curr_wip_metadata_fields_dict[curr_metadata_field][TYPE_KEY]
-
-        # TODO: Q: is it possible to have a list of allowed with a default
-        #  at high level, then lower down have a list of allowed WITHOUT
-        #  a default?  If so, how do we handle that?
-
-        # update curr_wip_metadata_fields_dict[curr_metadata_field] with curr_stds_metadata_field_dict
-        curr_wip_metadata_fields_dict[curr_metadata_field].update(curr_stds_metadata_field_dict)
-    # next metadata field
-
-    return curr_wip_metadata_fields_dict
-
 
 def _populate_metadata_df(raw_metadata_df, main_config_dict):
     metadata_df = raw_metadata_df.copy()
@@ -397,7 +357,7 @@ def _populate_metadata_df(raw_metadata_df, main_config_dict):
         for curr_target_field, curr_transformer_dict in pre_transformers.items():
             curr_source_field = curr_transformer_dict["sources"]
             curr_func_name = curr_transformer_dict["function"]
-            curr_func = globals()[curr_func_name]
+            curr_func = getattr(transformers, curr_func_name)
 
             # apply the function named curr_func_name to the column of the
             # metadata_df named curr_source_field to fill curr_target_field
@@ -701,34 +661,6 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names):
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.csv")
     output_df.to_csv(out_fp, index=False)
-
-
-if __name__ == "__main__":
-    # TODO: remove hardcoded arguments
-    # raw_metadata_fp = "/Users/abirmingham/Desktop/metadata/test_raw_metadata_short.xlsx"
-    # raw_metadata_fp = "/Users/abirmingham/Desktop/metadata/test_nph_metadata_short.xlsx"
-    raw_metadata_fp = "/Users/abirmingham/Desktop/metadata/n1_manifests_UCSD_n1_2024-02-08T06_26_27.txt"
-    included_sheet_names = []
-    output_dir = "/Users/abirmingham/Desktop/"
-    output_base = "test_extended_metadata"
-
-    main_config_dict = extract_config_dict("/Users/abirmingham/Work/Repositories/qiimp2/nph_config.yml")
-    study_flat_dict = main_config_dict.get("study_specific_fields", {})
-
-    # TODO: remove hardcoding of path
-    # nested_standards_dict = extract_config_dict("/Users/abirmingham/Work/Repositories/qiimp2/temp.yaml")
-    nested_stds_dict = extract_config_dict("/Users/abirmingham/Work/Repositories/qiimp2/standards.yaml")
-
-    host_specific_combined = combine_stds_and_study_dicts(nested_stds_dict, study_flat_dict)
-    nested_stds_plus_study_dict = {HOST_TYPE_SPECIFIC_METADATA_KEY: host_specific_combined}
-
-    flattened_hosts_dict = flatten_nested_stds_dict(nested_stds_plus_study_dict, None, None)
-    main_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = flattened_hosts_dict
-
-    nph_raw_metadata_df = make_nph_raw_metadata_df_from_raw_metadata_fp(raw_metadata_fp)
-
-    generate_extended_metadata_file_from_raw_metadata_df(
-        nph_raw_metadata_df, main_config_dict, output_dir, output_base)
 
 
 # import numpy as np
