@@ -425,6 +425,16 @@ def _generate_metadata_for_host_types(
     # next host type
 
     output_df = pandas.concat(host_type_dfs, ignore_index=True)
+
+    # concatting dfs from different hosts can create large numbers of NAs--
+    # for example, if concatting a host-associated df with a control df, where
+    # the control df doesn't have values for any of the host-related columns.
+    # Fill those NAs with whatever the general default is.
+    # NB: passing in the same dict twice here is not a mistake, just a
+    # convenience since we don't have a more specific dict at this point.
+    output_df = _fill_na_if_default(
+        output_df, settings_dict, settings_dict)
+
     # TODO: this is setting a value in the output; should it be centralized
     #  so it is easy to find?
     output_df.replace(LEAVE_BLANK_VAL, "", inplace=True)
@@ -560,12 +570,8 @@ def _generate_metadata_for_sample_type_in_host(
 #            sample_type_df, sample_type_specific_dict, curr_settings_dict)
 
         # fill NAs with default value if any is set
-        default_val = sample_type_specific_dict.get(
-            DEFAULT_KEY, curr_settings_dict[DEFAULT_KEY])
-        if default_val:
-            # TODO: this is setting a value in the output; should it be
-            #  centralized so it is easy to find?
-            sample_type_df.astype("string").fillna(default_val, inplace=True)
+        sample_type_df = _fill_na_if_default(
+            sample_type_df, sample_type_specific_dict, curr_settings_dict)
 
         # # make complete host_sample_type config dict
         # host_fields_config = copy.deepcopy(host_type_dict[METADATA_FIELDS_KEY])
@@ -575,6 +581,18 @@ def _generate_metadata_for_sample_type_in_host(
         #    sample_type_df, host_type_dict, sample_type_specific_dict)
 
     return sample_type_df
+
+
+# fill NAs with default value if any is set
+def _fill_na_if_default(metadata_df, specific_dict, settings_dict):
+    default_val = specific_dict.get(DEFAULT_KEY, settings_dict[DEFAULT_KEY])
+    if default_val:
+        # TODO: this is setting a value in the output; should it be
+        #  centralized so it is easy to find?
+        metadata_df = \
+            metadata_df.astype("string").fillna(default_val)
+
+    return metadata_df
 
 
 def _validate_raw_metadata_df(

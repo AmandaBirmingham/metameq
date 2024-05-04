@@ -1039,6 +1039,7 @@ host_type_specific_metadata:
                             default: Surface (non-saline)
                             type: string
           control:
+            default: "not applicable"
             metadata_fields:
               empo_1:
                 allowed:
@@ -1083,6 +1084,11 @@ host_type_specific_metadata:
                       - Sterile water blank
                     default: Sterile water blank
                     type: string
+                  env_biome:
+                    allowed:
+                      - urban biome
+                    default: urban biome
+                    type: string
                   env_material:
                     allowed:
                       - sterile water
@@ -1112,6 +1118,17 @@ host_type_specific_metadata:
                           - 1256227
                         default: 1256227
                         type: integer
+                  control shield:
+                    metadata_fields:
+                      sample_type:
+                        allowed:
+                          - "control shield"
+                        default: "control shield"
+                      qiita_sample_type:
+                        allowed:
+                          - "control shield"
+                        default: "control shield"
+                        type: string
               single strain:
                 metadata_fields:
                   empo_2:
