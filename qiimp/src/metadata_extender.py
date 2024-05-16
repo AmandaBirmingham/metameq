@@ -2,6 +2,7 @@ import cerberus
 import copy
 import os
 import pandas
+from typing import Dict, Optional
 import yaml
 from datetime import datetime
 import qiimp.src.metadata_transformers as transformers
@@ -93,7 +94,8 @@ def generate_extended_metadata_file_from_raw_metadata_file(
 
 
 def generate_extended_metadata_file_from_raw_metadata_df(
-        raw_metadata_df, study_specific_config, out_dir, out_base):
+        raw_metadata_df, study_specific_config, out_dir, out_base,
+        study_specific_transformers_dict=None):
 
     if study_specific_config:
         nested_stds_plus_dict = _combine_stds_and_study_config(
@@ -106,13 +108,20 @@ def generate_extended_metadata_file_from_raw_metadata_df(
         nested_stds_plus_dict, None, None)
     study_specific_config[HOST_TYPE_SPECIFIC_METADATA_KEY] = flattened_hosts_dict
 
-    metadata_df = _populate_metadata_df(raw_metadata_df, study_specific_config)
+    metadata_df = _populate_metadata_df(
+        raw_metadata_df, study_specific_transformers_dict,
+        study_specific_config)
 
-    _output_to_df(metadata_df, out_dir, out_base, INTERNAL_COL_KEYS)
+    _output_to_df(metadata_df, out_dir, out_base,
+                  INTERNAL_COL_KEYS, remove_internals=True)
     return metadata_df
 
 
-def _combine_stds_and_study_config(study_config_dict, stds_fp=None):
+def _combine_stds_and_study_config(
+        study_config_dict: Dict,
+        stds_fp: Optional[str] = None) \
+        -> Dict:
+
     stds_nested_dict = _extract_stds_config(stds_fp)
     study_flat_dict = study_config_dict.get(STUDY_SPECIFIC_METADATA_KEY, {})
 
@@ -124,56 +133,69 @@ def _combine_stds_and_study_config(study_config_dict, stds_fp=None):
     return stds_plus_study_nested_dict
 
 
+# This method takes in a nested dictionary and adds into it information from
+# a flat dictionary.  The return is a nested dictionary.
 def _make_combined_stds_and_study_host_type_dicts(
-        stds_prev_level_nested_dict, flat_study_dict):
+        parent_stds_nested_dict: Dict,
+        flat_study_dict: Dict) \
+        -> Dict:
 
     # look at host-specific entries
     parent_study_host_types_dict = flat_study_dict.get(
         HOST_TYPE_SPECIFIC_METADATA_KEY, {})
+
+    # look for the HOST_TYPE_SPECIFIC_METADATA_KEY in parent_stds_nested_dict
     parent_stds_host_types_dict = \
-        stds_prev_level_nested_dict.get(HOST_TYPE_SPECIFIC_METADATA_KEY, {})
+        parent_stds_nested_dict.get(HOST_TYPE_SPECIFIC_METADATA_KEY, {})
     parent_wip_host_types_dict = _deepcopy_dict(parent_stds_host_types_dict)
-    for curr_host_type, curr_host_type_stds_nested_dict in parent_stds_host_types_dict.items():
+    for curr_host_type, curr_host_type_stds_nested_dict \
+            in parent_stds_host_types_dict.items():
+
+        # make a copy of the stds for the current host type to add info to
         curr_host_type_wip_nested_dict = \
             _deepcopy_dict(curr_host_type_stds_nested_dict)
+        curr_host_type_wip_metadata_fields_dict = _deepcopy_dict(
+            curr_host_type_stds_nested_dict.get(METADATA_FIELDS_KEY, {}))
+
         # check for this host type in the study dict
-        curr_host_type_study_flat_dict = parent_study_host_types_dict.get(curr_host_type)
+        curr_host_type_study_flat_dict = \
+            parent_study_host_types_dict.get(curr_host_type)
         if curr_host_type_study_flat_dict:
             # copy the stds metadata fields to make the wip metadata fields,
             # add study metadata fields to wip metadata fields
-            curr_host_type_wip_metadata_fields_dict = _deepcopy_dict(
-                curr_host_type_stds_nested_dict.get(METADATA_FIELDS_KEY, {}))
-            curr_host_type_study_metadata_fields_dict = \
+            curr_host_type_add_metadata_fields_dict = \
                 curr_host_type_study_flat_dict.get(METADATA_FIELDS_KEY, {})
             curr_host_type_wip_metadata_fields_dict = \
                 _update_wip_metadata_dict(
                     curr_host_type_wip_metadata_fields_dict,
-                    curr_host_type_study_metadata_fields_dict)
+                    curr_host_type_add_metadata_fields_dict)
             # if the above combination is not of two empties
             if curr_host_type_wip_metadata_fields_dict:
                 curr_host_type_wip_nested_dict[METADATA_FIELDS_KEY] = \
                     curr_host_type_wip_metadata_fields_dict
             # endif the host type combination is not empty
 
-            # now look at sample-specific entries within the current host
+            # now look at sample-type specific entries within the current host
             curr_host_study_sample_types_dict = \
                 curr_host_type_study_flat_dict.get(
-                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
-            curr_host_stds_sample_types_dict = \
-                curr_host_type_stds_nested_dict.get(
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
             curr_host_wip_sample_types_dict = \
                 curr_host_type_wip_nested_dict.get(
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
-            for curr_sample_type, curr_sample_type_stds_dict in curr_host_stds_sample_types_dict.items():
+            curr_host_stds_sample_types_dict = \
+                curr_host_type_stds_nested_dict.get(
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
+            for curr_sample_type, curr_sample_type_stds_dict in \
+                    curr_host_stds_sample_types_dict.items():
                 curr_sample_type_wip_dict = \
                     _deepcopy_dict(curr_sample_type_stds_dict)
                 # check for this sample type in the study dict
                 curr_sample_type_study_flat_dict = \
                     curr_host_study_sample_types_dict.get(curr_sample_type)
                 if curr_sample_type_study_flat_dict:
-                    # copy the stds metadata fields to make the wip metadata fields,
-                    # add study metadata fields to wip metadata fields
+                    # copy the stds metadata fields to make the
+                    # wip metadata fields, add study metadata fields to
+                    # wip metadata fields
                     curr_sample_type_wip_metadata_fields_dict = _deepcopy_dict(
                         curr_sample_type_stds_dict.get(
                             METADATA_FIELDS_KEY, {}))
@@ -203,12 +225,17 @@ def _make_combined_stds_and_study_host_type_dicts(
         # recurse into the next level of the wip nesting--depth first search.
         # note that we DON'T need to recurse into the study dict, because it
         # is explicitly flat, so just sent it in unchanged.
-        curr_host_type_wip_nested_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
+        curr_host_type_sub_host_dict = \
             _make_combined_stds_and_study_host_type_dicts(
                 curr_host_type_stds_nested_dict,
                 flat_study_dict)
+        # if we got back a non-empty dictionary, add it to the wip
+        if curr_host_type_sub_host_dict:
+            curr_host_type_wip_nested_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
+                curr_host_type_sub_host_dict
 
-        parent_wip_host_types_dict[curr_host_type] = curr_host_type_wip_nested_dict
+        parent_wip_host_types_dict[curr_host_type] = \
+            curr_host_type_wip_nested_dict
     # next host type in wip dict
 
     return parent_wip_host_types_dict
@@ -265,45 +292,69 @@ def _update_wip_metadata_dict(
     return curr_wip_metadata_fields_dict
 
 
-# nested_standards_dict is the *nested* dictionary that contains the per-host
+# parent_stds_nested_dict is the *nested* dictionary that contains the per-host
 # metadata field values at and below the level we are working on.
-# prev_level_wip_full_host_dict is the dictionary of metadata fields for the host
+# parent_wip_flat_host_dict is the dictionary of metadata fields for the host
 # that was one level higher in the hierarchy (i.e., more general) than the
 # host we are currently processing.  It is None if we are at the top level.
 # output_flattened_hosts_dict is the *flattened* dictionary that contains the per-host
 # metadata field values. It will eventually be the output.
-def _flatten_nested_stds_dict(nested_standards_dict,
-                              prev_level_wip_full_host_dict,
+
+
+# This method takes in a nested dictionary and adds the nested layers together
+# appropriately to create a flat dictionary.  The return is a flat dictionary.
+def _flatten_nested_stds_dict(parent_stds_nested_dict,
+                              parent_wip_flat_host_dict,
                               output_flattened_hosts_dict):
 
-    if prev_level_wip_full_host_dict is None:
-        prev_level_wip_full_host_dict = {}
-
+    if parent_wip_flat_host_dict is None:
+        parent_wip_flat_host_dict = {}
     if output_flattened_hosts_dict is None:
         output_flattened_hosts_dict = {}
 
-    # look for the HOST_TYPE_SPECIFIC_METADATA_KEY in nested_standards_dict
-    stds_host_types_dict = \
-        nested_standards_dict.get(HOST_TYPE_SPECIFIC_METADATA_KEY, {})
-    for curr_host_type, curr_host_type_stds_nested_dict in stds_host_types_dict.items():
-        curr_host_type_wip_full_dict = _deepcopy_dict(prev_level_wip_full_host_dict)
-        curr_host_type_wip_metadata_fields_dict = _deepcopy_dict(curr_host_type_wip_full_dict.get(METADATA_FIELDS_KEY, {}))
-        # guess it was bound to happen eventually: the "vertebrate" host class
-        # has sample-type specific metadata, but no metadata fields of its own ...
-        # TODO: is this going to encourage bad yaml design where ppl forget
-        #  the metadata_fields key when it really SHOULD be there?
-        if METADATA_FIELDS_KEY in curr_host_type_stds_nested_dict:
-            curr_host_type_stds_metadata_fields_dict = curr_host_type_stds_nested_dict[METADATA_FIELDS_KEY]
-            curr_host_type_wip_metadata_fields_dict = _update_wip_metadata_dict(curr_host_type_wip_metadata_fields_dict, curr_host_type_stds_metadata_fields_dict)
-            curr_host_type_wip_full_dict[METADATA_FIELDS_KEY] = curr_host_type_wip_metadata_fields_dict
+    # look for the HOST_TYPE_SPECIFIC_METADATA_KEY in parent_stds_nested_dict
+    parent_stds_host_types_dict = \
+        parent_stds_nested_dict.get(HOST_TYPE_SPECIFIC_METADATA_KEY, {})
+    for curr_host_type, curr_host_type_stds_nested_dict \
+            in parent_stds_host_types_dict.items():
 
-        curr_host_wip_sample_types_dict = _deepcopy_dict(curr_host_type_wip_full_dict.get(SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {}))
-        stds_sample_types_dict = \
-            curr_host_type_stds_nested_dict.get(SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
-        for curr_sample_type, curr_sample_type_stds_dict in stds_sample_types_dict.items():
+        # make a copy of parent wip host dict to add info to
+        curr_host_type_wip_flat_dict = \
+            _deepcopy_dict(parent_wip_flat_host_dict)
+        curr_host_type_wip_metadata_fields_dict = _deepcopy_dict(
+            parent_wip_flat_host_dict.get(METADATA_FIELDS_KEY, {}))
+
+        # Get the stds dictionary from which to add to the wip dictionary
+        # (which might be empty: it is possible for a host type to have no
+        # metadata_fields key but have eg a sample_type_specific_metadata key)
+        curr_host_type_stds_metadata_fields_dict = _deepcopy_dict(
+            curr_host_type_stds_nested_dict.get(METADATA_FIELDS_KEY, {}))
+        curr_host_type_wip_metadata_fields_dict = \
+            _update_wip_metadata_dict(
+                curr_host_type_wip_metadata_fields_dict,
+                curr_host_type_stds_metadata_fields_dict)
+        # if the above combination is not of two empties:
+        if curr_host_type_wip_metadata_fields_dict:
+            curr_host_type_wip_flat_dict[METADATA_FIELDS_KEY] = \
+                curr_host_type_wip_metadata_fields_dict
+        # endif the host type combination is not empty
+
+        # now look at sample-type specific entries within the current host
+        curr_host_wip_sample_types_dict = _deepcopy_dict(
+            curr_host_type_wip_flat_dict.get(
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {}))
+        curr_host_stds_sample_types_dict = \
+            curr_host_type_stds_nested_dict.get(
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
+        for curr_sample_type, curr_sample_type_stds_dict \
+                in curr_host_stds_sample_types_dict.items():
             if curr_sample_type in curr_host_wip_sample_types_dict:
-                temp_curr_sample_type_wip_full_dict = _deepcopy_dict(curr_host_wip_sample_types_dict[curr_sample_type])
-                curr_sample_type_wip_metadata_fields_dict = _deepcopy_dict(temp_curr_sample_type_wip_full_dict.get(METADATA_FIELDS_KEY, {}))
+                temp_curr_sample_type_wip_full_dict = _deepcopy_dict(
+                    curr_host_wip_sample_types_dict[curr_sample_type])
+                curr_sample_type_wip_metadata_fields_dict = _deepcopy_dict(
+                    temp_curr_sample_type_wip_full_dict.get(
+                        METADATA_FIELDS_KEY, {})
+                )
             else:
                 curr_sample_type_wip_metadata_fields_dict = {}
 
@@ -317,7 +368,8 @@ def _flatten_nested_stds_dict(nested_standards_dict,
                 # if there's an alias in the standards, copy it into the working dict
                 # (note: not inside the metadata_fields dict, but at the top level)
                 curr_sample_type_alias = curr_sample_type_stds_dict[ALIAS_KEY]
-                curr_sample_type_wip_full_dict = {curr_sample_type: {ALIAS_KEY: curr_sample_type_alias}}
+                curr_sample_type_wip_full_dict = \
+                    {curr_sample_type: {ALIAS_KEY: curr_sample_type_alias}}
 
             has_metadata = METADATA_FIELDS_KEY in curr_sample_type_stds_dict
             if has_alias and has_metadata:
@@ -325,24 +377,38 @@ def _flatten_nested_stds_dict(nested_standards_dict,
                                  "fields in the same sample type dict")
 
             if has_metadata:
-                curr_sample_type_stds_metadata_fields_dict = curr_sample_type_stds_dict[METADATA_FIELDS_KEY]
-                curr_sample_type_wip_metadata_fields_dict = _update_wip_metadata_dict(curr_sample_type_wip_metadata_fields_dict, curr_sample_type_stds_metadata_fields_dict)
-                curr_sample_type_wip_full_dict = {curr_sample_type: {METADATA_FIELDS_KEY: curr_sample_type_wip_metadata_fields_dict}}
+                curr_sample_type_stds_metadata_fields_dict = \
+                    curr_sample_type_stds_dict[METADATA_FIELDS_KEY]
+                curr_sample_type_wip_metadata_fields_dict = (
+                    _update_wip_metadata_dict(
+                        curr_sample_type_wip_metadata_fields_dict,
+                        curr_sample_type_stds_metadata_fields_dict))
+                curr_sample_type_wip_full_dict = \
+                    {curr_sample_type: {
+                        METADATA_FIELDS_KEY:
+                            curr_sample_type_wip_metadata_fields_dict}
+                    }
 
-            if SAMPLE_TYPE_SPECIFIC_METADATA_KEY not in curr_host_type_wip_full_dict:
-                curr_host_type_wip_full_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY] = {}
-            curr_host_type_wip_full_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY].update(curr_sample_type_wip_full_dict)
+            if SAMPLE_TYPE_SPECIFIC_METADATA_KEY \
+                    not in curr_host_type_wip_flat_dict:
+                curr_host_type_wip_flat_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY] = {}
+            curr_host_type_wip_flat_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY].update(
+                curr_sample_type_wip_full_dict)
 
-        output_flattened_hosts_dict[curr_host_type] = curr_host_type_wip_full_dict
+        output_flattened_hosts_dict[curr_host_type] = \
+            curr_host_type_wip_flat_dict
 
         # recurse into the next level of the config--depth first search
         output_flattened_hosts_dict = _flatten_nested_stds_dict(
-            curr_host_type_stds_nested_dict, curr_host_type_wip_full_dict, output_flattened_hosts_dict)
+            curr_host_type_stds_nested_dict, curr_host_type_wip_flat_dict,
+            output_flattened_hosts_dict)
     # next host type
 
     return output_flattened_hosts_dict
 
-def _populate_metadata_df(raw_metadata_df, main_config_dict):
+
+def _populate_metadata_df(
+        raw_metadata_df, transformer_funcs_dict, main_config_dict):
     metadata_df = raw_metadata_df.copy()
     _update_metadata_df_field(metadata_df, QC_NOTE_KEY, LEAVE_BLANK_VAL)
     # metadata_df[QC_NOTE_KEY] = LEAVE_BLANK_VAL
@@ -351,20 +417,8 @@ def _populate_metadata_df(raw_metadata_df, main_config_dict):
     #  that may be an unsafe assumption.  We should check for that and handle
     #  it if it's the case.
 
-    metadata_transformers = main_config_dict.get("metadata_transformers", None)
-    if metadata_transformers:
-        pre_transformers = metadata_transformers.get("pre_population", None)
-        for curr_target_field, curr_transformer_dict in pre_transformers.items():
-            curr_source_field = curr_transformer_dict["sources"]
-            curr_func_name = curr_transformer_dict["function"]
-            curr_func = getattr(transformers, curr_func_name)
-
-            # apply the function named curr_func_name to the column of the
-            # metadata_df named curr_source_field to fill curr_target_field
-            _update_metadata_df_field(
-                metadata_df, curr_target_field, curr_func, curr_source_field)
-            # metadata_df[curr_target_field] = \
-            #     metadata_df[curr_source_field].apply(curr_func)
+    metadata_df = transform_pre_metadata(
+        metadata_df, transformer_funcs_dict, main_config_dict)
 
     # first, add the metadata for the host types
     metadata_df = _generate_metadata_for_host_types(
@@ -381,6 +435,38 @@ def _populate_metadata_df(raw_metadata_df, main_config_dict):
     return metadata_df
 
 
+def transform_pre_metadata(
+        pre_metadata_df, transformer_funcs_dict, config_dict):
+    if transformer_funcs_dict is None:
+        transformer_funcs_dict = {}
+
+    metadata_transformers = config_dict.get("metadata_transformers", None)
+    if metadata_transformers:
+        pre_transformers = metadata_transformers.get("pre_population", None)
+        for curr_target_field, curr_transformer_dict in pre_transformers.items():
+            curr_source_field = curr_transformer_dict["sources"]
+            curr_func_name = curr_transformer_dict["function"]
+
+            try:
+                curr_func = transformer_funcs_dict[curr_func_name]
+            except KeyError:
+                try:
+                    curr_func = getattr(transformers, curr_func_name)
+                except AttributeError:
+                    raise ValueError(
+                        f"Unable to find transformer '{curr_func_name}'")
+                # end try to find in qiimp transformers
+            # end try to find in input (study-specific) transformers
+
+            # apply the function named curr_func_name to the column of the
+            # metadata_df named curr_source_field to fill curr_target_field
+            _update_metadata_df_field(pre_metadata_df, curr_target_field,
+                                      curr_func, curr_source_field,
+                                      overwrite_nans=False)
+
+    return pre_metadata_df
+
+
 def _update_metadata_df_field(
         metadata_df, field_name, field_val_or_func,
         source_fields=None, overwrite_nans=True):
@@ -389,22 +475,27 @@ def _update_metadata_df_field(
     #  metadata_df passed in.
 
     if source_fields:
-        if overwrite_nans:
+        if overwrite_nans or (field_name not in metadata_df.columns):
             metadata_df[field_name] = \
                 metadata_df.apply(
                     lambda row: field_val_or_func(row, source_fields),
                     axis=1)
         else:
-            raise NotImplementedError("Not yet implemented")
+            # raise NotImplementedError("Not yet implemented")
             # TODO: not yet tested; from StackOverflow
-            # metadata_df.loc[metadata_df[field_name].notnull(), field_name] = \
-            #     metadata_df[source_field].map(field_val_or_func)
+            metadata_df.loc[metadata_df[field_name].isnull(), field_name] = \
+                metadata_df.apply(
+                    lambda row: field_val_or_func(row, source_fields),
+                    axis=1)
+                # metadata_df[source_field].map(field_val_or_func)
         # endif overwrite nans for function call
     else:
-        if overwrite_nans:
+        if overwrite_nans or (field_name not in metadata_df.columns):
             metadata_df[field_name] = field_val_or_func
         else:
-            metadata_df[field_name].fillna(field_val_or_func, inplace=True)
+            metadata_df[field_name] = \
+                metadata_df[field_name].fillna(field_val_or_func)
+            # metadata_df[field_name].fillna(field_val_or_func, inplace=True)
         # endif overwrite nans for constant value
     # endif using a function/a constant value
 
@@ -500,7 +591,8 @@ def _update_metadata_from_dict(metadata_df, metadata_fields_dict):
         if DEFAULT_KEY in curr_field_vals_dict:
             curr_default_val = curr_field_vals_dict[DEFAULT_KEY]
             _update_metadata_df_field(
-                output_df, curr_field_name, curr_default_val)
+                output_df, curr_field_name, curr_default_val,
+                overwrite_nans=False)
             # output_df[curr_field_name] = curr_default_val
         elif REQUIRED_KEY in curr_field_vals_dict:
             curr_required_val = curr_field_vals_dict[REQUIRED_KEY]
@@ -657,28 +749,37 @@ def _remove_keys_from_dict_in_list(input_list, keys_to_remove):
     return output_list
 
 
-def _output_to_df(a_df, out_dir, out_base, internal_col_names):
-    # # output a file of any qc failures
-    # fails_qc_mask = a_df[QC_NOTE_KEY] != ""
-    # qc_fails_df = a_df.loc[fails_qc_mask, INTERNAL_COL_KEYS].copy()
-    # qc_fails_df.to_csv(f"{out_fp_base}_qc_fails.csv", index=False)
+def _output_to_df(a_df, out_dir, out_base, internal_col_names,
+                  sep="\t", remove_internals=False):
+
+    timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     # sort columns alphabetically
     a_df = a_df.reindex(sorted(a_df.columns), axis=1)
 
-    # move the internal columns to the end of the list of cols to output
-    col_names = list(a_df)
-    for curr_internal_col_name in internal_col_names:
-        col_names.pop(col_names.index(curr_internal_col_name))
-        col_names.append(curr_internal_col_name)
+    if remove_internals:
+        # output a file of any qc failures
+        fails_qc_mask = a_df[QC_NOTE_KEY] != ""
+        qc_fails_df = a_df.loc[fails_qc_mask, INTERNAL_COL_KEYS].copy()
+        qc_fails_fp = os.path.join(
+            out_dir, f"{timestamp_str}_{out_base}_fails.txt")
+        qc_fails_df.to_csv(qc_fails_fp, sep=sep, index=False)
+
+        a_df = a_df.drop(columns=internal_col_names)
+        col_names = list(a_df)
+    else:
+        # move the internal columns to the end of the list of cols to output
+        col_names = list(a_df)
+        for curr_internal_col_name in internal_col_names:
+            col_names.pop(col_names.index(curr_internal_col_name))
+            col_names.append(curr_internal_col_name)
 
     # move sample name to the first column
     col_names.insert(0, col_names.pop(col_names.index(SAMPLE_NAME_KEY)))
     output_df = a_df.loc[:, col_names].copy()
 
-    timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.csv")
-    output_df.to_csv(out_fp, index=False)
+    out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.txt")
+    output_df.to_csv(out_fp, sep=sep, index=False)
 
 
 # import numpy as np

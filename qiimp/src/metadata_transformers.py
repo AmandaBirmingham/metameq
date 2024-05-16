@@ -12,11 +12,15 @@ def transform_sex_at_birth_to_sex(row, source_fields):
 
     if pandas.isnull(x):
         return x
-    if "Female" in x:
+    if "Female" in x or "female" in x:
         return "female"
     # NB: gotta test male second so don't get false pos on fe*male*
-    if "Male" in x:
+    if "Male" in x or "male" in x:
         return "male"
+    # TODO: ask Gail to confirm/deny this is the right way to handle this
+    if "PreferNotToAnswer" in x:
+        # TODO: probably should return NaN, let default NA handling deal w it
+        return "not provided"
 
     # if we got here, none of our checks recognized the sex at birth value
     raise ValueError(f"Unrecognized sex: {x}")
