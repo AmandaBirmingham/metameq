@@ -24,7 +24,7 @@ jobs:
 
     - name: Install conda environment
       run: |
-        conda env create -n qiimp -f qiimp-environment.yml     
+        conda env create -n qiimp -f qiimp_environment.yml     
 
     - name: Test with pytest
       run: |
