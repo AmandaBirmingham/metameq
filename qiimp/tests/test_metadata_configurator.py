@@ -1,7 +1,7 @@
 from unittest import TestCase
-from qiimp.src.metadata_extender import \
+from qiimp.src.metadata_configurator import \
     _make_combined_stds_and_study_host_type_dicts, \
-    _flatten_nested_stds_dict
+    flatten_nested_stds_dict
 
 
 class TestMetadataExtender(TestCase):
@@ -754,8 +754,8 @@ class TestMetadataExtender(TestCase):
             self.NESTED_STDS_W_STUDY_DICT["host_type_specific_metadata"],
             out_nested_dict)
 
-    def test__flatten_nested_stds_dict(self):
-        out_flattened_dict = _flatten_nested_stds_dict(
+    def test_flatten_nested_stds_dict(self):
+        out_flattened_dict = flatten_nested_stds_dict(
             self.NESTED_STDS_W_STUDY_DICT,
             None)  # , None)
 
