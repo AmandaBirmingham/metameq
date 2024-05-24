@@ -14,6 +14,7 @@ class TestMetadataExtender(TestCase):
                 # a lower level, the lower level must include the complete
                 # definition for that field).
                 "host_associated": {
+                    "default": "not provided",
                     "metadata_fields": {
                         # not overridden
                         "country": {
@@ -79,6 +80,9 @@ class TestMetadataExtender(TestCase):
                         }
                     },
                     "sample_type_specific_metadata": {
+                        "fe": {
+                            "alias": "stool",
+                        },
                         "stool": {
                             "metadata_fields": {
                                 # overrides stds host,
@@ -149,6 +153,18 @@ class TestMetadataExtender(TestCase):
                                         }
                                     }
                                 }
+                            },
+                            "host_type_specific_metadata": {
+                                "dude": {
+                                    "metadata_fields": {
+                                        # overrides stds parent host
+                                        "host_type": {
+                                            "allowed": ["dude"],
+                                            "default": "dude",
+                                            "type": "string"
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -191,6 +207,7 @@ class TestMetadataExtender(TestCase):
                 }
             },
             "human": {
+                "default": "not collected",
                 "metadata_fields": {
                     # overrides std parent host type
                     "dna_extracted": {
@@ -200,6 +217,9 @@ class TestMetadataExtender(TestCase):
                     },
                 },
                 "sample_type_specific_metadata": {
+                    "feces": {
+                        "alias": "stool"
+                    },
                     "stool": {
                         "metadata_fields": {
                             # override of std parent
@@ -225,6 +245,7 @@ class TestMetadataExtender(TestCase):
                 # a lower level, the lower level must include the complete
                 # definition for that field).
                 "host_associated": {
+                    "default": "not provided",
                     "metadata_fields": {
                         # not overridden
                         "country": {
@@ -293,6 +314,9 @@ class TestMetadataExtender(TestCase):
                         }
                     },
                     "sample_type_specific_metadata": {
+                        "fe": {
+                            "alias": "stool",
+                        },
                         "stool": {
                             "metadata_fields": {
                                 # overrides stds host,
@@ -327,6 +351,7 @@ class TestMetadataExtender(TestCase):
                     },
                     "host_type_specific_metadata": {
                         "human": {
+                            "default": "not collected",
                             "metadata_fields": {
                                 # overrides stds parent host
                                 "description": {
@@ -349,6 +374,9 @@ class TestMetadataExtender(TestCase):
                                 }
                             },
                             "sample_type_specific_metadata": {
+                                "feces": {
+                                    "alias": "stool",
+                                },
                                 "stool": {
                                     "metadata_fields": {
                                         # overrides stds parent host + sample type
@@ -371,6 +399,18 @@ class TestMetadataExtender(TestCase):
                                         }
                                     }
                                 }
+                            },
+                            "host_type_specific_metadata": {
+                                "dude": {
+                                    "metadata_fields": {
+                                        # overrides stds parent host
+                                        "host_type": {
+                                            "allowed": ["dude"],
+                                            "default": "dude",
+                                            "type": "string"
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -381,6 +421,7 @@ class TestMetadataExtender(TestCase):
     FLATTENED_STDS_W_STUDY_DICT = {
         "host_type_specific_metadata": {
             "host_associated": {
+                "default": "not provided",
                 "metadata_fields": {
                     # from stds same level host
                     "country": {
@@ -446,6 +487,9 @@ class TestMetadataExtender(TestCase):
                     }
                 },
                 "sample_type_specific_metadata": {
+                    "fe": {
+                        "alias": "stool"
+                    },
                     "stool": {
                         "metadata_fields": {
                             # from stds same level host + sample type
@@ -479,6 +523,7 @@ class TestMetadataExtender(TestCase):
                 }
             },
             "human": {
+                "default": "not collected",
                 "metadata_fields": {
                     # from stds parent host
                     "country": {
@@ -546,6 +591,122 @@ class TestMetadataExtender(TestCase):
                     }
                 },
                 "sample_type_specific_metadata": {
+                    "fe": {
+                        "alias": "stool"
+                    },
+                    "feces": {
+                        "alias": "stool"
+                    },
+                    "stool": {
+                        "metadata_fields": {
+                            # from stds same level host + sample type
+                            "description": {
+                                "allowed": ["human stool"],
+                                "default": "human stool",
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type
+                            "elevation": {
+                                "default": 14,
+                                "type": "number"
+                            },
+                            # from stds parent level host + sample type
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                "default": "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type
+                            "physical_specimen_remaining": {
+                                "allowed": ["false"],
+                                "default": "false",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "dude": {
+                "default": "not collected",
+                "metadata_fields": {
+                    # from stds parent host
+                    "country": {
+                        "allowed": ["USA"],
+                        "default": "USA",
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    },
+                    # from stds same level host
+                    "description": {
+                        "allowed": ["human"],
+                        "default": "human",
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    },
+                    # from stds same level host
+                    # (NB: comes from study)
+                    "dna_extracted": {
+                        "allowed": ["true"],
+                        "default": "true",
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    },
+                    # from stds parent host
+                    "elevation": {
+                        "anyof": [
+                            {
+                                "allowed": [
+                                    "not collected",
+                                    "not provided",
+                                    "restricted access"],
+                                "type": "string"
+                            },
+                            {
+                                "min": -413.0,
+                                "type": "number"
+                            }],
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True
+                    },
+                    # from stds parent host
+                    "geo_loc_name": {
+                        "allowed": ["USA:CA:San Diego"],
+                        "default": "USA:CA:San Diego",
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    },
+                    # from stds same level host
+                    "host_type": {
+                        "allowed": ["dude"],
+                        "default": "dude",
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    }
+                },
+                "sample_type_specific_metadata": {
+                    "fe": {
+                        "alias": "stool"
+                    },
+                    "feces": {
+                        "alias": "stool"
+                    },
                     "stool": {
                         "metadata_fields": {
                             # from stds same level host + sample type
@@ -586,7 +747,7 @@ class TestMetadataExtender(TestCase):
 
     def test__make_combined_stds_and_study_host_type_dicts(self):
         out_nested_dict = _make_combined_stds_and_study_host_type_dicts(
-            self.NESTED_STDS_DICT, self.FLAT_STUDY_DICT)
+            self.FLAT_STUDY_DICT, self.NESTED_STDS_DICT, )
 
         self.maxDiff = None
         self.assertDictEqual(
@@ -596,7 +757,7 @@ class TestMetadataExtender(TestCase):
     def test_flatten_nested_stds_dict(self):
         out_flattened_dict = _flatten_nested_stds_dict(
             self.NESTED_STDS_W_STUDY_DICT,
-            None, None)
+            None)  # , None)
 
         self.maxDiff = None
         self.assertDictEqual(
