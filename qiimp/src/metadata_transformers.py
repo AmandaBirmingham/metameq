@@ -58,7 +58,7 @@ def format_a_datetime(row, source_fields):
     else:
         try:
             strftimeable_x = parser.parse(x)
-        except:
+        except:  # noqa: E722
             raise ValueError(f"{source_fields[0]} cannot be parsed to a date")
 
     formatted_x = strftimeable_x.strftime('%Y-%m-%d %H:%M')
