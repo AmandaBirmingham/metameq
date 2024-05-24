@@ -1,4 +1,4 @@
-name: qiimp2
+name: qiimp
 channels:
   - defaults
 dependencies:
