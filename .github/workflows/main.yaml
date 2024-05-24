@@ -1,0 +1,44 @@
+name: Continuous integration unit testing and lint
+
+on: [push]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.10']
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v3
+
+    - name: Set up Conda
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        auto-update-conda: true
+
+    - name: Install conda environment
+      run: |
+        conda env create -n qiimp2 -f qiimp-environment.yml     
+
+    - name: Test with pytest
+      run: |
+        conda activate qiimp2
+        conda install pytest
+        which python
+        pip install -e . --no-deps
+        pytest
+
+    - name: Lint with flake8
+      run: |
+        conda activate qiimp2
+        conda install flake8
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics

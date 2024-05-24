@@ -1,0 +1,13 @@
+name: qiimp2
+channels:
+  - defaults
+dependencies:
+  - python
+  - flake8
+  - nose
+  - pandas
+  - pep8
+  - pip
+  - pyyaml
+  - pip:
+    - cerberus
