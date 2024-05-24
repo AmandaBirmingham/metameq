@@ -106,7 +106,7 @@ def generate_extended_metadata_file_from_raw_metadata_df(
         nested_stds_plus_dict = _extract_stds_config(None)
 
     flattened_hosts_dict = _flatten_nested_stds_dict(
-        nested_stds_plus_dict, None, None)
+        nested_stds_plus_dict, None)
     study_specific_config[HOST_TYPE_SPECIFIC_METADATA_KEY] = flattened_hosts_dict
 
     metadata_df = _populate_metadata_df(
@@ -145,17 +145,22 @@ def _make_combined_stds_and_study_host_type_dicts(
         parent_host_stds_nested_dict: Dict) \
         -> Dict:
 
-    # get all the host type dicts for the study (these are flat)
+    # get all the host type dicts for the study (these are flat);
+    # these are what we will be adding *FROM*
     study_host_types_dict = flat_study_dict.get(
         HOST_TYPE_SPECIFIC_METADATA_KEY, {})
 
-    # loop over the host types at this level in stds_nested_dict
-    parent_host_stds_host_types_dict = \
+    parent_stds_host_types_dict = \
         parent_host_stds_nested_dict.get(HOST_TYPE_SPECIFIC_METADATA_KEY, {})
-    parent_wip_host_types_dict = \
-        _deepcopy_dict(parent_host_stds_host_types_dict)
+    # define the output dictionary as a copy of the parent-level standard.
+    # This will be augmented if there are any hosts at this level.
+    wip_host_types_dict = \
+        _deepcopy_dict(parent_stds_host_types_dict)
+
+    # loop over the host types at this level in parent_stds_nested_dict;
+    # these are what we will be copying to add *TO*
     for curr_host_type, curr_host_type_stds_nested_dict \
-            in parent_host_stds_host_types_dict.items():
+            in parent_stds_host_types_dict.items():
 
         # only need to do work at this level if curr host type is in study dict
         # since otherwise the wip dict is an unchanged copy of the stds dict
@@ -168,63 +173,26 @@ def _make_combined_stds_and_study_host_type_dicts(
                 _combine_base_and_added_host_type(
                     curr_host_type_stds_nested_dict,
                     study_host_types_dict[curr_host_type])
+        # endif the host type isn't/is in the study dict
 
-        # # only need to do work at this level if curr host type is in study dict
-        # # since otherwise the wip dict is an unchanged copy of the stds dict
-        # curr_host_type_study_flat_dict = \
-        #     study_host_types_dict.get(curr_host_type)
-        # if curr_host_type_study_flat_dict:
-        #     # look for a default key in the study dict for this host; if
-        #     # it exists, add it to the wip dict (ok to overwrite existing)
-        #     if DEFAULT_KEY in curr_host_type_study_flat_dict:
-        #         curr_host_type_wip_nested_dict[DEFAULT_KEY] = \
-        #             curr_host_type_study_flat_dict.get(DEFAULT_KEY)
-        #
-        #     # add the study metadata fields to the stds metadata fields
-        #     # for the current host type and assign to wip if not empty
-        #     curr_host_type_wip_metadata_fields_dict = \
-        #         _combine_base_and_added_metadata_fields(
-        #             curr_host_type_stds_nested_dict,
-        #             curr_host_type_study_flat_dict)
-        #     if curr_host_type_wip_metadata_fields_dict:
-        #         curr_host_type_wip_nested_dict[METADATA_FIELDS_KEY] = \
-        #             curr_host_type_wip_metadata_fields_dict
-        #     # endif the host type combination is not empty
-        #
-        #     # combine any sample-type specific entries within the current host
-        #     # type and assign to wip if not empty
-        #     curr_host_wip_sample_types_dict = \
-        #         _combine_base_and_added_sample_type_specific_metadata(
-        #             curr_host_type_wip_nested_dict,
-        #             curr_host_type_study_flat_dict)
-        #     # if we got back a non-empty dictionary of sample types,
-        #     # add it to the wip for this host type dict
-        #     if curr_host_wip_sample_types_dict:
-        #         curr_host_type_wip_nested_dict[
-        #             SAMPLE_TYPE_SPECIFIC_METADATA_KEY] = \
-        #             curr_host_wip_sample_types_dict
-        #     # endif the sample types dictionary is not empty
-        # # endif the host type is in the study dict
-
-        # recurse into the next level of the wip nesting--depth first search.
-        # note that we DON'T need to recurse into the study dict, because it
-        # is explicitly flat, so just sent it in unchanged.
+        # recurse into the next level--depth first search.
+        # if this comes back empty, we ignore it.
         curr_host_type_sub_host_dict = \
             _make_combined_stds_and_study_host_type_dicts(
                 flat_study_dict,
                 curr_host_type_stds_nested_dict)
-        # if we got back a non-empty dictionary of sub-host-types, add it to
-        # wip as the next level down.
         if curr_host_type_sub_host_dict:
             curr_host_type_wip_nested_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
                 curr_host_type_sub_host_dict
 
-        # assign the nested wip dict for the current host type to the parent
-        parent_wip_host_types_dict[curr_host_type] = \
+        # assign the nested wip dict for the current host type to the result
+        # (which now contains nested records for the hosts lower down than
+        # this, if there are any)
+        wip_host_types_dict[curr_host_type] = \
             curr_host_type_wip_nested_dict
     # next host type in wip dict
 
-    return parent_wip_host_types_dict
+    return wip_host_types_dict
 
 
 def _combine_base_and_added_host_type(
@@ -346,126 +314,6 @@ def _combine_base_and_added_sample_type_specific_metadata(
     return curr_host_wip_sample_types_dict
 
 
-# def _combine_stds_and_study_sample_type_specific_metadata(
-#         curr_host_type_wip_nested_dict, curr_host_type_add_dict):
-#
-#     curr_host_study_sample_types_dict = \
-#         curr_host_type_add_dict.get(
-#             SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
-#     curr_host_wip_sample_types_dict = \
-#         curr_host_type_wip_nested_dict.get(
-#             SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
-#
-#     # get the set of sample types that are in the wip AND in
-#     # the study
-#     curr_host_wip_sample_types_set = \
-#         set(curr_host_wip_sample_types_dict.keys())
-#     curr_host_study_sample_types_set = \
-#         set(curr_host_study_sample_types_dict.keys())
-#     curr_host_wip_and_study_sample_types_set = \
-#         curr_host_wip_sample_types_set.intersection(
-#             curr_host_study_sample_types_set)
-#
-#     # for each of these, get the dictionary for that key from the
-#     # wip and the one from the study
-#     for curr_sample_type in curr_host_wip_and_study_sample_types_set:
-#         curr_sample_type_wip_dict = _deepcopy_dict(
-#             curr_host_wip_sample_types_dict[curr_sample_type])
-#         curr_sample_type_study_dict = \
-#             curr_host_study_sample_types_dict[curr_sample_type]
-#         curr_sample_type_wip_metadata_fields_dict = \
-#             _combine_stds_and_study_metadata_fields_for_shared_sample_type(
-#                 curr_sample_type, curr_sample_type_wip_dict,
-#                 curr_sample_type_study_dict)
-#         # if the above combination is not of two empties
-#         if curr_sample_type_wip_metadata_fields_dict:
-#             curr_sample_type_wip_dict[METADATA_FIELDS_KEY] = \
-#                 curr_sample_type_wip_metadata_fields_dict
-#             curr_host_wip_sample_types_dict[curr_sample_type] = \
-#                 curr_sample_type_wip_dict
-#         # endif the sample type combination is not empty
-#
-#     # now look through the study sample types that are NOT in the
-#     # standards sample types:
-#     # if they are aliases, add them to the standards
-#     # if they are full sample types, error: full sample types have
-#     # to be defined in the standards first
-#     curr_host_study_only_sample_types_set = \
-#         curr_host_study_sample_types_set.difference(
-#             curr_host_wip_sample_types_set)
-#     for curr_sample_type in curr_host_study_only_sample_types_set:
-#         curr_sample_type_study_dict = \
-#             curr_host_study_sample_types_dict[curr_sample_type]
-#         _validate_study_only_sample_types_is_alias(
-#             curr_sample_type, curr_sample_type_study_dict)
-#         # only make it here if study element is an alias
-#         curr_host_wip_sample_types_dict[curr_sample_type] = \
-#             curr_sample_type_study_dict
-#
-#     return curr_host_wip_sample_types_dict
-#
-#
-# def _combine_stds_and_study_metadata_fields_for_shared_sample_type(
-#         curr_sample_type, curr_sample_type_stds_dict,
-#         curr_sample_type_study_dict):
-#
-#     curr_sample_type_stds_def_type = \
-#         _id_sample_type_definition(
-#             curr_sample_type, curr_sample_type_stds_dict)
-#     curr_sample_type_study_def_type = \
-#         _id_sample_type_definition(
-#             curr_sample_type, curr_sample_type_study_dict)
-#
-#     # Won't overwrite std full sample def with study alias def;
-#     # also won't overwrite std alias sample def with either alias
-#     # or full sample def from study.
-#     if curr_sample_type_stds_def_type != METADATA_FIELDS_KEY or \
-#             curr_sample_type_study_def_type != METADATA_FIELDS_KEY:
-#         raise ValueError(
-#             f"Cannot overwrite a standards sample type definition "
-#             f"of the type '{curr_sample_type_stds_def_type}' with "
-#             f"a study sample type definition of the type "
-#             f"'{curr_sample_type_study_def_type}' for sample type "
-#             f"'{curr_sample_type}'")
-#
-#     # if stds is a full sample definition and study is also a
-#     # full sample definition, add the study def to the stds def:
-#     # copy the stds metadata fields to make the
-#     # wip metadata fields, add study metadata fields to
-#     # wip metadata fields
-#     curr_sample_type_wip_metadata_fields_dict = _deepcopy_dict(
-#         curr_sample_type_stds_dict.get(
-#             METADATA_FIELDS_KEY, {}))
-#     curr_sample_type_study_metadata_fields_dict = \
-#         curr_sample_type_study_dict.get(
-#             METADATA_FIELDS_KEY, {})
-#     curr_sample_type_wip_metadata_fields_dict = \
-#         _update_wip_metadata_dict(
-#             curr_sample_type_wip_metadata_fields_dict,
-#             curr_sample_type_study_metadata_fields_dict)
-#
-#     return curr_sample_type_wip_metadata_fields_dict
-#
-#
-# def _validate_study_only_sample_types_is_alias(
-#         curr_sample_type, curr_sample_type_study_dict):
-#     curr_sample_type_study_def_type = \
-#         _id_sample_type_definition(
-#             curr_sample_type, curr_sample_type_study_dict)
-#
-#     if curr_sample_type_study_def_type != ALIAS_KEY:
-#         if curr_sample_type_study_def_type == METADATA_FIELDS_KEY:
-#             raise ValueError(
-#                 f"Sample type '{curr_sample_type}' is a full sample "
-#                 f"type in the study-specific metadata, but is not "
-#                 f"defined in the standards")
-#         else:
-#             raise ValueError(
-#                 f"Sample type '{curr_sample_type}' does not have a "
-#                 f"recognized definition type in the study-specific "
-#                 f"metadata")
-
-
 def _extract_stds_config(stds_fp):
     if not stds_fp:
         stds_fp = os.path.join(_get_grandparent_dir(), "standards.yml")
@@ -539,133 +387,45 @@ def _id_sample_type_definition(sample_type_name, sample_type_dict):
 # growing flat-and-complete hosts dictionary for the previous level (arg 2).
 # The result is a flat hosts dictionary that (a) contains all hosts and (b)
 # has complete metadata definitions for each host.
+def _flatten_nested_stds_dict(
+        parent_stds_nested_dict: Dict,
+        parent_flattened_host_dict: Dict = None) \
+        -> Dict:
 
-
-# This method takes in a nested dictionary and combines the nested layers
-# together appropriately to populate info from upper layers into lower layers
-# if it is not superseded there. The return is a flat dictionary.
-# parent_stds_nested_dict is the nested dictionary that contains the hosts
-# at and below the level being processed. parent_flattened_host_dict is the
-# flat dictionary that contains the hosts as of one level higher than the one
-# being processed. It is None if we are at the top level.  The output is a
-# flattened dictionary that contains complete entries for every host.
-def _flatten_nested_stds_dict(parent_stds_nested_dict: Dict,
-                              parent_flattened_host_dict: Dict = None) -> Dict:
-
-    # if this is the top-level call, set flat parent to new dict
+    # if this is the top-level call, set flat parent to new dict.
+    # this is what we will be copying to add *TO*
     if parent_flattened_host_dict is None:
         parent_flattened_host_dict = {}
 
-    # define the output dictionary as empty.  This will be overwritten if there
-    # are any hosts at this level.
-    wip_flattened_hosts_dict = {}
-
-    # loop over the host types at this level in parent_stds_nested_dict
     parent_stds_host_types_dict = \
         parent_stds_nested_dict.get(HOST_TYPE_SPECIFIC_METADATA_KEY, {})
+    # define the output dictionary as empty.  This will be overwritten if there
+    # are any hosts at this level.
+    wip_host_types_dict = {}
+
+    # loop over the host types at this level in parent_stds_nested_dict;
+    # these are what we will be adding *FROM*
     for curr_host_type, curr_host_type_stds_nested_dict \
             in parent_stds_host_types_dict.items():
 
-        curr_host_type_wip_flat_dict = _combine_base_and_added_host_type(
-            parent_flattened_host_dict, curr_host_type_stds_nested_dict)
+        curr_host_type_wip_flat_dict = \
+            _combine_base_and_added_host_type(
+                parent_flattened_host_dict,
+                curr_host_type_stds_nested_dict)
 
-        # # make a copy of parent wip host dict to add info to
-        # curr_host_type_wip_flat_dict = \
-        #     _deepcopy_dict(parent_flattened_host_dict)
-        #
-        # # look for a default key in the stds dict for this host; if
-        # # it exists, add it to the wip dict (ok to overwrite existing)
-        # if DEFAULT_KEY in curr_host_type_stds_nested_dict:
-        #     curr_host_type_wip_flat_dict[DEFAULT_KEY] = \
-        #         curr_host_type_stds_nested_dict.get(DEFAULT_KEY)
-        #
-        # # add the stds metadata fields to a copy of the (flattened) metadata
-        # # fields from the previous level's host and assign to wip if not empty
-        # curr_host_type_wip_metadata_fields_dict = \
-        #     _combine_base_and_added_metadata_fields(
-        #         parent_flattened_host_dict,
-        #         curr_host_type_stds_nested_dict)
-        # if curr_host_type_wip_metadata_fields_dict:
-        #     curr_host_type_wip_flat_dict[METADATA_FIELDS_KEY] = \
-        #         curr_host_type_wip_metadata_fields_dict
-        # # endif the host type combination is not empty
-        #
-        # # combine any sample-type specific entries within the current host
-        # # type and assign to wip if not empty
-        # curr_host_wip_sample_types_dict = \
-        #     _combine_base_and_added_sample_type_specific_metadata(
-        #         curr_host_type_wip_flat_dict,
-        #         curr_host_type_stds_nested_dict)
-        #
-        # # # now look at sample-type specific entries within the current host
-        # # curr_host_wip_sample_types_dict = _deepcopy_dict(
-        # #     curr_host_type_wip_dict.get(
-        # #         SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {}))
-        # # curr_host_stds_sample_types_dict = \
-        # #     curr_host_type_add_dict.get(
-        # #         SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
-        # # for curr_sample_type, curr_sample_type_stds_dict \
-        # #         in curr_host_stds_sample_types_dict.items():
-        # #
-        # #     # if the sample type is in the wip, and it has metadata fields,
-        # #     # and the standards have metadata fields, combine them
-        # #     curr_sample_type_stds_def_type = \
-        # #         _id_sample_type_definition(
-        # #             curr_sample_type, curr_sample_type_stds_dict)
-        # #     curr_sample_type_wip_def_type = None
-        # #     if curr_sample_type in curr_host_wip_sample_types_dict:
-        # #         curr_sample_type_wip_def_type = \
-        # #             _id_sample_type_definition(
-        # #                 curr_sample_type,
-        # #                 curr_host_wip_sample_types_dict[curr_sample_type])
-        # #     # end if sample type is in wip
-        # #
-        # #     if curr_sample_type_wip_def_type == METADATA_FIELDS_KEY \
-        # #             and curr_sample_type_stds_def_type == METADATA_FIELDS_KEY:
-        # #         curr_sample_type_stds_metadata_fields_dict = \
-        # #             curr_sample_type_stds_dict[METADATA_FIELDS_KEY]
-        # #         curr_sample_type_wip_metadata_fields_dict = \
-        # #             curr_host_wip_sample_types_dict[curr_sample_type][
-        # #                 METADATA_FIELDS_KEY]
-        # #         curr_sample_type_wip_metadata_fields_dict = (
-        # #             _update_wip_metadata_dict(
-        # #                 curr_sample_type_wip_metadata_fields_dict,
-        # #                 curr_sample_type_stds_metadata_fields_dict))
-        # #         curr_sample_type_wip_full_dict = \
-        # #             {curr_sample_type: {
-        # #                 METADATA_FIELDS_KEY:
-        # #                     curr_sample_type_wip_metadata_fields_dict}
-        # #             }
-        # #     else:
-        # #         curr_sample_type_wip_full_dict = \
-        # #             {curr_sample_type: curr_sample_type_stds_dict}
-        # #     # endif sample type is in wip and has metadata fields in both
-        # #
-        # #     if SAMPLE_TYPE_SPECIFIC_METADATA_KEY \
-        # #             not in curr_host_type_wip_dict:
-        # #         curr_host_type_wip_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY] = {}
-        # #     curr_host_type_wip_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY].update(
-        # #         curr_sample_type_wip_full_dict)
-        #
-        # # if we got back a non-empty dictionary of sample types,
-        # # add it to the wip for this host type dict
-        # if curr_host_wip_sample_types_dict:
-        #     curr_host_type_wip_flat_dict[
-        #         SAMPLE_TYPE_SPECIFIC_METADATA_KEY] = \
-        #         curr_host_wip_sample_types_dict
-        # # endif the sample types dictionary is not empty
-
-        # recurse into the next level of the config--depth first search
-        wip_flattened_hosts_dict = _flatten_nested_stds_dict(
+        # recurse into the next level--depth first search.
+        # is ok if this comes back as an empty dict; we are adding to it below.
+        wip_host_types_dict = _flatten_nested_stds_dict(
             curr_host_type_stds_nested_dict, curr_host_type_wip_flat_dict)
 
-        # assign the flattened wip dict for the current host type to the wip
-        # that now contains the hosts lower down than this
-        wip_flattened_hosts_dict[curr_host_type] = \
+        # assign the flattened wip dict for the current host type to the result
+        # (which now contains flat records for the hosts lower down than
+        # this, if there are any)
+        wip_host_types_dict[curr_host_type] = \
             curr_host_type_wip_flat_dict
     # next host type
 
-    return wip_flattened_hosts_dict
+    return wip_host_types_dict
 
 
 def _populate_metadata_df(
@@ -742,13 +502,11 @@ def _update_metadata_df_field(
                     lambda row: field_val_or_func(row, source_fields),
                     axis=1)
         else:
-            # raise NotImplementedError("Not yet implemented")
             # TODO: not yet tested; from StackOverflow
             metadata_df.loc[metadata_df[field_name].isnull(), field_name] = \
                 metadata_df.apply(
                     lambda row: field_val_or_func(row, source_fields),
                     axis=1)
-                # metadata_df[source_field].map(field_val_or_func)
         # endif overwrite nans for function call
     else:
         if overwrite_nans or (field_name not in metadata_df.columns):
