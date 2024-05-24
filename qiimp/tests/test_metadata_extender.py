@@ -754,7 +754,7 @@ class TestMetadataExtender(TestCase):
             self.NESTED_STDS_W_STUDY_DICT["host_type_specific_metadata"],
             out_nested_dict)
 
-    def test_flatten_nested_stds_dict(self):
+    def test__flatten_nested_stds_dict(self):
         out_flattened_dict = _flatten_nested_stds_dict(
             self.NESTED_STDS_W_STUDY_DICT,
             None)  # , None)
