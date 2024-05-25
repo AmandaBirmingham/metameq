@@ -1,12 +1,14 @@
 from unittest import TestCase
 from qiimp.src.metadata_configurator import \
+    HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_FIELDS_KEY, \
+    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
     _make_combined_stds_and_study_host_type_dicts, \
     flatten_nested_stds_dict
 
 
 class TestMetadataExtender(TestCase):
     NESTED_STDS_DICT = {
-            "host_type_specific_metadata": {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 # Top host level (host_associated in this example) has
                 # *complete* definitions for all metadata fields it includes.
                 # Lower levels include only the elements of the definition that
@@ -14,12 +16,12 @@ class TestMetadataExtender(TestCase):
                 # a lower level, the lower level must include the complete
                 # definition for that field).
                 "host_associated": {
-                    "default": "not provided",
-                    "metadata_fields": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
                         # not overridden
                         "country": {
                             "allowed": ["USA"],
-                            "default": "USA",
+                            DEFAULT_KEY: "USA",
                             "empty": False,
                             "is_phi": False,
                             "required": True,
@@ -30,7 +32,7 @@ class TestMetadataExtender(TestCase):
                         # stds lower host + sample type
                         "description": {
                             "allowed": ["host associated"],
-                            "default": "host associated",
+                            DEFAULT_KEY: "host associated",
                             "empty": False,
                             "is_phi": False,
                             "required": True,
@@ -39,7 +41,7 @@ class TestMetadataExtender(TestCase):
                         # overridden in stds lower host
                         "dna_extracted": {
                             "allowed": ["true", "false"],
-                            "default": "true",
+                            DEFAULT_KEY: "true",
                             "empty": False,
                             "is_phi": False,
                             "required": True,
@@ -79,24 +81,24 @@ class TestMetadataExtender(TestCase):
                             "type": "string"
                         }
                     },
-                    "sample_type_specific_metadata": {
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "fe": {
                             "alias": "stool",
                         },
                         "stool": {
-                            "metadata_fields": {
+                            METADATA_FIELDS_KEY: {
                                 # overrides stds host,
                                 # overridden in stds lower host, and
                                 # in stds lower host + sample type
                                 "description": {
                                     "allowed": ["host associated stool"],
-                                    "default": "host associated stool",
+                                    DEFAULT_KEY: "host associated stool",
                                     "type": "string"
                                 },
                                 # overridden in STUDY for this host + sample type
                                 "physical_specimen_location": {
                                     "allowed": ["UCSD"],
-                                    "default": "UCSD",
+                                    DEFAULT_KEY: "UCSD",
                                     "empty": False,
                                     "is_phi": False,
                                     "required": True,
@@ -105,7 +107,7 @@ class TestMetadataExtender(TestCase):
                                 # overridden in stds lower host + sample type
                                 "physical_specimen_remaining": {
                                     "allowed": ["true", "false"],
-                                    "default": "true",
+                                    DEFAULT_KEY: "true",
                                     "empty": False,
                                     "is_phi": False,
                                     "required": True,
@@ -114,53 +116,53 @@ class TestMetadataExtender(TestCase):
                             }
                         }
                     },
-                    "host_type_specific_metadata": {
+                    HOST_TYPE_SPECIFIC_METADATA_KEY: {
                         "human": {
-                            "metadata_fields": {
+                            METADATA_FIELDS_KEY: {
                                 # overrides stds parent host
                                 "description": {
                                     "allowed": ["human"],
-                                    "default": "human",
+                                    DEFAULT_KEY: "human",
                                     "type": "string"
                                 },
                                 # overrides stds parent host
                                 # BUT overridden in turn in STUDY for this host
                                 "dna_extracted": {
                                     "allowed": ["false"],
-                                    "default": "false",
+                                    DEFAULT_KEY: "false",
                                     "type": "string"
                                 },
                                 # overrides stds parent host
                                 "host_type": {
                                     "allowed": ["human"],
-                                    "default": "human",
+                                    DEFAULT_KEY: "human",
                                     "type": "string"
                                 }
                             },
-                            "sample_type_specific_metadata": {
+                            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                                 "stool": {
-                                    "metadata_fields": {
+                                    METADATA_FIELDS_KEY: {
                                         # overrides stds parent host + sample type
                                         "description": {
                                             "allowed": ["human stool"],
-                                            "default": "human stool",
+                                            DEFAULT_KEY: "human stool",
                                             "type": "string"
                                         },
                                         # overrides stds parent host
                                         "elevation": {
-                                            "default": 14,
+                                            DEFAULT_KEY: 14,
                                             "type": "number"
                                         }
                                     }
                                 }
                             },
-                            "host_type_specific_metadata": {
+                            HOST_TYPE_SPECIFIC_METADATA_KEY: {
                                 "dude": {
-                                    "metadata_fields": {
+                                    METADATA_FIELDS_KEY: {
                                         # overrides stds parent host
                                         "host_type": {
                                             "allowed": ["dude"],
-                                            "default": "dude",
+                                            DEFAULT_KEY: "dude",
                                             "type": "string"
                                         }
                                     }
@@ -168,17 +170,17 @@ class TestMetadataExtender(TestCase):
                             }
                         },
                         "control": {
-                            "metadata_fields": {
+                            METADATA_FIELDS_KEY: {
                                 # overrides stds parent host
                                 "description": {
                                     "allowed": ["control"],
-                                    "default": "control",
+                                    DEFAULT_KEY: "control",
                                     "type": "string"
                                 },
                                 # overrides stds parent host
                                 "host_type": {
                                     "allowed": ["control"],
-                                    "default": "control",
+                                    DEFAULT_KEY: "control",
                                     "type": "string"
                                 }
                             }
@@ -189,14 +191,14 @@ class TestMetadataExtender(TestCase):
         }
 
     FLAT_STUDY_DICT = {
-        "host_type_specific_metadata": {
+        HOST_TYPE_SPECIFIC_METADATA_KEY: {
             # FLAT list of host types
             "host_associated": {
-                "metadata_fields": {
+                METADATA_FIELDS_KEY: {
                     # override of standard for this host type
                     "geo_loc_name": {
                         "allowed": ["USA:CA:San Diego"],
-                        "default": "USA:CA:San Diego",
+                        DEFAULT_KEY: "USA:CA:San Diego",
                         "type": "string"
                     },
                     # note: this overrides the standard for this host type
@@ -208,14 +210,14 @@ class TestMetadataExtender(TestCase):
                         "type": "string"
                     },
                 },
-                "sample_type_specific_metadata": {
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "stool": {
-                        "metadata_fields": {
+                        METADATA_FIELDS_KEY: {
                             # override of standard for this
                             # host + sample type
                             "physical_specimen_location": {
                                 "allowed": ["UCSDST"],
-                                "default": "UCSDST",
+                                DEFAULT_KEY: "UCSDST",
                                 "type": "string"
                             }
                         }
@@ -223,26 +225,26 @@ class TestMetadataExtender(TestCase):
                 }
             },
             "human": {
-                "default": "not collected",
-                "metadata_fields": {
+                DEFAULT_KEY: "not collected",
+                METADATA_FIELDS_KEY: {
                     # overrides std parent host type
                     "dna_extracted": {
                         "allowed": ["true"],
-                        "default": "true",
+                        DEFAULT_KEY: "true",
                         "type": "string"
                     },
                 },
-                "sample_type_specific_metadata": {
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "feces": {
                         "alias": "stool"
                     },
                     "stool": {
-                        "metadata_fields": {
+                        METADATA_FIELDS_KEY: {
                             # override of std parent
                             # host + sample type
                             "physical_specimen_remaining": {
                                 "allowed": ["false"],
-                                "default": "false",
+                                DEFAULT_KEY: "false",
                                 "type": "string"
                             }
                         }
@@ -253,7 +255,7 @@ class TestMetadataExtender(TestCase):
     }
 
     NESTED_STDS_W_STUDY_DICT = {
-            "host_type_specific_metadata": {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 # Top host level (host_associated in this example) has
                 # *complete* definitions for all metadata fields it includes.
                 # Lower levels include only the elements of the definition that
@@ -261,12 +263,12 @@ class TestMetadataExtender(TestCase):
                 # a lower level, the lower level must include the complete
                 # definition for that field).
                 "host_associated": {
-                    "default": "not provided",
-                    "metadata_fields": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
                         # not overridden
                         "country": {
                             "allowed": ["USA"],
-                            "default": "USA",
+                            DEFAULT_KEY: "USA",
                             "empty": False,
                             "is_phi": False,
                             "required": True,
@@ -277,7 +279,7 @@ class TestMetadataExtender(TestCase):
                         # stds lower host + sample type
                         "description": {
                             "allowed": ["host associated"],
-                            "default": "host associated",
+                            DEFAULT_KEY: "host associated",
                             "empty": False,
                             "is_phi": False,
                             "required": True,
@@ -286,7 +288,7 @@ class TestMetadataExtender(TestCase):
                         # overridden in stds lower host
                         "dna_extracted": {
                             "allowed": ["true", "false"],
-                            "default": "true",
+                            DEFAULT_KEY: "true",
                             "empty": False,
                             "is_phi": False,
                             "required": True,
@@ -313,7 +315,7 @@ class TestMetadataExtender(TestCase):
                         # not overridden (NB: comes from study)
                         "geo_loc_name": {
                             "allowed": ["USA:CA:San Diego"],
-                            "default": "USA:CA:San Diego",
+                            DEFAULT_KEY: "USA:CA:San Diego",
                             "empty": False,
                             "is_phi": False,
                             "required": True,
@@ -329,25 +331,25 @@ class TestMetadataExtender(TestCase):
                             "type": "string"
                         }
                     },
-                    "sample_type_specific_metadata": {
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "fe": {
                             "alias": "stool",
                         },
                         "stool": {
-                            "metadata_fields": {
+                            METADATA_FIELDS_KEY: {
                                 # overrides stds host,
                                 # overridden in stds lower host, and
                                 # in stds lower host + sample type
                                 "description": {
                                     "allowed": ["host associated stool"],
-                                    "default": "host associated stool",
+                                    DEFAULT_KEY: "host associated stool",
                                     "type": "string"
                                 },
                                 # not overridden
                                 # (NB: comes from study)
                                 "physical_specimen_location": {
                                     "allowed": ["UCSDST"],
-                                    "default": "UCSDST",
+                                    DEFAULT_KEY: "UCSDST",
                                     "empty": False,
                                     "is_phi": False,
                                     "required": True,
@@ -356,7 +358,7 @@ class TestMetadataExtender(TestCase):
                                 # overridden in stds lower host + sample type
                                 "physical_specimen_remaining": {
                                     "allowed": ["true", "false"],
-                                    "default": "true",
+                                    DEFAULT_KEY: "true",
                                     "empty": False,
                                     "is_phi": False,
                                     "required": True,
@@ -365,64 +367,64 @@ class TestMetadataExtender(TestCase):
                             }
                         }
                     },
-                    "host_type_specific_metadata": {
+                    HOST_TYPE_SPECIFIC_METADATA_KEY: {
                         "human": {
-                            "default": "not collected",
-                            "metadata_fields": {
+                            DEFAULT_KEY: "not collected",
+                            METADATA_FIELDS_KEY: {
                                 # overrides stds parent host
                                 "description": {
                                     "allowed": ["human"],
-                                    "default": "human",
+                                    DEFAULT_KEY: "human",
                                     "type": "string"
                                 },
                                 # overrides stds parent host
                                 # (NB: comes from study)
                                 "dna_extracted": {
                                     "allowed": ["true"],
-                                    "default": "true",
+                                    DEFAULT_KEY: "true",
                                     "type": "string"
                                 },
                                 # overrides stds parent host
                                 "host_type": {
                                     "allowed": ["human"],
-                                    "default": "human",
+                                    DEFAULT_KEY: "human",
                                     "type": "string"
                                 }
                             },
-                            "sample_type_specific_metadata": {
+                            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                                 "feces": {
                                     "alias": "stool",
                                 },
                                 "stool": {
-                                    "metadata_fields": {
+                                    METADATA_FIELDS_KEY: {
                                         # overrides stds parent host + sample type
                                         "description": {
                                             "allowed": ["human stool"],
-                                            "default": "human stool",
+                                            DEFAULT_KEY: "human stool",
                                             "type": "string"
                                         },
                                         # overrides stds parent host
                                         "elevation": {
-                                            "default": 14,
+                                            DEFAULT_KEY: 14,
                                             "type": "number"
                                         },
                                         # overrides stds parent host + sample type
                                         # (NB: comes from study)
                                         "physical_specimen_remaining": {
                                             "allowed": ["false"],
-                                            "default": "false",
+                                            DEFAULT_KEY: "false",
                                             "type": "string"
                                         }
                                     }
                                 }
                             },
-                            "host_type_specific_metadata": {
+                            HOST_TYPE_SPECIFIC_METADATA_KEY: {
                                 "dude": {
-                                    "metadata_fields": {
+                                    METADATA_FIELDS_KEY: {
                                         # overrides stds parent host
                                         "host_type": {
                                             "allowed": ["dude"],
-                                            "default": "dude",
+                                            DEFAULT_KEY: "dude",
                                             "type": "string"
                                         }
                                     }
@@ -430,17 +432,17 @@ class TestMetadataExtender(TestCase):
                             }
                         },
                         "control": {
-                            "metadata_fields": {
+                            METADATA_FIELDS_KEY: {
                                 # overrides stds parent host
                                 "description": {
                                     "allowed": ["control"],
-                                    "default": "control",
+                                    DEFAULT_KEY: "control",
                                     "type": "string"
                                 },
                                 # overrides stds parent host
                                 "host_type": {
                                     "allowed": ["control"],
-                                    "default": "control",
+                                    DEFAULT_KEY: "control",
                                     "type": "string"
                                 }
                             }
@@ -451,14 +453,14 @@ class TestMetadataExtender(TestCase):
         }
 
     FLATTENED_STDS_W_STUDY_DICT = {
-        "host_type_specific_metadata": {
+        HOST_TYPE_SPECIFIC_METADATA_KEY: {
             "host_associated": {
-                "default": "not provided",
-                "metadata_fields": {
+                DEFAULT_KEY: "not provided",
+                METADATA_FIELDS_KEY: {
                     # from stds same level host
                     "country": {
                         "allowed": ["USA"],
-                        "default": "USA",
+                        DEFAULT_KEY: "USA",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -467,7 +469,7 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "description": {
                         "allowed": ["host associated"],
-                        "default": "host associated",
+                        DEFAULT_KEY: "host associated",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -476,7 +478,7 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "dna_extracted": {
                         "allowed": ["true", "false"],
-                        "default": "true",
+                        DEFAULT_KEY: "true",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -503,7 +505,7 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "geo_loc_name": {
                         "allowed": ["USA:CA:San Diego"],
-                        "default": "USA:CA:San Diego",
+                        DEFAULT_KEY: "USA:CA:San Diego",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -518,23 +520,23 @@ class TestMetadataExtender(TestCase):
                         "type": "string"
                     }
                 },
-                "sample_type_specific_metadata": {
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "fe": {
                         "alias": "stool"
                     },
                     "stool": {
-                        "metadata_fields": {
+                        METADATA_FIELDS_KEY: {
                             # from stds same level host + sample type
                             "description": {
                                 "allowed": ["host associated stool"],
-                                "default": "host associated stool",
+                                DEFAULT_KEY: "host associated stool",
                                 "type": "string"
                             },
                             # from stds same level host + sample type
                             # (NB: comes from study)
                             "physical_specimen_location": {
                                 "allowed": ["UCSDST"],
-                                "default": "UCSDST",
+                                DEFAULT_KEY: "UCSDST",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
@@ -544,7 +546,7 @@ class TestMetadataExtender(TestCase):
                             # (NB: comes from study)
                             "physical_specimen_remaining": {
                                 "allowed": ["true", "false"],
-                                "default": "true",
+                                DEFAULT_KEY: "true",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
@@ -555,12 +557,12 @@ class TestMetadataExtender(TestCase):
                 }
             },
             "control": {
-                "default": "not provided",
-                "metadata_fields": {
+                DEFAULT_KEY: "not provided",
+                METADATA_FIELDS_KEY: {
                     # from stds same level host
                     "country": {
                         "allowed": ["USA"],
-                        "default": "USA",
+                        DEFAULT_KEY: "USA",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -569,7 +571,7 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "description": {
                         "allowed": ["control"],
-                        "default": "control",
+                        DEFAULT_KEY: "control",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -578,7 +580,7 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "dna_extracted": {
                         "allowed": ["true", "false"],
-                        "default": "true",
+                        DEFAULT_KEY: "true",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -605,7 +607,7 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "geo_loc_name": {
                         "allowed": ["USA:CA:San Diego"],
-                        "default": "USA:CA:San Diego",
+                        DEFAULT_KEY: "USA:CA:San Diego",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -614,30 +616,30 @@ class TestMetadataExtender(TestCase):
                     # overridden in stds lower host
                     "host_type": {
                         "allowed": ["control"],
-                        "default": "control",
+                        DEFAULT_KEY: "control",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
                         "type": "string"
                     }
                 },
-                "sample_type_specific_metadata": {
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "fe": {
                         "alias": "stool"
                     },
                     "stool": {
-                        "metadata_fields": {
+                        METADATA_FIELDS_KEY: {
                             # from stds same level host + sample type
                             "description": {
                                 "allowed": ["host associated stool"],
-                                "default": "host associated stool",
+                                DEFAULT_KEY: "host associated stool",
                                 "type": "string"
                             },
                             # from stds same level host + sample type
                             # (NB: comes from study)
                             "physical_specimen_location": {
                                 "allowed": ["UCSDST"],
-                                "default": "UCSDST",
+                                DEFAULT_KEY: "UCSDST",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
@@ -647,7 +649,7 @@ class TestMetadataExtender(TestCase):
                             # (NB: comes from study)
                             "physical_specimen_remaining": {
                                 "allowed": ["true", "false"],
-                                "default": "true",
+                                DEFAULT_KEY: "true",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
@@ -658,12 +660,12 @@ class TestMetadataExtender(TestCase):
                 }
             },
             "human": {
-                "default": "not collected",
-                "metadata_fields": {
+                DEFAULT_KEY: "not collected",
+                METADATA_FIELDS_KEY: {
                     # from stds parent host
                     "country": {
                         "allowed": ["USA"],
-                        "default": "USA",
+                        DEFAULT_KEY: "USA",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -672,7 +674,7 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "description": {
                         "allowed": ["human"],
-                        "default": "human",
+                        DEFAULT_KEY: "human",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -682,7 +684,7 @@ class TestMetadataExtender(TestCase):
                     # (NB: comes from study)
                     "dna_extracted": {
                         "allowed": ["true"],
-                        "default": "true",
+                        DEFAULT_KEY: "true",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -709,7 +711,7 @@ class TestMetadataExtender(TestCase):
                     # from stds parent host
                     "geo_loc_name": {
                         "allowed": ["USA:CA:San Diego"],
-                        "default": "USA:CA:San Diego",
+                        DEFAULT_KEY: "USA:CA:San Diego",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -718,14 +720,14 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "host_type": {
                         "allowed": ["human"],
-                        "default": "human",
+                        DEFAULT_KEY: "human",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
                         "type": "string"
                     }
                 },
-                "sample_type_specific_metadata": {
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "fe": {
                         "alias": "stool"
                     },
@@ -733,22 +735,22 @@ class TestMetadataExtender(TestCase):
                         "alias": "stool"
                     },
                     "stool": {
-                        "metadata_fields": {
+                        METADATA_FIELDS_KEY: {
                             # from stds same level host + sample type
                             "description": {
                                 "allowed": ["human stool"],
-                                "default": "human stool",
+                                DEFAULT_KEY: "human stool",
                                 "type": "string"
                             },
                             # from stds same level host + sample type
                             "elevation": {
-                                "default": 14,
+                                DEFAULT_KEY: 14,
                                 "type": "number"
                             },
                             # from stds parent level host + sample type
                             "physical_specimen_location": {
                                 "allowed": ["UCSDST"],
-                                "default": "UCSDST",
+                                DEFAULT_KEY: "UCSDST",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
@@ -757,7 +759,7 @@ class TestMetadataExtender(TestCase):
                             # from stds same level host + sample type
                             "physical_specimen_remaining": {
                                 "allowed": ["false"],
-                                "default": "false",
+                                DEFAULT_KEY: "false",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
@@ -768,12 +770,12 @@ class TestMetadataExtender(TestCase):
                 }
             },
             "dude": {
-                "default": "not collected",
-                "metadata_fields": {
+                DEFAULT_KEY: "not collected",
+                METADATA_FIELDS_KEY: {
                     # from stds parent host
                     "country": {
                         "allowed": ["USA"],
-                        "default": "USA",
+                        DEFAULT_KEY: "USA",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -782,7 +784,7 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "description": {
                         "allowed": ["human"],
-                        "default": "human",
+                        DEFAULT_KEY: "human",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -792,7 +794,7 @@ class TestMetadataExtender(TestCase):
                     # (NB: comes from study)
                     "dna_extracted": {
                         "allowed": ["true"],
-                        "default": "true",
+                        DEFAULT_KEY: "true",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -819,7 +821,7 @@ class TestMetadataExtender(TestCase):
                     # from stds parent host
                     "geo_loc_name": {
                         "allowed": ["USA:CA:San Diego"],
-                        "default": "USA:CA:San Diego",
+                        DEFAULT_KEY: "USA:CA:San Diego",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
@@ -828,14 +830,14 @@ class TestMetadataExtender(TestCase):
                     # from stds same level host
                     "host_type": {
                         "allowed": ["dude"],
-                        "default": "dude",
+                        DEFAULT_KEY: "dude",
                         "empty": False,
                         "is_phi": False,
                         "required": True,
                         "type": "string"
                     }
                 },
-                "sample_type_specific_metadata": {
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "fe": {
                         "alias": "stool"
                     },
@@ -843,22 +845,22 @@ class TestMetadataExtender(TestCase):
                         "alias": "stool"
                     },
                     "stool": {
-                        "metadata_fields": {
+                        METADATA_FIELDS_KEY: {
                             # from stds same level host + sample type
                             "description": {
                                 "allowed": ["human stool"],
-                                "default": "human stool",
+                                DEFAULT_KEY: "human stool",
                                 "type": "string"
                             },
                             # from stds same level host + sample type
                             "elevation": {
-                                "default": 14,
+                                DEFAULT_KEY: 14,
                                 "type": "number"
                             },
                             # from stds parent level host + sample type
                             "physical_specimen_location": {
                                 "allowed": ["UCSDST"],
-                                "default": "UCSDST",
+                                DEFAULT_KEY: "UCSDST",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
@@ -867,7 +869,7 @@ class TestMetadataExtender(TestCase):
                             # from stds same level host + sample type
                             "physical_specimen_remaining": {
                                 "allowed": ["false"],
-                                "default": "false",
+                                DEFAULT_KEY: "false",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
@@ -886,7 +888,7 @@ class TestMetadataExtender(TestCase):
 
         self.maxDiff = None
         self.assertDictEqual(
-            self.NESTED_STDS_W_STUDY_DICT["host_type_specific_metadata"],
+            self.NESTED_STDS_W_STUDY_DICT[HOST_TYPE_SPECIFIC_METADATA_KEY],
             out_nested_dict)
 
     def test_flatten_nested_stds_dict(self):
@@ -896,5 +898,5 @@ class TestMetadataExtender(TestCase):
 
         self.maxDiff = None
         self.assertDictEqual(
-            self.FLATTENED_STDS_W_STUDY_DICT["host_type_specific_metadata"],
+            self.FLATTENED_STDS_W_STUDY_DICT[HOST_TYPE_SPECIFIC_METADATA_KEY],
             out_flattened_dict)
