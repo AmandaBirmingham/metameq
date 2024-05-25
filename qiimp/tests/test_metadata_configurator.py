@@ -166,6 +166,22 @@ class TestMetadataExtender(TestCase):
                                     }
                                 }
                             }
+                        },
+                        "control": {
+                            "metadata_fields": {
+                                # overrides stds parent host
+                                "description": {
+                                    "allowed": ["control"],
+                                    "default": "control",
+                                    "type": "string"
+                                },
+                                # overrides stds parent host
+                                "host_type": {
+                                    "allowed": ["control"],
+                                    "default": "control",
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 }
@@ -412,6 +428,22 @@ class TestMetadataExtender(TestCase):
                                     }
                                 }
                             }
+                        },
+                        "control": {
+                            "metadata_fields": {
+                                # overrides stds parent host
+                                "description": {
+                                    "allowed": ["control"],
+                                    "default": "control",
+                                    "type": "string"
+                                },
+                                # overrides stds parent host
+                                "host_type": {
+                                    "allowed": ["control"],
+                                    "default": "control",
+                                    "type": "string"
+                                }
+                            }
                         }
                     }
                 }
@@ -480,6 +512,109 @@ class TestMetadataExtender(TestCase):
                     # overridden in stds lower host
                     "host_type": {
                         "allowed": ["human", "non-human"],
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    }
+                },
+                "sample_type_specific_metadata": {
+                    "fe": {
+                        "alias": "stool"
+                    },
+                    "stool": {
+                        "metadata_fields": {
+                            # from stds same level host + sample type
+                            "description": {
+                                "allowed": ["host associated stool"],
+                                "default": "host associated stool",
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type
+                            # (NB: comes from study)
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                "default": "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type
+                            # (NB: comes from study)
+                            "physical_specimen_remaining": {
+                                "allowed": ["true", "false"],
+                                "default": "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "control": {
+                "default": "not provided",
+                "metadata_fields": {
+                    # from stds same level host
+                    "country": {
+                        "allowed": ["USA"],
+                        "default": "USA",
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    },
+                    # from stds same level host
+                    "description": {
+                        "allowed": ["control"],
+                        "default": "control",
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    },
+                    # from stds same level host
+                    "dna_extracted": {
+                        "allowed": ["true", "false"],
+                        "default": "true",
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    },
+                    # from stds same level host
+                    "elevation": {
+                        "anyof": [
+                            {
+                                "allowed": [
+                                    "not collected",
+                                    "not provided",
+                                    "restricted access"],
+                                "type": "string"
+                            },
+                            {
+                                "min": -413.0,
+                                "type": "number"
+                            }],
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True
+                    },
+                    # from stds same level host
+                    "geo_loc_name": {
+                        "allowed": ["USA:CA:San Diego"],
+                        "default": "USA:CA:San Diego",
+                        "empty": False,
+                        "is_phi": False,
+                        "required": True,
+                        "type": "string"
+                    },
+                    # overridden in stds lower host
+                    "host_type": {
+                        "allowed": ["control"],
+                        "default": "control",
                         "empty": False,
                         "is_phi": False,
                         "required": True,

@@ -59,9 +59,11 @@ def flatten_nested_stds_dict(
                 curr_host_type_stds_nested_dict)
 
         # recurse into the next level--depth first search.
-        # is ok if this comes back as an empty dict; we are adding to it below.
-        wip_host_types_dict = flatten_nested_stds_dict(
+        # if this comes back empty, we ignore it.
+        curr_host_type_sub_host_dict = flatten_nested_stds_dict(
             curr_host_type_stds_nested_dict, curr_host_type_wip_flat_dict)
+        if curr_host_type_sub_host_dict:
+            wip_host_types_dict.update(curr_host_type_sub_host_dict)
 
         # assign the flattened wip dict for the current host type to the result
         # (which now contains flat records for the hosts lower down than
