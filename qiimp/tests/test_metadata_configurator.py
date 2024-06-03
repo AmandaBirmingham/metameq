@@ -6,7 +6,7 @@ from qiimp.src.metadata_configurator import \
     flatten_nested_stds_dict
 
 
-class TestMetadataExtender(TestCase):
+class TestMetadataConfigurator(TestCase):
     NESTED_STDS_DICT = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 # Top host level (host_associated in this example) has
