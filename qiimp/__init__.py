@@ -1,11 +1,23 @@
-from qiimp.src.util import extract_config_dict
+from qiimp.src.util import HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
+    SAMPLE_TYPE_KEY, QC_NOTE_KEY, LEAVE_BLANK_VAL, DO_NOT_USE_VAL, \
+    NOT_PROVIDED_VAL, HOST_SUBJECT_ID_KEY, SAMPLE_NAME_KEY, \
+    COLLECTION_TIMESTAMP_KEY, \
+    extract_config_dict, deepcopy_dict, load_df_with_best_fit_encoding
 from qiimp.src.metadata_extender import \
-    HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, SAMPLE_TYPE_KEY, \
+    merge_sample_and_subject_metadata, \
+    generate_extended_metadata_file_from_raw_metadata_file, \
     generate_extended_metadata_file_from_raw_metadata_df
 from qiimp.src.metadata_transformers import format_a_datetime
 
 __all__ = ["HOSTTYPE_SHORTHAND_KEY", "SAMPLETYPE_SHORTHAND_KEY",
-           "SAMPLE_TYPE_KEY", "extract_config_dict",
+           "SAMPLE_TYPE_KEY", "QC_NOTE_KEY", "LEAVE_BLANK_VAL",
+           "DO_NOT_USE_VAL", "NOT_PROVIDED_VAL",
+           "HOST_SUBJECT_ID_KEY", "SAMPLE_NAME_KEY",
+           "COLLECTION_TIMESTAMP_KEY",
+           "extract_config_dict",
+           "deepcopy_dict", "load_df_with_best_fit_encoding",
+           "merge_sample_and_subject_metadata",
+           "generate_extended_metadata_file_from_raw_metadata_file",
            "generate_extended_metadata_file_from_raw_metadata_df",
            "format_a_datetime"]
 

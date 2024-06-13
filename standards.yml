@@ -511,16 +511,6 @@ host_type_specific_metadata:
                                 type: integer
                           saliva:
                             metadata_fields:
-                              # TODO: should I fill this in for everything?
-                              #  default fill-in came from ABTX ...
-                              description:
-                                allowed:
-                                  - saliva
-                                default: saliva
-                                empty: false
-                                is_phi: false
-                                required: true
-                                type: string
                               empo_4:
                                 allowed:
                                   - Animal secretion (non-saline)
@@ -590,6 +580,11 @@ host_type_specific_metadata:
                                 type: integer
                           skin:
                             metadata_fields:
+                              empo_4:
+                                allowed:
+                                  - Animal surface (non-saline)
+                                default: Animal surface (non-saline)
+                                type: string
                               env_material:
                                 allowed:
                                   - sebum material
@@ -649,20 +644,9 @@ host_type_specific_metadata:
                                 type: integer
                           stool:
                             alias: feces
-                          st:
-                            alias: feces
-                          fe:
-                            alias: feces
                           # TODO: is this the correct level to introduce feces?
                           feces:
                             metadata_fields:
-                              # TODO: should I fill this in for everything?
-                              #  default fill-in came from ABTX ...
-                              description:
-                                allowed:
-                                  - stool
-                                default: stool
-                                type: string
                               empo_4:
                                 allowed:
                                   - Animal distal gut (non-saline)
@@ -699,8 +683,6 @@ host_type_specific_metadata:
                                 default: 1861841
                                 type: integer
                           tongue:
-                            alias: saliva
-                          t:
                             alias: saliva
                           urine:
                             metadata_fields:
@@ -851,6 +833,88 @@ host_type_specific_metadata:
                                       - 447426
                                     default: 447426
                                     type: integer
+                              skin:
+                                metadata_fields:
+                                  env_package:
+                                    allowed:
+                                      - human-skin
+                                    default: human-skin
+                                    type: string
+                                  scientific_name:
+                                    allowed:
+                                      - human skin metagenome
+                                    default: human skin metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 539655
+                                    default: 539655
+                                    type: integer
+                              skin of breast:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:breast
+                                    default: UBERON:breast
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin"
+                                    default: "skin"
+                                    type: string
+                              skin of forehead:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:skin of forehead
+                                    default: UBERON:skin of forehead
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin"
+                                    default: "skin"
+                                    type: string
+                              skin of hand:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:skin of hand
+                                    default: UBERON:skin of hand
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin"
+                                    default: "skin"
+                                    type: string
+                              skin of left hand:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:skin of hand
+                                    default: UBERON:skin of hand
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin"
+                                    default: "skin"
+                                    type: string
+                              skin of right hand:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:skin of hand
+                                    default: UBERON:skin of hand
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin"
+                                    default: "skin"
+                                    type: string
                               feces:
                                 metadata_fields:
                                   env_package:
@@ -1095,40 +1159,21 @@ host_type_specific_metadata:
                     default: sterile water
                     type: string
                 sample_type_specific_metadata:
-                  control katharoseq:
+                  control blank:
                     metadata_fields:
-                      env_material:
-                        allowed:
-                          - cell culture
-                        default: cell culture
-                        type: string
-                  control soap:
-                    metadata_fields:
-                      env_material:
-                        allowed:
-                          - anthropogenic environmental material
-                        default: anthropogenic environmental material
-                      scientific_name:
-                        allowed:
-                          - indoor metagenome
-                        default: indoor metagenome
-                        type: string
-                      taxon_id:
-                        allowed:
-                          - 1256227
-                        default: 1256227
-                        type: integer
-                  control shield:
-                    metadata_fields:
-                      sample_type:
-                        allowed:
-                          - "control shield"
-                        default: "control shield"
                       qiita_sample_type:
                         allowed:
-                          - "control shield"
-                        default: "control shield"
+                          - control blank
+                        default: control blank
                         type: string
+                  control blank DNA extraction:
+                    base_type: "control blank"
+                  control blank library prep:
+                    base_type: "control blank"
+                  control solvent:
+                    base_type: "control blank"
+                  control shield:
+                    base_type: "control blank"
               single strain:
                 metadata_fields:
                   empo_2:
@@ -1151,3 +1196,42 @@ host_type_specific_metadata:
                       - cell culture
                     default: cell culture
                     type: string
+                sample_type_specific_metadata:
+                  control positive:
+                    metadata_fields:
+                      qiita_sample_type:
+                        allowed:
+                          - control positive
+                        default: control positive
+                        type: string
+                  control positive DNA extraction:
+                    base_type: "control positive"
+                  control positive library prep:
+                    base_type: "control positive"
+                  control positive katharoseq:
+                    base_type: "control positive"
+                  # TODO: check this with Gail; isn't in metadata template
+                  control soap:
+                    metadata_fields:
+                      env_material:
+                        allowed:
+                          - anthropogenic environmental material
+                        default: anthropogenic environmental material
+                      scientific_name:
+                        allowed:
+                          - indoor metagenome
+                        default: indoor metagenome
+                        type: string
+                      taxon_id:
+                        allowed:
+                          - 1256227
+                        default: 1256227
+                        type: integer
+                  # TODO: check this with Gail; isn't in metadata template
+                  control shield:
+                    metadata_fields:
+                      qiita_sample_type:
+                        allowed:
+                          - "control shield"
+                        default: "control shield"
+                        type: string

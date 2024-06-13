@@ -1,14 +1,10 @@
 from typing import Dict, Optional
-from qiimp.src.util import extract_stds_config, deepcopy_dict
-
-# config keys
-METADATA_FIELDS_KEY = "metadata_fields"
-STUDY_SPECIFIC_METADATA_KEY = "study_specific_metadata"
-HOST_TYPE_SPECIFIC_METADATA_KEY = "host_type_specific_metadata"
-SAMPLE_TYPE_KEY = "sample_type"
-SAMPLE_TYPE_SPECIFIC_METADATA_KEY = "sample_type_specific_metadata"
-ALIAS_KEY = "alias"
-DEFAULT_KEY = "default"
+from qiimp.src.util import extract_config_dict, extract_stds_config, \
+    deepcopy_dict, \
+    METADATA_FIELDS_KEY, STUDY_SPECIFIC_METADATA_KEY, \
+    HOST_TYPE_SPECIFIC_METADATA_KEY, \
+    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
+    DEFAULT_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY
 
 
 def combine_stds_and_study_config(
@@ -18,7 +14,6 @@ def combine_stds_and_study_config(
 
     stds_nested_dict = extract_stds_config(stds_fp)
     study_flat_dict = study_config_dict.get(STUDY_SPECIFIC_METADATA_KEY, {})
-
     combined_host_types_dict = _make_combined_stds_and_study_host_type_dicts(
         study_flat_dict, stds_nested_dict)
 
@@ -77,9 +72,6 @@ def flatten_nested_stds_dict(
 
 def update_wip_metadata_dict(
         curr_wip_metadata_fields_dict, curr_stds_metadata_fields_dict):
-    ALLOWED_KEY = "allowed"
-    ANYOF_KEY = "anyof"
-    TYPE_KEY = "type"
 
     for curr_metadata_field, curr_stds_metadata_field_dict in curr_stds_metadata_fields_dict.items():
         if curr_metadata_field not in curr_wip_metadata_fields_dict:
@@ -293,14 +285,22 @@ def _combine_base_and_added_sample_type_specific_metadata(
 def _id_sample_type_definition(sample_type_name, sample_type_dict):
     has_alias = ALIAS_KEY in sample_type_dict
     has_metadata = METADATA_FIELDS_KEY in sample_type_dict
+    has_base = BASE_TYPE_KEY in sample_type_dict
     if has_alias and has_metadata:
         raise ValueError(f"Sample type '{sample_type_name}' has both "
                          f"'{ALIAS_KEY}' and '{METADATA_FIELDS_KEY}' keys in "
+                         "the same sample type dict")
+    elif has_alias and has_base:
+        raise ValueError(f"Sample type '{sample_type_name}' has both "
+                         f"'{ALIAS_KEY}' and '{BASE_TYPE_KEY}' keys in "
                          "the same sample type dict")
     elif has_alias:
         return ALIAS_KEY
     elif has_metadata:
         return METADATA_FIELDS_KEY
+    elif has_base:
+        # this implies that it has ONLY a base, not a base and metadata
+        return BASE_TYPE_KEY
     else:
         raise ValueError(f"Sample type '{sample_type_name}' has neither "
                          f"'{ALIAS_KEY}' nor '{METADATA_FIELDS_KEY}' keys in "

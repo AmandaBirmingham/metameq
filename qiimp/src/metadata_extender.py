@@ -1,11 +1,18 @@
 import cerberus
 import copy
 import os
+
+import numpy as np
 import pandas
 from pathlib import Path
 from datetime import datetime
 from qiimp.src.util import extract_config_dict, extract_stds_config, \
-    deepcopy_dict
+    deepcopy_dict, HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
+    QC_NOTE_KEY, METADATA_FIELDS_KEY, HOST_TYPE_SPECIFIC_METADATA_KEY, \
+    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, \
+    DEFAULT_KEY, REQUIRED_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
+    LEAVE_BLANK_VAL, SAMPLE_NAME_KEY, COLLECTION_TIMESTAMP_KEY, \
+    HOST_SUBJECT_ID_KEY, ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY
 from qiimp.src.metadata_configurator import combine_stds_and_study_config, \
     flatten_nested_stds_dict, update_wip_metadata_dict
 import qiimp.src.metadata_transformers as transformers
@@ -20,32 +27,6 @@ import qiimp.src.metadata_transformers as transformers
 #    Find the sample type in the host config dictionary and copy it
 #    Set the metadata for each sample to be the metadata for the host-sample-type dict
 
-# internal code keys
-HOSTTYPE_SHORTHAND_KEY = "hosttype_shorthand"
-SAMPLETYPE_SHORTHAND_KEY = "sampletype_shorthand"
-QC_NOTE_KEY = "qc_note"
-
-# config keys
-METADATA_FIELDS_KEY = "metadata_fields"
-STUDY_SPECIFIC_METADATA_KEY = "study_specific_metadata"
-HOST_TYPE_SPECIFIC_METADATA_KEY = "host_type_specific_metadata"
-SAMPLE_TYPE_KEY = "sample_type"
-SAMPLE_TYPE_SPECIFIC_METADATA_KEY = "sample_type_specific_metadata"
-ALIAS_KEY = "alias"
-DEFAULT_KEY = "default"
-REQUIRED_KEY = "required"
-STUDY_START_DATE_KEY = "study_start_date"
-
-# metadata keys
-SAMPLE_NAME_KEY = "sample_name"
-COLLECTION_TIMESTAMP_KEY = "collection_timestamp"
-HOST_SUBJECT_ID_KEY = "host_subject_id"
-
-# constant field values
-NOT_PROVIDED_VAL = "not provided"
-BLANK_VAL = "blank"
-LEAVE_BLANK_VAL = "leaveblank"
-DO_NOT_USE_VAL = "donotuse"
 
 # TODO: add check that these are in the input xlsx file
 REQUIRED_RAW_METADATA_FIELDS = [SAMPLE_NAME_KEY,
@@ -58,8 +39,64 @@ REQUIRED_RAW_METADATA_FIELDS = [SAMPLE_NAME_KEY,
 INTERNAL_COL_KEYS = [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY,
                      QC_NOTE_KEY]
 
+REQ_PLACEHOLDER = "_QIIMP2_REQUIRED"
+
 
 pandas.set_option("future.no_silent_downcasting", True)
+
+
+def merge_sample_and_subject_metadata(
+        sample_metadata_df, subject_metadata_df,
+        merge_col_sample, merge_col_subject=None):
+
+    if merge_col_subject is None:
+        merge_col_subject = merge_col_sample
+
+    error_msgs = []
+
+    # check for nans in the merge columns
+    error_msgs.extend(_check_for_nans(
+        sample_metadata_df, "sample", merge_col_sample))
+    error_msgs.extend(_check_for_nans(
+        subject_metadata_df, "subject", merge_col_subject))
+
+    # check for duplicates in subject merge column
+    # (duplicates in the sample merge column are expected, as we expect
+    # there to possibly multiple samples for the same subject)
+    error_msgs.extend(_check_for_duplicate_field_vals(
+        subject_metadata_df, "subject", merge_col_subject))
+
+    if error_msgs:
+        joined_msgs = "\n".join(error_msgs)
+        raise ValueError(f"Errors in metadata to merge:\n{joined_msgs}")
+
+    # merge the sample and host dfs on the selected columns
+    merge_df = pandas.merge(sample_metadata_df, subject_metadata_df,
+                            how="left", validate="many_to_one",
+                            left_on=merge_col_sample,
+                            right_on=merge_col_subject)
+
+    return merge_df
+
+
+def _check_for_duplicate_field_vals(metadata_df, df_name, col_name):
+    error_msgs = []
+    duplicates_mask = metadata_df.duplicated(subset=col_name)
+    if duplicates_mask.any():
+        # generate an error message including the duplicate values
+        error_msgs.append(
+            f"{df_name} metadata has duplicate values in column {col_name}: "
+            f"{metadata_df.loc[duplicates_mask, col_name].unique()}")
+    return error_msgs
+
+
+def _check_for_nans(metadata_df, df_name, col_name):
+    error_msgs = []
+    nans_mask = metadata_df[col_name].isna()
+    if nans_mask.any():
+        error_msgs.append(
+            f"{df_name} metadata has NaNs in column {col_name}")
+    return error_msgs
 
 
 def generate_extended_metadata_file_from_raw_metadata_file(
@@ -76,11 +113,14 @@ def generate_extended_metadata_file_from_raw_metadata_df(
         raw_metadata_df, study_specific_config, out_dir, out_base,
         study_specific_transformers_dict=None):
 
+    software_config = extract_config_dict(None)
+
     if study_specific_config:
+        study_specific_config.update(software_config)
         nested_stds_plus_dict = combine_stds_and_study_config(
             study_specific_config)
     else:
-        study_specific_config = extract_config_dict(None)
+        study_specific_config = software_config
         nested_stds_plus_dict = extract_stds_config(None)
 
     flattened_hosts_dict = flatten_nested_stds_dict(
@@ -100,11 +140,6 @@ def _populate_metadata_df(
         raw_metadata_df, transformer_funcs_dict, main_config_dict):
     metadata_df = raw_metadata_df.copy()
     _update_metadata_df_field(metadata_df, QC_NOTE_KEY, LEAVE_BLANK_VAL)
-    # metadata_df[QC_NOTE_KEY] = LEAVE_BLANK_VAL
-
-    # TODO: this assumes that none of the columns we're adding already exist;
-    #  that may be an unsafe assumption.  We should check for that and handle
-    #  it if it's the case.
 
     metadata_df = transform_pre_metadata(
         metadata_df, transformer_funcs_dict, main_config_dict)
@@ -112,14 +147,6 @@ def _populate_metadata_df(
     # first, add the metadata for the host types
     metadata_df = _generate_metadata_for_host_types(
         metadata_df, main_config_dict)
-
-    # TODO: this maybe could actually be done, at least for studies that
-    #  provide participant-level data, but we'd have to suck that in and
-    #  transform it into a dict in the format to be added to the config.
-    #  I have no idea what the scope of that is, so for now I'm ignoring it.
-    # next, add the metadata for the subjects
-    # metadata_df = _generate_metadata_for_known_subjects(
-    #     metadata_df, curr_settings_dict, config)
 
     return metadata_df
 
@@ -191,7 +218,8 @@ def _generate_metadata_for_host_types(
         metadata_df, config):
     # gather global settings
     settings_dict = {DEFAULT_KEY: config.get(DEFAULT_KEY),
-                     STUDY_START_DATE_KEY: config.get(STUDY_START_DATE_KEY)}
+                     LEAVE_REQUIREDS_BLANK_KEY:
+                         config.get(LEAVE_REQUIREDS_BLANK_KEY)}
 
     host_type_dfs = []
     host_type_shorthands = pandas.unique(metadata_df[HOSTTYPE_SHORTHAND_KEY])
@@ -286,8 +314,7 @@ def _update_metadata_from_dict(metadata_df, metadata_fields_dict):
             curr_required_val = curr_field_vals_dict[REQUIRED_KEY]
             if curr_required_val and curr_field_name not in output_df:
                 _update_metadata_df_field(
-                    output_df, curr_field_name, LEAVE_BLANK_VAL)
-                # output_df[curr_field_name] = LEAVE_BLANK_VAL
+                    output_df, curr_field_name, REQ_PLACEHOLDER)
             # note that if the field is (a) required, (b) does not have a
             # default value, and (c) IS already in the metadata, it will
             # be left alone, with no changes made to it!
@@ -314,50 +341,90 @@ def _generate_metadata_for_sample_type_in_host(
             sample_type_df, QC_NOTE_KEY, "invalid sample_type")
         # sample_type_df[QC_NOTE_KEY] = "invalid sample_type"
     else:
-        sample_type_for_metadata = sample_type
-
-        # get sample-type-specific metadata dict
-        sample_type_specific_dict = \
-            host_sample_types_dict[sample_type]
-        sample_type_alias = sample_type_specific_dict.get(ALIAS_KEY)
-        if sample_type_alias:
-            sample_type_for_metadata = sample_type_alias
-            sample_type_specific_dict = \
-                host_sample_types_dict[sample_type_alias]
-
-        wip_metadata_dict = update_wip_metadata_dict(
-            wip_metadata_dict,
-            {
-                SAMPLE_TYPE_KEY: {DEFAULT_KEY: sample_type_for_metadata}})
-        # _update_metadata_df_field(
-        #     sample_type_df, SAMPLE_TYPE_KEY, sample_type_for_metadata)
-        # sample_type_df[SAMPLE_TYPE_KEY] = sample_type_for_metadata
-
-        wip_metadata_dict = update_wip_metadata_dict(
-            wip_metadata_dict,
-            sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}))
+        sample_type_metadata_dict = \
+            _construct_sample_type_metadata_dict(
+                sample_type, host_sample_types_dict, wip_metadata_dict)
 
         sample_type_df = _update_metadata_from_config_dict(
             sample_type_df, wip_metadata_dict, True)
 
-        # This code adds all sorts of metadata fields used by ABTX.
-        # based on digging the sample collection date out of the ABTX
-        # sample name.  It isn't directly applicable to non-ABTX samples.
-#        sample_type_df = _update_metadata_for_indiv_samples_of_type(
-#            sample_type_df, sample_type_specific_dict, curr_settings_dict)
+        # for fields that are required but not yet filled, either leave blank
+        # or fill with NA (later replaced with default) based on config setting
+        leave_reqs_blank = curr_settings_dict[LEAVE_REQUIREDS_BLANK_KEY]
+        reqs_val = LEAVE_BLANK_VAL if leave_reqs_blank else np.nan
+        sample_type_df.replace(
+            to_replace=REQ_PLACEHOLDER, value=reqs_val, inplace=True)
 
         # fill NAs with default value if any is set
         sample_type_df = _fill_na_if_default(
-            sample_type_df, sample_type_specific_dict, curr_settings_dict)
+            sample_type_df, sample_type_metadata_dict, curr_settings_dict)
 
         # # make complete host_sample_type config dict
         # host_fields_config = copy.deepcopy(host_type_dict[METADATA_FIELDS_KEY])
-        # host_sample_config = copy.deepcopy(sample_type_specific_dict[METADATA_FIELDS_KEY])
+        # host_sample_config = copy.deepcopy(sample_type_metadata_dict)
         # host_fields_config.update(host_sample_config)
         # _validate_raw_metadata_df(
-        #    sample_type_df, host_type_dict, sample_type_specific_dict)
+        #    sample_type_df, host_type_dict, sample_type_metadata_dict)
 
     return sample_type_df
+
+
+def _construct_sample_type_metadata_dict(
+        sample_type, host_sample_types_dict, host_metadata_dict):
+    sample_type_for_metadata = sample_type
+
+    # get dict associated with the naive sample type
+    sample_type_specific_dict = \
+        host_sample_types_dict[sample_type]
+
+    # if naive sample type contains an alias
+    sample_type_alias = sample_type_specific_dict.get(ALIAS_KEY)
+    if sample_type_alias:
+        # change the sample type to the alias sample type
+        # and use the alias's sample type dict
+        sample_type_for_metadata = sample_type_alias
+        sample_type_specific_dict = \
+            host_sample_types_dict[sample_type_alias]
+        if not METADATA_FIELDS_KEY in sample_type_specific_dict:
+            raise ValueError(f"May not chain aliases "
+                             f"('{sample_type}' to '{sample_type}')")
+    # endif sample type is an alias
+
+    # if the sample type has a base type
+    sample_type_base = sample_type_specific_dict.get(BASE_TYPE_KEY)
+    if sample_type_base:
+        # get the base's sample type dict and add this sample type's
+        # info on top of it
+        base_sample_dict = host_sample_types_dict[sample_type_base]
+        if base_sample_dict.keys().to_list() != [METADATA_FIELDS_KEY]:
+            raise ValueError(f"Base sample type '{sample_type_base}' "
+                             f"must only have metadata fields")
+        sample_type_specific_dict_metadata = update_wip_metadata_dict(
+            sample_type_specific_dict[METADATA_FIELDS_KEY],
+            base_sample_dict[METADATA_FIELDS_KEY])
+        sample_type_specific_dict[METADATA_FIELDS_KEY] = \
+            sample_type_specific_dict_metadata
+    # endif sample type has a base type
+
+    # add the sample-type-specific info generated above on top of the host info
+    sample_type_metadata_dict = update_wip_metadata_dict(
+        host_metadata_dict,
+        sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}))
+
+    # set sample_type, and qiita_sample_type if it is not already set
+    sample_type_definition = {
+        ALLOWED_KEY: [sample_type_for_metadata],
+        DEFAULT_KEY: sample_type_for_metadata,
+        TYPE_KEY: "string"
+    }
+    sample_type_metadata_dict = update_wip_metadata_dict(
+        sample_type_metadata_dict, {SAMPLE_TYPE_KEY: sample_type_definition})
+    if QIITA_SAMPLE_TYPE not in sample_type_metadata_dict:
+        sample_type_metadata_dict = update_wip_metadata_dict(
+            sample_type_metadata_dict, {QIITA_SAMPLE_TYPE: sample_type_definition})
+    # end if qiita_sample_type not already set
+
+    return sample_type_metadata_dict
 
 
 # fill NAs with default value if any is set
@@ -470,218 +537,3 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
 
     out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.txt")
     output_df.to_csv(out_fp, sep=sep, index=False)
-
-
-# import numpy as np
-# from dateutil import parser
-# from dateutil.relativedelta import relativedelta
-#
-# internal code keys
-# SUBJECT_SHORTHAND_KEY = "subject_shorthand"
-# PLATE_SAMPLE_ID_KEY = "plate_sample_id"
-# PLATE_ROW_ID_KEY = "plate_row_id"
-# PLATE_COL_ID_KEY = "plate_col_id"
-# PLATE_ID_KEY = "plate_id"
-# PLATING_NOTES_KEY = "plating_notes"
-# PLATING_DATE_KEY = "plating_date"
-#
-# config fields
-# DESIRED_PLATES_KEY = "desired_plates"
-# HOST_SPECIFIC_METADATA_KEY = "host_specific_metadata"
-# DOB_KEY = "date_of_birth"
-# TIMESPANS_KEY = "timespans"
-# FIRST_DATE_KEY = "first_date"
-# LAST_DATE_KEY = "last_date"
-# LOCATION_BREAK_KEY = "location_break"
-# BEFORE_LOCATION_KEY = "before_location"
-# AFTER_LOCATION_KEY = "after_location"
-# AFTER_START_DATE_KEY = "after_start_date"
-# LOCATIONS_KEY = "locations"
-# LOCATION_KEY = "location"
-# ASSUME_DATES_PRESENT_KEY = "assume_dates_present"
-#
-# metadata fields
-# IS_COLLECTION_TIMESTAMP_VALID_KEY = "is_collection_timestamp_valid"
-# ORDINAL_TIMESTAMP_KEY = "ordinal_timestamp"
-# ORIGINAL_COLLECTION_TIMESTAMP_KEY = "original_collection_timestamp"
-# DESCRIPTION_KEY = "description"
-# HOST_AGE_KEY = "host_age"
-# M03_AGE_YEARS_KEY = "m03_age_years"
-# DAYS_SINCE_FIRST_DAY_KEY = "days_since_first_day"
-#
-#
-# def _update_metadata_for_indiv_samples_of_type(
-#         sample_type_df, sample_type_specific_dict, curr_settings_dict):
-#     # add date-dependent metadata if collection timestamp is not pre-specified
-#     if COLLECTION_TIMESTAMP_KEY not in \
-#             sample_type_specific_dict[METADATA_FIELDS_KEY]:
-#         study_start_str = curr_settings_dict[STUDY_START_DATE_KEY]
-#         sample_type_df = _add_collection_dates(sample_type_df, study_start_str)
-#         sample_type_df = _add_days_since_start(sample_type_df, study_start_str)
-#
-#     return sample_type_df
-#
-#
-# def _add_collection_dates(plates_df, study_start_date_str):
-#     output_df = plates_df.copy()
-#     collection_dates = _get_collection_dates(plates_df, study_start_date_str)
-#     output_df[COLLECTION_TIMESTAMP_KEY] = collection_dates
-#     output_df[ORDINAL_TIMESTAMP_KEY] = collection_dates.dt.strftime('%Y%m%d')
-#     none_date_mask = output_df[COLLECTION_TIMESTAMP_KEY].isna()
-#     output_df[IS_COLLECTION_TIMESTAMP_VALID_KEY] = ~none_date_mask
-#     output_df.loc[none_date_mask, QC_NOTE_KEY] = \
-#         "invalid/unparseable date"
-#
-#     return output_df
-#
-#
-# def _get_collection_dates(plates_df, start_date_str):
-#     start_date = parser.parse(start_date_str, dayfirst=False)
-#
-#     def _get_date_from_sample_id_if_empty(row):
-#         sample_date = None
-#         putative_date_str = None
-#
-#         existing_date_str = row[COLLECTION_TIMESTAMP_KEY]
-#         if existing_date_str:
-#             putative_date_str = existing_date_str
-#         else:
-#             sample_id = row[SAMPLE_NAME_KEY]
-#             fname_pieces = sample_id.split(".")
-#             if len(fname_pieces) >= 3:
-#                 putative_date_str = "/".join(fname_pieces[:3])
-#
-#         if putative_date_str:
-#             try:
-#                 sample_date = parser.parse(
-#                     putative_date_str, fuzzy=True, dayfirst=False)
-#             except:
-#                 pass
-#
-#         # sanity check: can't be before study start date
-#         if sample_date and sample_date < start_date:
-#             sample_date = None
-#
-#         return sample_date
-#
-#     collection_dates = \
-#         plates_df.apply(_get_date_from_sample_id_if_empty, axis=1)
-#     return collection_dates
-#
-#
-# def _add_days_since_start(plates_df, study_start_str):
-#     output_df = plates_df.copy()
-#     days_since = _get_duration_since_date(
-#         plates_df, study_start_str, return_years=False)
-#     output_df[DAYS_SINCE_FIRST_DAY_KEY] = days_since
-#     return output_df
-#
-#
-# def _get_duration_since_date(plates_df, start_date_str, return_years=True):
-#     start_date = parser.parse(start_date_str, dayfirst=False)
-#
-#     def _get_diff_in_years(x):
-#         result = None
-#         input_date = pandas.to_datetime(x)
-#         try:
-#             if return_years:
-#                 a_relativedelta = relativedelta(input_date, start_date)
-#                 result = a_relativedelta.years
-#             else:
-#                 a_timedelta = input_date - start_date
-#                 result = a_timedelta.days
-#             result = int(result)
-#         except:
-#             pass
-#         return result
-#
-#     age_in_years = plates_df[COLLECTION_TIMESTAMP_KEY].apply(_get_diff_in_years)
-#     return age_in_years
-#
-#
-# def _generate_metadata_for_known_subjects(
-#         metadata_df, curr_settings_dict, config):
-#     # NB: this one goes the other way than the others: it loops over the
-#     # subjects defined in the config instead of over those found in the
-#     # metadata file.  This is because there may not BE any subjects in the
-#     # config, in which case there's nothing to add to the metadata file.
-#
-#     known_subjects = config[HOST_SUBJECT_ID_KEY].keys()
-#     subject_dfs = []
-#     for curr_subject in known_subjects:
-#         concatted_dfs = _generate_metadata_for_subject(
-#             metadata_df, curr_subject, curr_settings_dict, config)
-#
-#         subject_dfs.append(concatted_dfs)
-#     # next subject
-#
-#     output_df = pandas.concat(subject_dfs, ignore_index=True)
-#     # TODO: this is setting a value in the output; should it be centralized
-#     #  so it is easy to find?
-#     output_df.replace(LEAVE_BLANK_VAL, "", inplace=True)
-#     return output_df
-#
-#
-# def _generate_metadata_for_subject(
-#         metadata_df, curr_subject, curr_settings_dict, config):
-#
-#     # get the df of records for this subject
-#     subject_mask = \
-#         metadata_df[HOST_SUBJECT_ID_KEY] == curr_subject
-#     subject_df = metadata_df.loc[subject_mask, :].copy()
-#
-#     # NB: no need to check if curr_subject is in the config, because we
-#     # already did that in the calling function
-#
-#     # get subject-specific metadata dict
-#     subject_specific_dict = curr_settings_dict[curr_subject]
-#     subject_df = _update_metadata_from_config_dict(
-#         subject_df, subject_specific_dict)
-#
-#     subject_df = _update_metadata_for_indiv_samples_of_subject(
-#         subject_df, subject_specific_dict, curr_settings_dict)
-#
-#     return subject_df
-#
-#
-# def _update_metadata_for_indiv_samples_of_subject(
-#         subject_df, subject_specific_dict, config):
-#
-#     if subject_specific_dict[DOB_KEY]:
-#         subject_df = \
-#             _add_host_age(subject_df, subject_specific_dict[DOB_KEY])
-#
-#     # add time-dependent location metadata if a location-date break exists
-#     if subject_specific_dict[LOCATION_BREAK_KEY]:
-#         subject_df = _add_location_info_from_break(
-#             subject_df, subject_specific_dict[LOCATION_BREAK_KEY], config)
-#
-#     return subject_df
-#
-#
-# def _add_host_age(plates_df, dob_str):
-#     output_df = plates_df.copy()
-#     age_in_years = _get_duration_since_date(plates_df, dob_str)
-#     output_df[HOST_AGE_KEY] = age_in_years
-#     output_df[M03_AGE_YEARS_KEY] = age_in_years
-#     return output_df
-#
-#
-# def _add_location_info_from_break(plates_df, location_break_dict, config):
-#     output_df = plates_df.copy()
-#     before_location_name = location_break_dict[BEFORE_LOCATION_KEY]
-#     after_location_name = location_break_dict[AFTER_LOCATION_KEY]
-#     first_after_date_str = location_break_dict[AFTER_START_DATE_KEY]
-#     first_after_date = parser.parse(first_after_date_str, dayfirst=False)
-#
-#     before_location_fields = \
-#         config[LOCATIONS_KEY][before_location_name][METADATA_FIELDS_KEY]
-#     before_mask = plates_df[COLLECTION_TIMESTAMP_KEY] < first_after_date
-#     for a_key, a_val in before_location_fields.items():
-#         output_df.loc[before_mask, a_key] = a_val
-#
-#     after_location_fields = \
-#         config[LOCATIONS_KEY][after_location_name][METADATA_FIELDS_KEY]
-#     for a_key, a_val in after_location_fields.items():
-#         output_df.loc[~before_mask, a_key] = a_val
-#     return output_df

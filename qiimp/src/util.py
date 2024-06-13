@@ -1,6 +1,38 @@
 import copy
 import os
+import pandas
 import yaml
+
+# config keys
+METADATA_FIELDS_KEY = "metadata_fields"
+STUDY_SPECIFIC_METADATA_KEY = "study_specific_metadata"
+HOST_TYPE_SPECIFIC_METADATA_KEY = "host_type_specific_metadata"
+SAMPLE_TYPE_KEY = "sample_type"
+QIITA_SAMPLE_TYPE = "qiita_sample_type"
+SAMPLE_TYPE_SPECIFIC_METADATA_KEY = "sample_type_specific_metadata"
+ALIAS_KEY = "alias"
+BASE_TYPE_KEY = "base_type"
+DEFAULT_KEY = "default"
+REQUIRED_KEY = "required"
+ALLOWED_KEY = "allowed"
+ANYOF_KEY = "anyof"
+TYPE_KEY = "type"
+LEAVE_REQUIREDS_BLANK_KEY = "leave_requireds_blank"
+
+# internal code keys
+HOSTTYPE_SHORTHAND_KEY = "hosttype_shorthand"
+SAMPLETYPE_SHORTHAND_KEY = "sampletype_shorthand"
+QC_NOTE_KEY = "qc_note"
+
+# metadata keys
+SAMPLE_NAME_KEY = "sample_name"
+COLLECTION_TIMESTAMP_KEY = "collection_timestamp"
+HOST_SUBJECT_ID_KEY = "host_subject_id"
+
+# constant field values
+NOT_PROVIDED_VAL = "not provided"
+LEAVE_BLANK_VAL = "leaveblank"
+DO_NOT_USE_VAL = "donotuse"
 
 
 def extract_config_dict(config_fp, starting_fp=None):
@@ -41,3 +73,22 @@ def deepcopy_dict(input_dict):
         else:
             output_dict[curr_key] = copy.deepcopy(curr_val)
     return output_dict
+
+
+def load_df_with_best_fit_encoding(an_fp, a_file_separator):
+    result = None
+
+    # from https://stackoverflow.com/a/76366653
+    encodings = ["utf-8", "utf-8-sig", "iso-8859-1", "latin1", "cp1252"]
+    for encoding in encodings:
+        try:
+            result = pandas.read_csv(an_fp, sep=a_file_separator, encoding=encoding)
+            print(f"Chosen encoder: {encoding}")
+            break
+        except Exception as e:  # or the error you receive
+            pass
+
+    if result is None:
+        raise ValueError(f"Unable to decode {an_fp} with any available encoder")
+
+    return result
