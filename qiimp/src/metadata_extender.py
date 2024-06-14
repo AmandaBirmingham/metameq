@@ -6,6 +6,7 @@ import numpy as np
 import pandas
 from pathlib import Path
 from datetime import datetime
+from dateutil import parser
 from qiimp.src.util import extract_config_dict, extract_stds_config, \
     deepcopy_dict, HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
     QC_NOTE_KEY, METADATA_FIELDS_KEY, HOST_TYPE_SPECIFIC_METADATA_KEY, \
@@ -127,12 +128,13 @@ def generate_extended_metadata_file_from_raw_metadata_df(
         nested_stds_plus_dict, None)
     study_specific_config[HOST_TYPE_SPECIFIC_METADATA_KEY] = flattened_hosts_dict
 
-    metadata_df = _populate_metadata_df(
+    metadata_df, validation_msgs = _populate_metadata_df(
         raw_metadata_df, study_specific_transformers_dict,
         study_specific_config)
 
     _output_to_df(metadata_df, out_dir, out_base,
                   INTERNAL_COL_KEYS, remove_internals=True)
+    _output_validation_msgs(validation_msgs, out_dir, out_base, sep=",")
     return metadata_df
 
 
@@ -145,10 +147,10 @@ def _populate_metadata_df(
         metadata_df, transformer_funcs_dict, main_config_dict)
 
     # first, add the metadata for the host types
-    metadata_df = _generate_metadata_for_host_types(
+    metadata_df, validation_msgs = _generate_metadata_for_host_types(
         metadata_df, main_config_dict)
 
-    return metadata_df
+    return metadata_df, validation_msgs
 
 
 def transform_pre_metadata(
@@ -178,20 +180,20 @@ def transform_pre_metadata(
             # metadata_df named curr_source_field to fill curr_target_field
             _update_metadata_df_field(pre_metadata_df, curr_target_field,
                                       curr_func, curr_source_field,
-                                      overwrite_nans=False)
+                                      overwrite_non_nans=False)
 
     return pre_metadata_df
 
 
 def _update_metadata_df_field(
         metadata_df, field_name, field_val_or_func,
-        source_fields=None, overwrite_nans=True):
+        source_fields=None, overwrite_non_nans=True):
 
     # Note: function doesn't return anything.  Work is done in-place on the
     #  metadata_df passed in.
 
     if source_fields:
-        if overwrite_nans or (field_name not in metadata_df.columns):
+        if overwrite_non_nans or (field_name not in metadata_df.columns):
             metadata_df[field_name] = \
                 metadata_df.apply(
                     lambda row: field_val_or_func(row, source_fields),
@@ -202,15 +204,15 @@ def _update_metadata_df_field(
                 metadata_df.apply(
                     lambda row: field_val_or_func(row, source_fields),
                     axis=1)
-        # endif overwrite nans for function call
+        # endif overwrite_non_nans for function call
     else:
-        if overwrite_nans or (field_name not in metadata_df.columns):
+        if overwrite_non_nans or (field_name not in metadata_df.columns):
             metadata_df[field_name] = field_val_or_func
         else:
             metadata_df[field_name] = \
                 metadata_df[field_name].fillna(field_val_or_func)
             # metadata_df[field_name].fillna(field_val_or_func, inplace=True)
-        # endif overwrite nans for constant value
+        # endif overwrite_non_nans for constant value
     # endif using a function/a constant value
 
 
@@ -221,13 +223,15 @@ def _generate_metadata_for_host_types(
                      LEAVE_REQUIREDS_BLANK_KEY:
                          config.get(LEAVE_REQUIREDS_BLANK_KEY)}
 
+    validation_msgs = []
     host_type_dfs = []
     host_type_shorthands = pandas.unique(metadata_df[HOSTTYPE_SHORTHAND_KEY])
     for curr_host_type_shorthand in host_type_shorthands:
-        concatted_dfs = _generate_metadata_for_host_type(
+        concatted_dfs, curr_validation_msgs = _generate_metadata_for_host_type(
                 metadata_df, curr_host_type_shorthand, settings_dict, config)
 
         host_type_dfs.append(concatted_dfs)
+        validation_msgs.extend(curr_validation_msgs)
     # next host type
 
     output_df = pandas.concat(host_type_dfs, ignore_index=True)
@@ -244,7 +248,7 @@ def _generate_metadata_for_host_types(
     # TODO: this is setting a value in the output; should it be centralized
     #  so it is easy to find?
     output_df.replace(LEAVE_BLANK_VAL, "", inplace=True)
-    return output_df
+    return output_df, validation_msgs
 
 
 def _generate_metadata_for_host_type(
@@ -254,6 +258,7 @@ def _generate_metadata_for_host_type(
         metadata_df[HOSTTYPE_SHORTHAND_KEY] == curr_host_type
     host_type_df = metadata_df.loc[host_type_mask, :].copy()
 
+    validation_msgs = []
     known_host_shorthands = config[HOST_TYPE_SPECIFIC_METADATA_KEY].keys()
     if curr_host_type not in known_host_shorthands:
         _update_metadata_df_field(
@@ -273,18 +278,19 @@ def _generate_metadata_for_host_type(
         found_host_sample_types = \
             pandas.unique(host_type_df[SAMPLETYPE_SHORTHAND_KEY])
         for curr_sample_type in found_host_sample_types:
-            curr_sample_type_df = \
+            curr_sample_type_df, curr_validation_msgs = \
                 _generate_metadata_for_sample_type_in_host(
                     host_type_df, curr_sample_type, curr_settings_dict,
                     host_type_dict, config)
 
             dfs_to_concat.append(curr_sample_type_df)
+            validation_msgs.extend(curr_validation_msgs)
         # next sample type in metadata for this host type
 
         concatted_df = pandas.concat(dfs_to_concat, ignore_index=True)
     # endif host_type is valid
 
-    return concatted_df
+    return concatted_df, validation_msgs
 
 
 def _update_metadata_from_config_dict(
@@ -308,7 +314,7 @@ def _update_metadata_from_dict(metadata_df, metadata_fields_dict):
             curr_default_val = curr_field_vals_dict[DEFAULT_KEY]
             _update_metadata_df_field(
                 output_df, curr_field_name, curr_default_val,
-                overwrite_nans=False)
+                overwrite_non_nans=False)
             # output_df[curr_field_name] = curr_default_val
         elif REQUIRED_KEY in curr_field_vals_dict:
             curr_required_val = curr_field_vals_dict[REQUIRED_KEY]
@@ -335,6 +341,7 @@ def _generate_metadata_for_sample_type_in_host(
         host_type_df[SAMPLETYPE_SHORTHAND_KEY] == sample_type
     sample_type_df = host_type_df.loc[sample_type_mask, :].copy()
 
+    validation_msgs = []
     known_sample_types = host_sample_types_dict.keys()
     if sample_type not in known_sample_types:
         _update_metadata_df_field(
@@ -359,14 +366,10 @@ def _generate_metadata_for_sample_type_in_host(
         sample_type_df = _fill_na_if_default(
             sample_type_df, sample_type_metadata_dict, curr_settings_dict)
 
-        # # make complete host_sample_type config dict
-        # host_fields_config = copy.deepcopy(host_type_dict[METADATA_FIELDS_KEY])
-        # host_sample_config = copy.deepcopy(sample_type_metadata_dict)
-        # host_fields_config.update(host_sample_config)
-        # _validate_raw_metadata_df(
-        #    sample_type_df, host_type_dict, sample_type_metadata_dict)
+        validation_msgs = _validate_raw_metadata_df(
+            sample_type_df, sample_type_metadata_dict)
 
-    return sample_type_df
+    return sample_type_df, validation_msgs
 
 
 def _construct_sample_type_metadata_dict(
@@ -434,42 +437,68 @@ def _fill_na_if_default(metadata_df, specific_dict, settings_dict):
         # TODO: this is setting a value in the output; should it be
         #  centralized so it is easy to find?
         metadata_df = \
-            metadata_df.astype("string").fillna(default_val)
+            metadata_df.fillna(default_val)
+#             metadata_df.astype("string").fillna(default_val)
 
     return metadata_df
 
 
-def _validate_raw_metadata_df(
-        raw_metadata_df, host_type_dict, sample_type_specific_dict):
+def _validate_raw_metadata_df(metadata_df, sample_type_metadata_dict):
+    config = _make_cerberus_schema(sample_type_metadata_dict)
 
-    config = _make_cerberus_schema(host_type_dict, sample_type_specific_dict)
+    # cerberus_to_pandas_types = {
+    #     "string": "string",
+    #     "integer": "int64",
+    #     "float": "float64",
+    #     "number": "float64",
+    #     "bool": "bool",
+    #     "datetime": "datetime64"}
+    typed_metadata_df = metadata_df.copy()
+    # for curr_field, curr_definition in sample_type_metadata_dict.items():
+    #     if curr_field not in typed_metadata_df.columns:
+    #         # TODO: decide whether to make this a warning or take out
+    #         print(f"Field {curr_field} not in metadata file")
+    #         continue
+    #     curr_cerberus_type = curr_definition.get(TYPE_KEY)
+    #     # TODO: add handling for more complicated anyof cases :-|
+    #     if curr_cerberus_type:
+    #         curr_pandas_type = cerberus_to_pandas_types[curr_cerberus_type]
+    #         typed_metadata_df[curr_field] = \
+    #             typed_metadata_df[curr_field].astype(curr_pandas_type)
+    # # next field in config
 
     # use python Cerberus validator on all the fields that already exist in the
     # metadata file?
-    raw_metadata_dict = raw_metadata_df.to_dict(orient="records")
-    v = cerberus.Validator()
+    raw_metadata_dict = typed_metadata_df.to_dict(orient="records")
+    v = QiimpValidator()
+    v.allow_unknown = True
     # is_valid = v.validate(raw_metadata_dict, config)
     # if not is_valid:
+    validation_msgs = []
     for curr_idx, curr_row in enumerate(raw_metadata_dict):
         if not v.validate(curr_row, config):
-            print(f"Row {curr_idx} failed validation:")
-            print(v.errors)
+            curr_sample_name = curr_row[SAMPLE_NAME_KEY]
+            for curr_field_name, curr_err_msg in v.errors.items():
+                validation_msgs.append({
+                    SAMPLE_NAME_KEY: curr_sample_name,
+                    "field_name": curr_field_name,
+                    "error_message": curr_err_msg})
+            # next error for curr row
+        # endif row is not valid
+    # next row
 
+    return validation_msgs
 
-def _make_cerberus_schema(host_type_dict, sample_type_specific_dict):
-    # make complete host_sample_type config dict
-    host_fields_config = copy.deepcopy(host_type_dict[METADATA_FIELDS_KEY])
-    host_sample_config = copy.deepcopy(sample_type_specific_dict[METADATA_FIELDS_KEY])
-    host_fields_config.update(host_sample_config)
-
+def _make_cerberus_schema(sample_type_metadata_dict):
     unrecognized_keys = ['is_phi', 'field_desc', 'units',
                          'min_exclusive', 'unique']
     # traverse the host_fields_config dict and remove any keys that are not
     # recognized by cerberus
-    host_fields_config = _remove_keys_from_dict(
-        host_fields_config, unrecognized_keys)
+    cerberus_config = copy.deepcopy(sample_type_metadata_dict)
+    cerberus_config = _remove_keys_from_dict(
+        cerberus_config, unrecognized_keys)
 
-    return host_fields_config
+    return cerberus_config
 
 
 def _remove_keys_from_dict(input_dict, keys_to_remove):
@@ -505,6 +534,7 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
                   sep="\t", remove_internals=False):
 
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    extension = _get_extension(sep)
 
     # sort columns alphabetically
     a_df = a_df.reindex(sorted(a_df.columns), axis=1)
@@ -516,7 +546,7 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
         fails_qc_mask = a_df[QC_NOTE_KEY] != ""
         qc_fails_df = a_df.loc[fails_qc_mask, INTERNAL_COL_KEYS].copy()
         qc_fails_fp = os.path.join(
-            out_dir, f"{timestamp_str}_{out_base}_fails.txt")
+            out_dir, f"{timestamp_str}_{out_base}_fails.{extension}")
         if qc_fails_df.empty:
             Path(qc_fails_fp).touch()
         else:
@@ -535,5 +565,32 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
     col_names.insert(0, col_names.pop(col_names.index(SAMPLE_NAME_KEY)))
     output_df = a_df.loc[:, col_names].copy()
 
-    out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.txt")
+    out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.{extension}")
     output_df.to_csv(out_fp, sep=sep, index=False)
+
+
+def _output_validation_msgs(validation_msgs, out_dir, out_base, sep="\t"):
+    timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    extension = _get_extension(sep)
+    out_fp = os.path.join(
+        out_dir, f"{timestamp_str}_{out_base}_validation_errors.{extension}")
+    msgs_df = pandas.DataFrame(validation_msgs)
+    msgs_df.to_csv(out_fp, sep=sep, index=False)
+
+
+def _get_extension(sep):
+    return "csv" if sep == "," else "txt"
+
+
+
+class QiimpValidator(cerberus.Validator):
+    def _check_with_date_not_in_future(self, field, value):
+        # convert the field string to a date
+        try:
+            putative_date = parser.parse(value, fuzzy=True, dayfirst=False)
+        except:
+            self._error(field, "Must be a valid date")
+            return
+
+        if putative_date > datetime.now():
+            self._error(field, "Date cannot be in the future")
