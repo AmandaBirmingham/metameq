@@ -3,6 +3,7 @@ channels:
   - defaults
 dependencies:
   - python
+  - click
   - flake8
   - nose
   - pandas

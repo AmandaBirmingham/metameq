@@ -1,21 +1,21 @@
-import cerberus
-import copy
-import os
-
 import numpy as np
+import os
 import pandas
 from pathlib import Path
 from datetime import datetime
-from dateutil import parser
 from qiimp.src.util import extract_config_dict, extract_stds_config, \
-    deepcopy_dict, HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
+    deepcopy_dict, validate_required_columns_exist, get_extension, \
+    load_df_with_best_fit_encoding, \
+    HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
     QC_NOTE_KEY, METADATA_FIELDS_KEY, HOST_TYPE_SPECIFIC_METADATA_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, \
     DEFAULT_KEY, REQUIRED_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
-    LEAVE_BLANK_VAL, SAMPLE_NAME_KEY, COLLECTION_TIMESTAMP_KEY, \
-    HOST_SUBJECT_ID_KEY, ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY
+    LEAVE_BLANK_VAL, SAMPLE_NAME_KEY, \
+    ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY
 from qiimp.src.metadata_configurator import combine_stds_and_study_config, \
     flatten_nested_stds_dict, update_wip_metadata_dict
+from qiimp.src.metadata_validator import validate_metadata_df, \
+    output_validation_msgs
 import qiimp.src.metadata_transformers as transformers
 
 # Load in the config file
@@ -29,12 +29,9 @@ import qiimp.src.metadata_transformers as transformers
 #    Set the metadata for each sample to be the metadata for the host-sample-type dict
 
 
-# TODO: add check that these are in the input xlsx file
 REQUIRED_RAW_METADATA_FIELDS = [SAMPLE_NAME_KEY,
-                                HOST_SUBJECT_ID_KEY,
                                 HOSTTYPE_SHORTHAND_KEY,
-                                SAMPLETYPE_SHORTHAND_KEY,
-                                COLLECTION_TIMESTAMP_KEY]
+                                SAMPLETYPE_SHORTHAND_KEY]
 
 # columns added to the metadata that are not actually part of it
 INTERNAL_COL_KEYS = [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY,
@@ -46,95 +43,65 @@ REQ_PLACEHOLDER = "_QIIMP2_REQUIRED"
 pandas.set_option("future.no_silent_downcasting", True)
 
 
-def merge_sample_and_subject_metadata(
-        sample_metadata_df, subject_metadata_df,
-        merge_col_sample, merge_col_subject=None):
+def write_extended_metadata(
+        raw_metadata_fp, study_specific_config_fp,
+        out_dir, out_name_base, sep="\t"):
 
-    if merge_col_subject is None:
-        merge_col_subject = merge_col_sample
+    # extract the extension from the raw_metadata_fp file path
+    extension = os.path.splitext(raw_metadata_fp)[1]
+    if extension == ".csv":
+        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, ",")
+    elif extension == ".txt":
+        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, "\t")
+    elif extension == ".xlsx":
+        # NB: this loads (only) the first sheet of the input excel file.
+        # If needed, can expand with pandas.read_excel sheet_name parameter.
+        raw_metadata_df = pandas.read_excel(raw_metadata_fp)
+    else:
+        raise ValueError("Unrecognized input file extension; "
+                         "must be .csv, .txt, or .xlsx")
 
-    error_msgs = []
+    if study_specific_config_fp:
+        study_specific_config_dict = \
+            extract_config_dict(study_specific_config_fp)
+    else:
+        study_specific_config_dict = None
 
-    # check for nans in the merge columns
-    error_msgs.extend(_check_for_nans(
-        sample_metadata_df, "sample", merge_col_sample))
-    error_msgs.extend(_check_for_nans(
-        subject_metadata_df, "subject", merge_col_subject))
-
-    # check for duplicates in subject merge column
-    # (duplicates in the sample merge column are expected, as we expect
-    # there to possibly multiple samples for the same subject)
-    error_msgs.extend(_check_for_duplicate_field_vals(
-        subject_metadata_df, "subject", merge_col_subject))
-
-    if error_msgs:
-        joined_msgs = "\n".join(error_msgs)
-        raise ValueError(f"Errors in metadata to merge:\n{joined_msgs}")
-
-    # merge the sample and host dfs on the selected columns
-    merge_df = pandas.merge(sample_metadata_df, subject_metadata_df,
-                            how="left", validate="many_to_one",
-                            left_on=merge_col_sample,
-                            right_on=merge_col_subject)
-
-    return merge_df
+    return write_extended_metadata_from_df(
+        raw_metadata_df, study_specific_config_dict,
+        out_dir, out_name_base, sep=sep)
 
 
-def _check_for_duplicate_field_vals(metadata_df, df_name, col_name):
-    error_msgs = []
-    duplicates_mask = metadata_df.duplicated(subset=col_name)
-    if duplicates_mask.any():
-        # generate an error message including the duplicate values
-        error_msgs.append(
-            f"{df_name} metadata has duplicate values in column {col_name}: "
-            f"{metadata_df.loc[duplicates_mask, col_name].unique()}")
-    return error_msgs
+def write_extended_metadata_from_df(
+        raw_metadata_df, study_specific_config_dict, out_dir, out_name_base,
+        study_specific_transformers_dict=None, sep="\t"):
 
-
-def _check_for_nans(metadata_df, df_name, col_name):
-    error_msgs = []
-    nans_mask = metadata_df[col_name].isna()
-    if nans_mask.any():
-        error_msgs.append(
-            f"{df_name} metadata has NaNs in column {col_name}")
-    return error_msgs
-
-
-def generate_extended_metadata_file_from_raw_metadata_file(
-        raw_metadata_fp, study_specific_config, out_dir, out_base):
-
-    # TODO: add sheet name handling?
-    raw_metadata_df = pandas.read_excel(raw_metadata_fp)
-
-    return generate_extended_metadata_file_from_raw_metadata_df(
-        raw_metadata_df, study_specific_config, out_dir, out_base)
-
-
-def generate_extended_metadata_file_from_raw_metadata_df(
-        raw_metadata_df, study_specific_config, out_dir, out_base,
-        study_specific_transformers_dict=None):
+    validate_required_columns_exist(
+        raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
+        "metadata missing required columns")
 
     software_config = extract_config_dict(None)
 
-    if study_specific_config:
-        study_specific_config.update(software_config)
+    if study_specific_config_dict:
+        study_specific_config_dict.update(software_config)
         nested_stds_plus_dict = combine_stds_and_study_config(
-            study_specific_config)
+            study_specific_config_dict)
     else:
-        study_specific_config = software_config
+        study_specific_config_dict = software_config
         nested_stds_plus_dict = extract_stds_config(None)
 
     flattened_hosts_dict = flatten_nested_stds_dict(
         nested_stds_plus_dict, None)
-    study_specific_config[HOST_TYPE_SPECIFIC_METADATA_KEY] = flattened_hosts_dict
+    study_specific_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
+        flattened_hosts_dict
 
     metadata_df, validation_msgs = _populate_metadata_df(
         raw_metadata_df, study_specific_transformers_dict,
-        study_specific_config)
+        study_specific_config_dict)
 
-    _output_to_df(metadata_df, out_dir, out_base,
-                  INTERNAL_COL_KEYS, remove_internals=True)
-    _output_validation_msgs(validation_msgs, out_dir, out_base, sep=",")
+    _output_to_df(metadata_df, out_dir, out_name_base,
+                  INTERNAL_COL_KEYS, remove_internals=True, sep=sep)
+    output_validation_msgs(validation_msgs, out_dir, out_name_base, sep=",")
     return metadata_df
 
 
@@ -366,7 +333,7 @@ def _generate_metadata_for_sample_type_in_host(
         sample_type_df = _fill_na_if_default(
             sample_type_df, sample_type_metadata_dict, curr_settings_dict)
 
-        validation_msgs = _validate_raw_metadata_df(
+        validation_msgs = validate_metadata_df(
             sample_type_df, sample_type_metadata_dict)
 
     return sample_type_df, validation_msgs
@@ -443,98 +410,11 @@ def _fill_na_if_default(metadata_df, specific_dict, settings_dict):
     return metadata_df
 
 
-def _validate_raw_metadata_df(metadata_df, sample_type_metadata_dict):
-    config = _make_cerberus_schema(sample_type_metadata_dict)
-
-    # cerberus_to_pandas_types = {
-    #     "string": "string",
-    #     "integer": "int64",
-    #     "float": "float64",
-    #     "number": "float64",
-    #     "bool": "bool",
-    #     "datetime": "datetime64"}
-    typed_metadata_df = metadata_df.copy()
-    # for curr_field, curr_definition in sample_type_metadata_dict.items():
-    #     if curr_field not in typed_metadata_df.columns:
-    #         # TODO: decide whether to make this a warning or take out
-    #         print(f"Field {curr_field} not in metadata file")
-    #         continue
-    #     curr_cerberus_type = curr_definition.get(TYPE_KEY)
-    #     # TODO: add handling for more complicated anyof cases :-|
-    #     if curr_cerberus_type:
-    #         curr_pandas_type = cerberus_to_pandas_types[curr_cerberus_type]
-    #         typed_metadata_df[curr_field] = \
-    #             typed_metadata_df[curr_field].astype(curr_pandas_type)
-    # # next field in config
-
-    # use python Cerberus validator on all the fields that already exist in the
-    # metadata file?
-    raw_metadata_dict = typed_metadata_df.to_dict(orient="records")
-    v = QiimpValidator()
-    v.allow_unknown = True
-    # is_valid = v.validate(raw_metadata_dict, config)
-    # if not is_valid:
-    validation_msgs = []
-    for curr_idx, curr_row in enumerate(raw_metadata_dict):
-        if not v.validate(curr_row, config):
-            curr_sample_name = curr_row[SAMPLE_NAME_KEY]
-            for curr_field_name, curr_err_msg in v.errors.items():
-                validation_msgs.append({
-                    SAMPLE_NAME_KEY: curr_sample_name,
-                    "field_name": curr_field_name,
-                    "error_message": curr_err_msg})
-            # next error for curr row
-        # endif row is not valid
-    # next row
-
-    return validation_msgs
-
-def _make_cerberus_schema(sample_type_metadata_dict):
-    unrecognized_keys = ['is_phi', 'field_desc', 'units',
-                         'min_exclusive', 'unique']
-    # traverse the host_fields_config dict and remove any keys that are not
-    # recognized by cerberus
-    cerberus_config = copy.deepcopy(sample_type_metadata_dict)
-    cerberus_config = _remove_keys_from_dict(
-        cerberus_config, unrecognized_keys)
-
-    return cerberus_config
-
-
-def _remove_keys_from_dict(input_dict, keys_to_remove):
-    output_dict = {}
-    for curr_key, curr_val in input_dict.items():
-        if isinstance(curr_val, dict):
-            output_dict[curr_key] = \
-                _remove_keys_from_dict(curr_val, keys_to_remove)
-        elif isinstance(curr_val, list):
-            output_dict[curr_key] = \
-                _remove_keys_from_dict_in_list(curr_val, keys_to_remove)
-        else:
-            if curr_key not in keys_to_remove:
-                output_dict[curr_key] = copy.deepcopy(curr_val)
-    return output_dict
-
-
-def _remove_keys_from_dict_in_list(input_list, keys_to_remove):
-    output_list = []
-    for curr_val in input_list:
-        if isinstance(curr_val, dict):
-            output_list.append(
-                _remove_keys_from_dict(curr_val, keys_to_remove))
-        elif isinstance(curr_val, list):
-            output_list.append(
-                _remove_keys_from_dict_in_list(curr_val, keys_to_remove))
-        else:
-            output_list.append(curr_val)
-    return output_list
-
-
 def _output_to_df(a_df, out_dir, out_base, internal_col_names,
                   sep="\t", remove_internals=False):
 
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    extension = _get_extension(sep)
+    extension = get_extension(sep)
 
     # sort columns alphabetically
     a_df = a_df.reindex(sorted(a_df.columns), axis=1)
@@ -544,13 +424,13 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
         # (not even header line) if there are no failures--bc it is easy to
         # eyeball "zero bytes"
         fails_qc_mask = a_df[QC_NOTE_KEY] != ""
-        qc_fails_df = a_df.loc[fails_qc_mask, INTERNAL_COL_KEYS].copy()
+        qc_fails_df = a_df.loc[fails_qc_mask, internal_col_names].copy()
         qc_fails_fp = os.path.join(
-            out_dir, f"{timestamp_str}_{out_base}_fails.{extension}")
+            out_dir, f"{timestamp_str}_{out_base}_fails.csv")
         if qc_fails_df.empty:
             Path(qc_fails_fp).touch()
         else:
-            qc_fails_df.to_csv(qc_fails_fp, sep=sep, index=False)
+            qc_fails_df.to_csv(qc_fails_fp, sep=",", index=False)
 
         a_df = a_df.drop(columns=internal_col_names)
         col_names = list(a_df)
@@ -567,30 +447,3 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
 
     out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.{extension}")
     output_df.to_csv(out_fp, sep=sep, index=False)
-
-
-def _output_validation_msgs(validation_msgs, out_dir, out_base, sep="\t"):
-    timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    extension = _get_extension(sep)
-    out_fp = os.path.join(
-        out_dir, f"{timestamp_str}_{out_base}_validation_errors.{extension}")
-    msgs_df = pandas.DataFrame(validation_msgs)
-    msgs_df.to_csv(out_fp, sep=sep, index=False)
-
-
-def _get_extension(sep):
-    return "csv" if sep == "," else "txt"
-
-
-
-class QiimpValidator(cerberus.Validator):
-    def _check_with_date_not_in_future(self, field, value):
-        # convert the field string to a date
-        try:
-            putative_date = parser.parse(value, fuzzy=True, dayfirst=False)
-        except:
-            self._error(field, "Must be a valid date")
-            return
-
-        if putative_date > datetime.now():
-            self._error(field, "Date cannot be in the future")

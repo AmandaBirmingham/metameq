@@ -21,10 +21,12 @@ setup(name='qiimp',
       url='https://github.com/AmandaBirmingham/qiimp2',
       packages=find_packages(),
       include_package_data=True,
-      package_data={
-          'qiimp': [
-              '*.*',
-              'data/*.*']
-      },
-      install_requires=['pandas', 'pyyaml', 'nose', 'pep8', 'flake8'],
+      # TODO: if need to deploy non-code files, add back and tweak
+      # package_data={
+      #     'qiimp': [
+      #         '*.*',
+      #         'data/*.*']
+      # },
+      entry_points={
+          'console_scripts': ['qiimp=qiimp.src.__main__:root']}
       )

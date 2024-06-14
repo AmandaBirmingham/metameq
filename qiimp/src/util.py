@@ -1,6 +1,7 @@
 import copy
 import os
 import pandas
+from typing import List
 import yaml
 
 # config keys
@@ -82,13 +83,42 @@ def load_df_with_best_fit_encoding(an_fp, a_file_separator):
     encodings = ["utf-8", "utf-8-sig", "iso-8859-1", "latin1", "cp1252"]
     for encoding in encodings:
         try:
-            result = pandas.read_csv(an_fp, sep=a_file_separator, encoding=encoding)
-            print(f"Chosen encoder: {encoding}")
+            result = pandas.read_csv(
+                an_fp, sep=a_file_separator, encoding=encoding)
             break
-        except Exception as e:  # or the error you receive
+        except Exception:
             pass
 
     if result is None:
-        raise ValueError(f"Unable to decode {an_fp} with any available encoder")
+        raise ValueError(f"Unable to decode {an_fp} "
+                         f"with any available encoder")
 
     return result
+
+
+def validate_required_columns_exist(
+        input_df: pandas.DataFrame,
+        required_cols_list: List[str],
+        error_msg: str):
+
+    """Checks that the input dataframe has the required columns.
+
+    Parameters
+    ----------
+    input_df: pd.DataFrame
+        A Dataframe to be checked.
+    required_cols_list: list[str]
+        List of column names that must be present in the dataframe.
+    error_msg: str
+        Error message to be raised if any of the required columns are missing.
+    """
+
+    missing_cols = set(required_cols_list) - set(input_df.columns)
+    if len(missing_cols) > 0:
+        missing_cols = sorted(missing_cols)
+        raise ValueError(
+            f"{error_msg}: {missing_cols}")
+
+
+def get_extension(sep):
+    return "csv" if sep == "," else "txt"
