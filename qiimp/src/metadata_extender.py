@@ -45,7 +45,7 @@ pandas.set_option("future.no_silent_downcasting", True)
 
 def write_extended_metadata(
         raw_metadata_fp, study_specific_config_fp,
-        out_dir, out_name_base, sep="\t"):
+        out_dir, out_name_base, sep="\t", suppress_empty_fails=False):
 
     # extract the extension from the raw_metadata_fp file path
     extension = os.path.splitext(raw_metadata_fp)[1]
@@ -69,12 +69,14 @@ def write_extended_metadata(
 
     return write_extended_metadata_from_df(
         raw_metadata_df, study_specific_config_dict,
-        out_dir, out_name_base, sep=sep)
+        out_dir, out_name_base, sep=sep,
+        suppress_empty_fails=suppress_empty_fails)
 
 
 def write_extended_metadata_from_df(
         raw_metadata_df, study_specific_config_dict, out_dir, out_name_base,
-        study_specific_transformers_dict=None, sep="\t"):
+        study_specific_transformers_dict=None, sep="\t",
+        suppress_empty_fails=False):
 
     validate_required_columns_exist(
         raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
@@ -100,8 +102,10 @@ def write_extended_metadata_from_df(
         study_specific_config_dict)
 
     _output_to_df(metadata_df, out_dir, out_name_base,
-                  INTERNAL_COL_KEYS, remove_internals=True, sep=sep)
-    output_validation_msgs(validation_msgs, out_dir, out_name_base, sep=",")
+                  INTERNAL_COL_KEYS, remove_internals=True, sep=sep,
+                  suppress_empty_fails=suppress_empty_fails)
+    output_validation_msgs(validation_msgs, out_dir, out_name_base, sep=",",
+                           suppress_empty_fails=suppress_empty_fails)
     return metadata_df
 
 
@@ -411,7 +415,8 @@ def _fill_na_if_default(metadata_df, specific_dict, settings_dict):
 
 
 def _output_to_df(a_df, out_dir, out_base, internal_col_names,
-                  sep="\t", remove_internals=False):
+                  sep="\t", remove_internals=False,
+                  suppress_empty_fails=False):
 
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     extension = get_extension(sep)
@@ -428,7 +433,9 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
         qc_fails_fp = os.path.join(
             out_dir, f"{timestamp_str}_{out_base}_fails.csv")
         if qc_fails_df.empty:
-            Path(qc_fails_fp).touch()
+            if not suppress_empty_fails:
+                Path(qc_fails_fp).touch()
+            # else, just do nothing
         else:
             qc_fails_df.to_csv(qc_fails_fp, sep=",", index=False)
 
@@ -447,3 +454,11 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
 
     out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.{extension}")
     output_df.to_csv(out_fp, sep=sep, index=False)
+
+
+if __name__ == '__main__':
+    write_extended_metadata(
+        "/Users/abirmingham/Desktop/extended_abtx_metadata_w_faked_host_height_not_applicable.csv",
+        "/Users/abirmingham/Work/Repositories/custom_abtx_metadata_generator/config.yml",
+        "/Users/abirmingham/Desktop",
+        "test_qiimp2_cli2")

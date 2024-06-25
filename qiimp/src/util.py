@@ -76,7 +76,7 @@ def deepcopy_dict(input_dict):
     return output_dict
 
 
-def load_df_with_best_fit_encoding(an_fp, a_file_separator):
+def load_df_with_best_fit_encoding(an_fp, a_file_separator, dtype=None):
     result = None
 
     # from https://stackoverflow.com/a/76366653
@@ -84,7 +84,7 @@ def load_df_with_best_fit_encoding(an_fp, a_file_separator):
     for encoding in encodings:
         try:
             result = pandas.read_csv(
-                an_fp, sep=a_file_separator, encoding=encoding)
+                an_fp, sep=a_file_separator, encoding=encoding, dtype=dtype)
             break
         except Exception:
             pass

@@ -4,6 +4,7 @@ from datetime import datetime
 from dateutil import parser
 import os
 import pandas
+from pathlib import Path
 from qiimp.src.util import SAMPLE_NAME_KEY, get_extension
 
 
@@ -67,13 +68,19 @@ def validate_metadata_df(metadata_df, sample_type_full_metadata_fields_dict):
     return validation_msgs
 
 
-def output_validation_msgs(validation_msgs, out_dir, out_base, sep="\t"):
+def output_validation_msgs(validation_msgs, out_dir, out_base, sep="\t",
+                           suppress_empty_fails=False):
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     extension = get_extension(sep)
     out_fp = os.path.join(
         out_dir, f"{timestamp_str}_{out_base}_validation_errors.{extension}")
     msgs_df = pandas.DataFrame(validation_msgs)
-    msgs_df.to_csv(out_fp, sep=sep, index=False)
+    if msgs_df.empty:
+        if not suppress_empty_fails:
+            Path(msgs_df).touch()
+        # else, just do nothing
+    else:
+        msgs_df.to_csv(out_fp, sep=sep, index=False)
 
 
 def _make_cerberus_schema(sample_type_metadata_dict):
