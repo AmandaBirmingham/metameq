@@ -1,10 +1,14 @@
-ebi_null_vals_all: &id001
+ebi_null_vals_all: &ebi_null_vals_all
   allowed:
     - "not collected" 
     - "not provided"
     - "restricted access"
     - "not applicable"
   type: string
+taxon_id_formats: &taxon_id_formats
+  - regex: ^\d+$
+    type: string
+  - *ebi_null_vals_all
 host_type_specific_metadata:
   base:
     metadata_fields:
@@ -43,7 +47,7 @@ host_type_specific_metadata:
               - regex: '^([0-9]{4})(?:-([0-1][0-9])(?:-([0-3][0-9])(?: ([0-2][0-9])(?::([0-5][0-9])(?::([0-5][0-9]))?)?)?)?)?$'
                 type: string
                 check_with: date_not_in_future
-              - *id001
+              - *ebi_null_vals_all
 #              - allowed:
 #                - not collected
 #                - not provided
@@ -254,13 +258,7 @@ host_type_specific_metadata:
             required: true
             type: string
           taxon_id:
-            anyof:
-              - min: 1
-                type: integer
-              - allowed:
-                - not collected
-                - not provided
-                type: string
+            anyof: *taxon_id_formats
             empty: false
             field_desc: The NCBI Taxonomy id of the metagenome associated with this sample.
               Be aware that this is NOT the taxon id of the host! Note that this value must
@@ -275,13 +273,13 @@ host_type_specific_metadata:
             is_phi: false
             required: true
             type: string
-          # Q: is this field actually required or no?
-          tube_id:
-            empty: false
-            field_desc: The identification of the tube containing the sample.
-            is_phi: false
-            required: true
-            type: string
+          # TODO: Q: is this field actually required or no?
+#          tube_id:
+#            empty: false
+#            field_desc: The identification of the tube containing the sample.
+#            is_phi: false
+#            required: true
+#            type: string
         host_type_specific_metadata:
           host_associated:
             metadata_fields:
@@ -326,14 +324,7 @@ host_type_specific_metadata:
                 required: true
                 type: string
               host_taxid:
-                anyof:
-                  - min: 1
-                    type: integer
-                  - allowed:
-                    - not applicable
-                    - not collected
-                    - not provided
-                    type: string
+                anyof: *taxon_id_formats
                 empty: false
                 field_desc: taxonomy id of host e.g. human is 9606
                 is_phi: false
@@ -783,9 +774,9 @@ host_type_specific_metadata:
                                 type: string
                               host_taxid:
                                 allowed:
-                                  - 9606
-                                default: 9606
-                                type: integer
+                                  - '9606'
+                                default: '9606'
+                                type: string
                               host_weight_units:
                                 allowed:
                                   - kg
@@ -945,9 +936,9 @@ host_type_specific_metadata:
                                 type: string
                               host_taxid:
                                 allowed:
-                                  - 10090
-                                default: 10090
-                                type: integer
+                                  - '10090'
+                                default: '10090'
+                                type: string
                               host_weight_units:
                                 allowed:
                                   - g
