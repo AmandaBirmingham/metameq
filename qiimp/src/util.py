@@ -11,6 +11,9 @@ HOST_TYPE_SPECIFIC_METADATA_KEY = "host_type_specific_metadata"
 SAMPLE_TYPE_KEY = "sample_type"
 QIITA_SAMPLE_TYPE = "qiita_sample_type"
 SAMPLE_TYPE_SPECIFIC_METADATA_KEY = "sample_type_specific_metadata"
+METADATA_TRANSFORMERS_KEY = "metadata_transformers"
+PRE_TRANSFORMERS_KEY = "pre_transformers"
+POST_TRANSFORMERS_KEY = "post_transformers"
 ALIAS_KEY = "alias"
 BASE_TYPE_KEY = "base_type"
 DEFAULT_KEY = "default"
@@ -18,6 +21,8 @@ REQUIRED_KEY = "required"
 ALLOWED_KEY = "allowed"
 ANYOF_KEY = "anyof"
 TYPE_KEY = "type"
+SOURCES_KEY = "sources"
+FUNCTION_KEY = "function"
 LEAVE_REQUIREDS_BLANK_KEY = "leave_requireds_blank"
 
 # internal code keys
@@ -122,3 +127,34 @@ def validate_required_columns_exist(
 
 def get_extension(sep):
     return "csv" if sep == "," else "txt"
+
+
+def update_metadata_df_field(
+        metadata_df, field_name, field_val_or_func,
+        source_fields=None, overwrite_non_nans=True):
+
+    # Note: function doesn't return anything.  Work is done in-place on the
+    #  metadata_df passed in.
+
+    if source_fields:
+        if overwrite_non_nans or (field_name not in metadata_df.columns):
+            metadata_df[field_name] = \
+                metadata_df.apply(
+                    lambda row: field_val_or_func(row, source_fields),
+                    axis=1)
+        else:
+            # TODO: not yet tested; from StackOverflow
+            metadata_df.loc[metadata_df[field_name].isnull(), field_name] = \
+                metadata_df.apply(
+                    lambda row: field_val_or_func(row, source_fields),
+                    axis=1)
+        # endif overwrite_non_nans for function call
+    else:
+        if overwrite_non_nans or (field_name not in metadata_df.columns):
+            metadata_df[field_name] = field_val_or_func
+        else:
+            metadata_df[field_name] = \
+                metadata_df[field_name].fillna(field_val_or_func)
+            # metadata_df[field_name].fillna(field_val_or_func, inplace=True)
+        # endif overwrite_non_nans for constant value
+    # endif using a function/a constant value

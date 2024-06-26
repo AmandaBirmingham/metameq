@@ -1,7 +1,8 @@
 from qiimp.src.util import HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
     SAMPLE_TYPE_KEY, QC_NOTE_KEY, LEAVE_BLANK_VAL, DO_NOT_USE_VAL, \
     NOT_PROVIDED_VAL, HOST_SUBJECT_ID_KEY, SAMPLE_NAME_KEY, \
-    COLLECTION_TIMESTAMP_KEY, \
+    COLLECTION_TIMESTAMP_KEY, METADATA_TRANSFORMERS_KEY, SOURCES_KEY, \
+    FUNCTION_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
     extract_config_dict, deepcopy_dict, load_df_with_best_fit_encoding
 from qiimp.src.metadata_extender import \
     write_extended_metadata, write_extended_metadata_from_df
@@ -12,7 +13,9 @@ __all__ = ["HOSTTYPE_SHORTHAND_KEY", "SAMPLETYPE_SHORTHAND_KEY",
            "SAMPLE_TYPE_KEY", "QC_NOTE_KEY", "LEAVE_BLANK_VAL",
            "DO_NOT_USE_VAL", "NOT_PROVIDED_VAL",
            "HOST_SUBJECT_ID_KEY", "SAMPLE_NAME_KEY",
-           "COLLECTION_TIMESTAMP_KEY",
+           "COLLECTION_TIMESTAMP_KEY", "METADATA_TRANSFORMERS_KEY",
+           "SOURCES_KEY", "FUNCTION_KEY", "PRE_TRANSFORMERS_KEY",
+           "POST_TRANSFORMERS_KEY",
            "extract_config_dict",
            "deepcopy_dict", "load_df_with_best_fit_encoding",
            "merge_sample_and_subject_metadata",

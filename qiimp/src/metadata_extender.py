@@ -5,13 +5,14 @@ from pathlib import Path
 from datetime import datetime
 from qiimp.src.util import extract_config_dict, extract_stds_config, \
     deepcopy_dict, validate_required_columns_exist, get_extension, \
-    load_df_with_best_fit_encoding, \
+    load_df_with_best_fit_encoding, update_metadata_df_field, \
     HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
     QC_NOTE_KEY, METADATA_FIELDS_KEY, HOST_TYPE_SPECIFIC_METADATA_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, \
     DEFAULT_KEY, REQUIRED_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
     LEAVE_BLANK_VAL, SAMPLE_NAME_KEY, \
-    ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY
+    ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY, \
+    PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY
 from qiimp.src.metadata_configurator import combine_stds_and_study_config, \
     flatten_nested_stds_dict, update_wip_metadata_dict
 from qiimp.src.metadata_validator import validate_metadata_df, \
@@ -76,7 +77,10 @@ def write_extended_metadata(
 def write_extended_metadata_from_df(
         raw_metadata_df, study_specific_config_dict, out_dir, out_name_base,
         study_specific_transformers_dict=None, sep="\t",
-        suppress_empty_fails=False):
+        suppress_empty_fails=False, internal_col_names=None):
+
+    if internal_col_names is None:
+        internal_col_names = INTERNAL_COL_KEYS
 
     validate_required_columns_exist(
         raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
@@ -102,7 +106,7 @@ def write_extended_metadata_from_df(
         study_specific_config_dict)
 
     _output_to_df(metadata_df, out_dir, out_name_base,
-                  INTERNAL_COL_KEYS, remove_internals=True, sep=sep,
+                  internal_col_names, remove_internals=True, sep=sep,
                   suppress_empty_fails=suppress_empty_fails)
     output_validation_msgs(validation_msgs, out_dir, out_name_base, sep=",",
                            suppress_empty_fails=suppress_empty_fails)
@@ -112,79 +116,21 @@ def write_extended_metadata_from_df(
 def _populate_metadata_df(
         raw_metadata_df, transformer_funcs_dict, main_config_dict):
     metadata_df = raw_metadata_df.copy()
-    _update_metadata_df_field(metadata_df, QC_NOTE_KEY, LEAVE_BLANK_VAL)
+    update_metadata_df_field(metadata_df, QC_NOTE_KEY, LEAVE_BLANK_VAL)
 
-    metadata_df = transform_pre_metadata(
-        metadata_df, transformer_funcs_dict, main_config_dict)
+    metadata_df = transformers.transform_metadata(
+        metadata_df, transformer_funcs_dict, main_config_dict,
+        PRE_TRANSFORMERS_KEY)
 
     # first, add the metadata for the host types
     metadata_df, validation_msgs = _generate_metadata_for_host_types(
         metadata_df, main_config_dict)
 
+    metadata_df = transformers.transform_metadata(
+        metadata_df, transformer_funcs_dict, main_config_dict,
+        POST_TRANSFORMERS_KEY)
+
     return metadata_df, validation_msgs
-
-
-def transform_pre_metadata(
-        pre_metadata_df, transformer_funcs_dict, config_dict):
-    if transformer_funcs_dict is None:
-        transformer_funcs_dict = {}
-
-    metadata_transformers = config_dict.get("metadata_transformers", None)
-    if metadata_transformers:
-        pre_transformers = metadata_transformers.get("pre_population", None)
-        for curr_target_field, curr_transformer_dict in pre_transformers.items():
-            curr_source_field = curr_transformer_dict["sources"]
-            curr_func_name = curr_transformer_dict["function"]
-
-            try:
-                curr_func = transformer_funcs_dict[curr_func_name]
-            except KeyError:
-                try:
-                    curr_func = getattr(transformers, curr_func_name)
-                except AttributeError:
-                    raise ValueError(
-                        f"Unable to find transformer '{curr_func_name}'")
-                # end try to find in qiimp transformers
-            # end try to find in input (study-specific) transformers
-
-            # apply the function named curr_func_name to the column of the
-            # metadata_df named curr_source_field to fill curr_target_field
-            _update_metadata_df_field(pre_metadata_df, curr_target_field,
-                                      curr_func, curr_source_field,
-                                      overwrite_non_nans=False)
-
-    return pre_metadata_df
-
-
-def _update_metadata_df_field(
-        metadata_df, field_name, field_val_or_func,
-        source_fields=None, overwrite_non_nans=True):
-
-    # Note: function doesn't return anything.  Work is done in-place on the
-    #  metadata_df passed in.
-
-    if source_fields:
-        if overwrite_non_nans or (field_name not in metadata_df.columns):
-            metadata_df[field_name] = \
-                metadata_df.apply(
-                    lambda row: field_val_or_func(row, source_fields),
-                    axis=1)
-        else:
-            # TODO: not yet tested; from StackOverflow
-            metadata_df.loc[metadata_df[field_name].isnull(), field_name] = \
-                metadata_df.apply(
-                    lambda row: field_val_or_func(row, source_fields),
-                    axis=1)
-        # endif overwrite_non_nans for function call
-    else:
-        if overwrite_non_nans or (field_name not in metadata_df.columns):
-            metadata_df[field_name] = field_val_or_func
-        else:
-            metadata_df[field_name] = \
-                metadata_df[field_name].fillna(field_val_or_func)
-            # metadata_df[field_name].fillna(field_val_or_func, inplace=True)
-        # endif overwrite_non_nans for constant value
-    # endif using a function/a constant value
 
 
 def _generate_metadata_for_host_types(
@@ -232,7 +178,7 @@ def _generate_metadata_for_host_type(
     validation_msgs = []
     known_host_shorthands = config[HOST_TYPE_SPECIFIC_METADATA_KEY].keys()
     if curr_host_type not in known_host_shorthands:
-        _update_metadata_df_field(
+        update_metadata_df_field(
             host_type_df, QC_NOTE_KEY, "invalid host_type")
         # host_type_df[QC_NOTE_KEY] = "invalid host_type"
         concatted_df = host_type_df
@@ -283,14 +229,14 @@ def _update_metadata_from_dict(metadata_df, metadata_fields_dict):
     for curr_field_name, curr_field_vals_dict in metadata_fields_dict.items():
         if DEFAULT_KEY in curr_field_vals_dict:
             curr_default_val = curr_field_vals_dict[DEFAULT_KEY]
-            _update_metadata_df_field(
+            update_metadata_df_field(
                 output_df, curr_field_name, curr_default_val,
                 overwrite_non_nans=False)
             # output_df[curr_field_name] = curr_default_val
         elif REQUIRED_KEY in curr_field_vals_dict:
             curr_required_val = curr_field_vals_dict[REQUIRED_KEY]
             if curr_required_val and curr_field_name not in output_df:
-                _update_metadata_df_field(
+                update_metadata_df_field(
                     output_df, curr_field_name, REQ_PLACEHOLDER)
             # note that if the field is (a) required, (b) does not have a
             # default value, and (c) IS already in the metadata, it will
@@ -315,7 +261,7 @@ def _generate_metadata_for_sample_type_in_host(
     validation_msgs = []
     known_sample_types = host_sample_types_dict.keys()
     if sample_type not in known_sample_types:
-        _update_metadata_df_field(
+        update_metadata_df_field(
             sample_type_df, QC_NOTE_KEY, "invalid sample_type")
         # sample_type_df[QC_NOTE_KEY] = "invalid sample_type"
     else:
@@ -370,7 +316,7 @@ def _construct_sample_type_metadata_dict(
         # get the base's sample type dict and add this sample type's
         # info on top of it
         base_sample_dict = host_sample_types_dict[sample_type_base]
-        if base_sample_dict.keys().to_list() != [METADATA_FIELDS_KEY]:
+        if list(base_sample_dict.keys()) != [METADATA_FIELDS_KEY]:
             raise ValueError(f"Base sample type '{sample_type_base}' "
                              f"must only have metadata fields")
         sample_type_specific_dict_metadata = update_wip_metadata_dict(

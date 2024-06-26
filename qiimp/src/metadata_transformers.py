@@ -1,7 +1,44 @@
 import pandas
 from dateutil import parser
+from qiimp.src.util import METADATA_TRANSFORMERS_KEY, \
+    SOURCES_KEY, FUNCTION_KEY, \
+    update_metadata_df_field
 
 
+# transformer runner function
+def transform_metadata(
+        metadata_df, transformer_funcs_dict, config_dict, stage_key):
+    if transformer_funcs_dict is None:
+        transformer_funcs_dict = {}
+
+    metadata_transformers = config_dict.get(METADATA_TRANSFORMERS_KEY, None)
+    if metadata_transformers:
+        transformers = metadata_transformers.get(stage_key, None)
+        for curr_target_field, curr_transformer_dict in transformers.items():
+            curr_source_field = curr_transformer_dict[SOURCES_KEY]
+            curr_func_name = curr_transformer_dict[FUNCTION_KEY]
+
+            try:
+                curr_func = transformer_funcs_dict[curr_func_name]
+            except KeyError:
+                try:
+                    curr_func = getattr(transformers, curr_func_name)
+                except AttributeError:
+                    raise ValueError(
+                        f"Unable to find transformer '{curr_func_name}'")
+                # end try to find in qiimp transformers
+            # end try to find in input (study-specific) transformers
+
+            # apply the function named curr_func_name to the column of the
+            # metadata_df named curr_source_field to fill curr_target_field
+            update_metadata_df_field(metadata_df, curr_target_field,
+                                     curr_func, curr_source_field,
+                                     overwrite_non_nans=False)
+
+    return metadata_df
+
+
+# individual transformer functions
 def pass_through(row, source_fields):
     return _get_one_source_field(row, source_fields, "pass_through")
 
@@ -65,7 +102,19 @@ def format_a_datetime(row, source_fields):
     return formatted_x
 
 
+# helper functions
 def _get_one_source_field(row, source_fields, func_name):
     if len(source_fields) != 1:
         raise ValueError(f"{func_name} requires exactly one source field")
     return row[source_fields[0]]
+
+
+def _format_field_val(row, source_fields, field_type, format_string):
+    x = _get_one_source_field(row, source_fields, "format_field_val")
+
+    result = x
+    # format string should be something like '{0:g}' or '{0:.2f}'
+    # field type should be something like float or int
+    if isinstance(x, field_type):
+        result = format_string.format(x)
+    return result
