@@ -155,6 +155,16 @@ class TestMetadataConfigurator(TestCase):
                                             "type": "number"
                                         }
                                     }
+                                },
+                                "dung": {
+                                    METADATA_FIELDS_KEY: {
+                                        # overrides stds parent host + sample type
+                                        "description": {
+                                            "allowed": ["human dung"],
+                                            DEFAULT_KEY: "human dung",
+                                            "type": "string"
+                                        }
+                                    }
                                 }
                             },
                             HOST_TYPE_SPECIFIC_METADATA_KEY: {
@@ -249,6 +259,20 @@ class TestMetadataConfigurator(TestCase):
                                 "type": "string"
                             }
                         }
+                    },
+                    "dung": {
+                        "base_type": "stool",
+                        METADATA_FIELDS_KEY: {
+                            # overrides stds parent host + sample type
+                            "physical_specimen_location": {
+                                "allowed": ["FIELD"],
+                                DEFAULT_KEY: "FIELD",
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "f": {
+                        "base_type": "stool"
                     }
                 }
             }
@@ -417,6 +441,26 @@ class TestMetadataConfigurator(TestCase):
                                             "type": "string"
                                         }
                                     }
+                                },
+                                "dung": {
+                                    "base_type": "stool",
+                                    METADATA_FIELDS_KEY: {
+                                        # overrides stds parent host + sample type
+                                        "description": {
+                                            "allowed": ["human dung"],
+                                            DEFAULT_KEY: "human dung",
+                                            "type": "string"
+                                        },
+                                        # overrides stds parent host + sample type
+                                        "physical_specimen_location": {
+                                            "allowed": ["FIELD"],
+                                            DEFAULT_KEY: "FIELD",
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "f": {
+                                    "base_type": "stool"
                                 }
                             },
                             HOST_TYPE_SPECIFIC_METADATA_KEY: {
@@ -729,6 +773,26 @@ class TestMetadataConfigurator(TestCase):
                     }
                 },
                 SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                    "dung": {
+                        "base_type": "stool",
+                        METADATA_FIELDS_KEY: {
+                            # overrides stds parent host + sample type
+                            "description": {
+                                "allowed": ["human dung"],
+                                DEFAULT_KEY: "human dung",
+                                "type": "string"
+                            },
+                            # overrides stds parent host + sample type
+                            "physical_specimen_location": {
+                                "allowed": ["FIELD"],
+                                DEFAULT_KEY: "FIELD",
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "f": {
+                        "base_type": "stool"
+                    },
                     "fe": {
                         "alias": "stool"
                     },
@@ -839,6 +903,26 @@ class TestMetadataConfigurator(TestCase):
                     }
                 },
                 SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                    "dung": {
+                        "base_type": "stool",
+                        METADATA_FIELDS_KEY: {
+                            # overrides stds parent host + sample type
+                            "description": {
+                                "allowed": ["human dung"],
+                                DEFAULT_KEY: "human dung",
+                                "type": "string"
+                            },
+                            # overrides stds parent host + sample type
+                            "physical_specimen_location": {
+                                "allowed": ["FIELD"],
+                                DEFAULT_KEY: "FIELD",
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "f": {
+                        "base_type": "stool"
+                    },
                     "fe": {
                         "alias": "stool"
                     },

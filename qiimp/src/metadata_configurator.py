@@ -237,8 +237,9 @@ def _combine_base_and_added_sample_type_specific_metadata(
     for curr_sample_type, curr_sample_type_add_dict \
             in curr_host_add_sample_types_dict.items():
 
-        # if the sample type is already in the wip, and it has metadata fields,
-        # and it has metadata fields in the add dict, combine metadata fields
+        curr_sample_type_wip_dict = deepcopy_dict(
+            curr_host_wip_sample_types_dict.get(curr_sample_type, {}))
+
         curr_sample_type_add_def_type = \
             _id_sample_type_definition(
                 curr_sample_type, curr_sample_type_add_dict)
@@ -247,27 +248,39 @@ def _combine_base_and_added_sample_type_specific_metadata(
             curr_sample_type_wip_def_type = \
                 _id_sample_type_definition(
                     curr_sample_type,
-                    curr_host_wip_sample_types_dict[curr_sample_type])
+                    curr_sample_type_wip_dict)
         # end if sample type is in wip
+
+        # if the sample type is already in the wip, and it has metadata fields,
+        # and it has metadata fields in the add dict, combine metadata fields
         if curr_sample_type_wip_def_type == METADATA_FIELDS_KEY \
                 and curr_sample_type_add_def_type == METADATA_FIELDS_KEY:
+
+            # first, add all non-metadata fields from the add dict to the wip;
+            # this captures, e.g., base_type
+            curr_sample_type_add_dict_wo_metadata = deepcopy_dict(
+                curr_sample_type_add_dict)
+            del curr_sample_type_add_dict_wo_metadata[METADATA_FIELDS_KEY]
+            curr_sample_type_wip_dict.update(
+                curr_sample_type_add_dict_wo_metadata)
+
             curr_sample_type_add_metadata_fields_dict = \
                 curr_sample_type_add_dict[METADATA_FIELDS_KEY]
             curr_sample_type_wip_metadata_fields_dict = \
-                curr_host_wip_sample_types_dict[curr_sample_type][
-                    METADATA_FIELDS_KEY]
+                curr_sample_type_wip_dict[METADATA_FIELDS_KEY]
             curr_sample_type_wip_metadata_fields_dict = (
                 update_wip_metadata_dict(
                     curr_sample_type_wip_metadata_fields_dict,
                     curr_sample_type_add_metadata_fields_dict))
             # if the above combination is not of two empties
             if curr_sample_type_wip_metadata_fields_dict:
-                curr_host_wip_sample_types_dict[curr_sample_type] = \
-                    {
-                        METADATA_FIELDS_KEY:
-                            curr_sample_type_wip_metadata_fields_dict
-                    }
-            # endif the sample type combination is not empty
+                curr_sample_type_wip_dict[METADATA_FIELDS_KEY] = \
+                    curr_sample_type_wip_metadata_fields_dict
+            # end if the metadata fields combination is not empty
+
+            curr_host_wip_sample_types_dict[curr_sample_type] = \
+                curr_sample_type_wip_dict
+        # end if both wip and add have metadata fields for the sample type
 
         # otherwise, if a sample type is in the add dict but not in the wip,
         # or it is in both but of different definition types
