@@ -48,11 +48,6 @@ host_type_specific_metadata:
                 type: string
                 check_with: date_not_in_future
               - *ebi_null_vals_all
-#              - allowed:
-#                - not collected
-#                - not provided
-#                - restricted access
-#                type: string
             empty: false
             field_desc: The day and time of sampling as a single point in time expressed in
               24-hour time format, e.g. 2016-11-22.
@@ -63,11 +58,7 @@ host_type_specific_metadata:
               - regex: '^([0-9]{4})(?:-([0-1][0-9])(?:-([0-3][0-9])(?: ([0-2][0-9])(?::([0-5][0-9])(?::([0-5][0-9]))?)?)?)?)?$'
                 type: string
                 check_with: date_not_in_future
-              - allowed:
-                - not collected
-                - not provided
-                - restricted access
-                type: string
+              - *ebi_null_vals_all
             empty: false
             field_desc: The day and time of sampling as a single point in time expressed in
               24-hour time format, e.g. 2016-11-22.

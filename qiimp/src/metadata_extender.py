@@ -118,7 +118,7 @@ def _populate_metadata_df(
     metadata_df = raw_metadata_df.copy()
     update_metadata_df_field(metadata_df, QC_NOTE_KEY, LEAVE_BLANK_VAL)
 
-    metadata_df = transformers.transform_metadata(
+    metadata_df = _transform_metadata(
         metadata_df, transformer_funcs_dict, main_config_dict,
         PRE_TRANSFORMERS_KEY)
 
@@ -126,11 +126,53 @@ def _populate_metadata_df(
     metadata_df, validation_msgs = _generate_metadata_for_host_types(
         metadata_df, main_config_dict)
 
-    metadata_df = transformers.transform_metadata(
+    metadata_df = _transform_metadata(
         metadata_df, transformer_funcs_dict, main_config_dict,
         POST_TRANSFORMERS_KEY)
 
     return metadata_df, validation_msgs
+
+
+# transformer runner function
+def _transform_metadata(
+        metadata_df, transformer_funcs_dict, config_dict, stage_key):
+    if transformer_funcs_dict is None:
+        transformer_funcs_dict = {}
+
+    metadata_transformers = config_dict.get(
+        transformers.METADATA_TRANSFORMERS_KEY, None)
+    if metadata_transformers:
+        stage_transformers = metadata_transformers.get(stage_key, None)
+        if stage_transformers:
+            for curr_target_field, curr_transformer_dict in \
+                    stage_transformers.items():
+                curr_source_field = curr_transformer_dict[
+                    transformers.SOURCES_KEY]
+                curr_func_name = curr_transformer_dict[
+                    transformers.FUNCTION_KEY]
+
+                try:
+                    curr_func = transformer_funcs_dict[curr_func_name]
+                except KeyError:
+                    try:
+                        # looking into the qiimp transformers module
+                        curr_func = getattr(transformers, curr_func_name)
+                    except AttributeError:
+                        raise ValueError(
+                            f"Unable to find transformer '{curr_func_name}'")
+                    # end try to find in qiimp transformers
+                # end try to find in input (study-specific) transformers
+
+                # apply the function named curr_func_name to the column of the
+                # metadata_df named curr_source_field to fill curr_target_field
+                update_metadata_df_field(metadata_df, curr_target_field,
+                                         curr_func, curr_source_field,
+                                         overwrite_non_nans=False)
+            # next stage transformer
+        # end if there are stage transformers for this stage
+    # end if there are any metadata transformers
+
+    return metadata_df
 
 
 def _generate_metadata_for_host_types(
