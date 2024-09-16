@@ -79,8 +79,41 @@ def write_extended_metadata_from_df(
         study_specific_transformers_dict=None, sep="\t",
         suppress_empty_fails=False, internal_col_names=None):
 
+    out_ext = get_extension(sep)
+    metadata_df, validation_msgs = write_quiet_extended_metadata_from_df(
+        raw_metadata_df, study_specific_config_dict, out_dir, out_name_base,
+        out_ext, sep=sep, suppress_empty_fails=suppress_empty_fails,
+        study_specific_transformers_dict=study_specific_transformers_dict,
+        internal_col_names=internal_col_names, use_timestamp=True)
+    output_validation_msgs(validation_msgs, out_dir, out_name_base, sep=",",
+                           suppress_empty_fails=suppress_empty_fails)
+    return metadata_df
+
+
+def write_quiet_extended_metadata_from_df(
+        raw_metadata_df, study_specific_config_dict, out_dir, out_name_base,
+        out_ext, study_specific_transformers_dict=None, sep="\t",
+        suppress_empty_fails=False, internal_col_names=None,
+        use_timestamp=True):
+
     if internal_col_names is None:
         internal_col_names = INTERNAL_COL_KEYS
+
+    metadata_df, validation_msgs = _extend_metadata_from_df(
+        raw_metadata_df, study_specific_config_dict,
+        study_specific_transformers_dict=study_specific_transformers_dict)
+
+    _output_to_df(metadata_df, out_dir, out_name_base, out_ext,
+                  internal_col_names, sep=sep, remove_internals=True,
+                  suppress_empty_fails=suppress_empty_fails,
+                  use_timestamp=use_timestamp)
+
+    return metadata_df, validation_msgs
+
+
+def _extend_metadata_from_df(
+        raw_metadata_df, study_specific_config_dict,
+        study_specific_transformers_dict=None):
 
     validate_required_columns_exist(
         raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
@@ -105,12 +138,7 @@ def write_extended_metadata_from_df(
         raw_metadata_df, study_specific_transformers_dict,
         study_specific_config_dict)
 
-    _output_to_df(metadata_df, out_dir, out_name_base,
-                  internal_col_names, remove_internals=True, sep=sep,
-                  suppress_empty_fails=suppress_empty_fails)
-    output_validation_msgs(validation_msgs, out_dir, out_name_base, sep=",",
-                           suppress_empty_fails=suppress_empty_fails)
-    return metadata_df
+    return metadata_df, validation_msgs
 
 
 def _populate_metadata_df(
@@ -360,12 +388,11 @@ def _fill_na_if_default(metadata_df, specific_dict, settings_dict):
     return metadata_df
 
 
-def _output_to_df(a_df, out_dir, out_base, internal_col_names,
+def _output_to_df(a_df, out_dir, out_base, out_ext, internal_col_names,
                   sep="\t", remove_internals=False,
-                  suppress_empty_fails=False):
+                  suppress_empty_fails=False, use_timestamp=True):
 
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    extension = get_extension(sep)
 
     # sort columns alphabetically
     a_df = a_df.reindex(sorted(a_df.columns), axis=1)
@@ -398,7 +425,9 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
     col_names.insert(0, col_names.pop(col_names.index(SAMPLE_NAME_KEY)))
     output_df = a_df.loc[:, col_names].copy()
 
-    out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.{extension}")
+    out_fname = f"{out_base}.{out_ext}"
+    out_fname = f"{timestamp_str}_{out_fname}" if use_timestamp else out_fname
+    out_fp = os.path.join(out_dir, out_fname)
     output_df.to_csv(out_fp, sep=sep, index=False)
 
 
