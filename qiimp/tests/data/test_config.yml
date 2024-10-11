@@ -1,0 +1,9 @@
+host_type_specific_metadata:
+  base:
+    metadata_fields:
+      sample_name:
+        type: string
+        unique: true
+      sample_type:
+        empty: false
+        is_phi: false

@@ -1,7 +1,7 @@
 import copy
 import os
 import pandas
-from typing import List
+from typing import List, Optional, Union, Callable
 import yaml
 
 # config keys
@@ -41,7 +41,9 @@ LEAVE_BLANK_VAL = "leaveblank"
 DO_NOT_USE_VAL = "donotuse"
 
 
-def extract_config_dict(config_fp, starting_fp=None):
+def extract_config_dict(
+        config_fp: Union[str, None],
+        starting_fp: Optional[str] = None) -> dict:
     if config_fp is None:
         grandparent_dir = _get_grandparent_dir(starting_fp)
         config_fp = os.path.join(grandparent_dir, "config.yml")
@@ -51,7 +53,7 @@ def extract_config_dict(config_fp, starting_fp=None):
     return config_dict
 
 
-def _get_grandparent_dir(starting_fp=None):
+def _get_grandparent_dir(starting_fp: Optional[str] = None) -> str:
     if starting_fp is None:
         starting_fp = __file__
     curr_dir = os.path.dirname(os.path.abspath(starting_fp))
@@ -59,19 +61,19 @@ def _get_grandparent_dir(starting_fp=None):
     return grandparent_dir
 
 
-def extract_yaml_dict(yaml_fp):
+def extract_yaml_dict(yaml_fp: str) -> dict:
     with open(yaml_fp, "r") as f:
         yaml_dict = yaml.safe_load(f)
     return yaml_dict
 
 
-def extract_stds_config(stds_fp):
+def extract_stds_config(stds_fp: Union[str, None]) -> dict:
     if not stds_fp:
         stds_fp = os.path.join(_get_grandparent_dir(), "standards.yml")
     return extract_config_dict(stds_fp)
 
 
-def deepcopy_dict(input_dict):
+def deepcopy_dict(input_dict: dict) -> dict:
     output_dict = {}
     for curr_key, curr_val in input_dict.items():
         if isinstance(curr_val, dict):
@@ -81,17 +83,20 @@ def deepcopy_dict(input_dict):
     return output_dict
 
 
-def load_df_with_best_fit_encoding(an_fp, a_file_separator, dtype=None):
+def load_df_with_best_fit_encoding(
+        an_fp: str, a_file_separator: str, dtype: Optional[str] = None) -> \
+        pandas.DataFrame:
     result = None
 
     # from https://stackoverflow.com/a/76366653
     encodings = ["utf-8", "utf-8-sig", "iso-8859-1", "latin1", "cp1252"]
     for encoding in encodings:
+        # noinspection PyBroadException
         try:
             result = pandas.read_csv(
                 an_fp, sep=a_file_separator, encoding=encoding, dtype=dtype)
             break
-        except Exception:
+        except Exception:  # noqa: E722
             pass
 
     if result is None:
@@ -102,9 +107,8 @@ def load_df_with_best_fit_encoding(an_fp, a_file_separator, dtype=None):
 
 
 def validate_required_columns_exist(
-        input_df: pandas.DataFrame,
-        required_cols_list: List[str],
-        error_msg: str):
+        input_df: pandas.DataFrame, required_cols_list: List[str],
+        error_msg: str) -> None:
 
     """Checks that the input dataframe has the required columns.
 
@@ -125,36 +129,34 @@ def validate_required_columns_exist(
             f"{error_msg}: {missing_cols}")
 
 
-def get_extension(sep):
+def get_extension(sep: str) -> str:
     return "csv" if sep == "," else "txt"
 
 
 def update_metadata_df_field(
-        metadata_df, field_name, field_val_or_func,
-        source_fields=None, overwrite_non_nans=True):
+        metadata_df: pandas.DataFrame, field_name: str,
+        field_val_or_func: Union[
+            str, Callable[[pandas.Series, List[str]], str]],
+        source_fields: Optional[List[str]] = None,
+        overwrite_non_nans: bool = True) -> None:
 
     # Note: function doesn't return anything.  Work is done in-place on the
     #  metadata_df passed in.
 
+    # If the field does not already exist in the metadata OR if we have
+    # been told to overwrite existing (i.e., non-NaN) values, we will set its
+    # value in all rows; otherwise, will only set it where it is currently NaN
+    set_all = overwrite_non_nans or (field_name not in metadata_df.columns)
+    row_mask = \
+        metadata_df.index if set_all else metadata_df[field_name].isnull()
+
+    # If source fields were passed in, the field_val_or_func must be a function
     if source_fields:
-        if overwrite_non_nans or (field_name not in metadata_df.columns):
-            metadata_df[field_name] = \
-                metadata_df.apply(
-                    lambda row: field_val_or_func(row, source_fields),
-                    axis=1)
-        else:
-            # TODO: not yet tested; from StackOverflow
-            metadata_df.loc[metadata_df[field_name].isnull(), field_name] = \
-                metadata_df.apply(
-                    lambda row: field_val_or_func(row, source_fields),
-                    axis=1)
-        # endif overwrite_non_nans for function call
+        metadata_df.loc[row_mask, field_name] = \
+            metadata_df.apply(
+                lambda row: field_val_or_func(row, source_fields),
+                axis=1)
     else:
-        if overwrite_non_nans or (field_name not in metadata_df.columns):
-            metadata_df[field_name] = field_val_or_func
-        else:
-            metadata_df[field_name] = \
-                metadata_df[field_name].fillna(field_val_or_func)
-            # metadata_df[field_name].fillna(field_val_or_func, inplace=True)
-        # endif overwrite_non_nans for constant value
+        # Otherwise, it is a constant value
+        metadata_df.loc[row_mask, field_name] = field_val_or_func
     # endif using a function/a constant value

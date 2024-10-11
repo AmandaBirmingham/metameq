@@ -7,6 +7,9 @@ import pandas
 from pathlib import Path
 from qiimp.src.util import SAMPLE_NAME_KEY, get_extension
 
+_TYPE_KEY = "type"
+_ANYOF_KEY = "anyof"
+
 
 class QiimpValidator(cerberus.Validator):
     def _check_with_date_not_in_future(self, field, value):
@@ -24,47 +27,24 @@ class QiimpValidator(cerberus.Validator):
 def validate_metadata_df(metadata_df, sample_type_full_metadata_fields_dict):
     config = _make_cerberus_schema(sample_type_full_metadata_fields_dict)
 
-    # cerberus_to_pandas_types = {
-    #     "string": "string",
-    #     "integer": "int64",
-    #     "float": "float64",
-    #     "number": "float64",
-    #     "bool": "bool",
-    #     "datetime": "datetime64"}
+    # NB: typed_metadata_df (the type-cast version of metadata_df) is only
+    # used for generating validation messages, after which it is discarded.
     typed_metadata_df = metadata_df.copy()
-    # for curr_field, curr_definition in sample_type_full_metadata_fields_dict.items():
-    #     if curr_field not in typed_metadata_df.columns:
-    #         # TODO: decide whether to make this a warning or take out
-    #         print(f"Field {curr_field} not in metadata file")
-    #         continue
-    #     curr_cerberus_type = curr_definition.get(TYPE_KEY)
-    #     # TODO: add handling for more complicated anyof cases :-|
-    #     if curr_cerberus_type:
-    #         curr_pandas_type = cerberus_to_pandas_types[curr_cerberus_type]
-    #         typed_metadata_df[curr_field] = \
-    #             typed_metadata_df[curr_field].astype(curr_pandas_type)
-    # # next field in config
+    for curr_field, curr_definition in \
+            sample_type_full_metadata_fields_dict.items():
 
-    # use python Cerberus validator on all the fields that already exist in the
-    # metadata file?
-    raw_metadata_dict = typed_metadata_df.to_dict(orient="records")
-    v = QiimpValidator()
-    v.allow_unknown = True
-    # is_valid = v.validate(raw_metadata_dict, config)
-    # if not is_valid:
-    validation_msgs = []
-    for curr_idx, curr_row in enumerate(raw_metadata_dict):
-        if not v.validate(curr_row, config):
-            curr_sample_name = curr_row[SAMPLE_NAME_KEY]
-            for curr_field_name, curr_err_msg in v.errors.items():
-                validation_msgs.append({
-                    SAMPLE_NAME_KEY: curr_sample_name,
-                    "field_name": curr_field_name,
-                    "error_message": curr_err_msg})
-            # next error for curr row
-        # endif row is not valid
-    # next row
+        if curr_field not in typed_metadata_df.columns:
+            # TODO: decide whether to make this a warning or take out
+            print(f"Field {curr_field} not in metadata file")
+            continue
 
+        curr_allowed_types = _get_allowed_pandas_types(
+            curr_field, curr_definition)
+        typed_metadata_df[curr_field] = typed_metadata_df[curr_field].apply(
+            lambda x: _cast_field_to_type(x, curr_allowed_types))
+    # next field in config
+
+    validation_msgs = _generate_validation_msg(typed_metadata_df, config)
     return validation_msgs
 
 
@@ -77,7 +57,7 @@ def output_validation_msgs(validation_msgs, out_dir, out_base, sep="\t",
     msgs_df = pandas.DataFrame(validation_msgs)
     if msgs_df.empty:
         if not suppress_empty_fails:
-            Path(msgs_df).touch()
+            Path(out_fp).touch()
         # else, just do nothing
     else:
         msgs_df.to_csv(out_fp, sep=sep, index=False)
@@ -122,3 +102,70 @@ def _remove_keys_from_dict_in_list(input_list, keys_to_remove):
         else:
             output_list.append(curr_val)
     return output_list
+
+
+def _cast_field_to_type(raw_field_val, allowed_pandas_types):
+    typed_field_val = None
+    for curr_type in allowed_pandas_types:
+        # noinspection PyBroadException
+        try:
+            typed_field_val = curr_type(raw_field_val)
+            break
+        except Exception:  # noqa: E722
+            pass
+    # next allowed type
+
+    if typed_field_val is None:
+        raise ValueError(
+            f"Unable to cast '{raw_field_val}' to any of the allowed "
+            f"types: {allowed_pandas_types}")
+
+    return typed_field_val
+
+
+def _get_allowed_pandas_types(field_name, field_definition):
+    cerberus_to_python_types = {
+        "string": str,
+        "integer": int,
+        "float": float,
+        "number": float,
+        "bool": bool,
+        "datetime": datetime.date}
+
+    allowed_cerberus_types = []
+    if _TYPE_KEY in field_definition:
+        allowed_cerberus_types.append(field_definition.get(_TYPE_KEY))
+    elif _ANYOF_KEY in field_definition:
+        for curr_allowed_type_entry in field_definition[_ANYOF_KEY]:
+            allowed_cerberus_types.append(
+                curr_allowed_type_entry[_TYPE_KEY])
+        # next anyof entry
+    else:
+        raise ValueError(
+            f"Unable to find type definition for field '{field_name}'")
+    # if type or anyof key in definition
+
+    allowed_pandas_types = \
+        [cerberus_to_python_types[x] for x in allowed_cerberus_types]
+    return allowed_pandas_types
+
+
+def _generate_validation_msg(typed_metadata_df, config):
+    v = QiimpValidator()
+    v.allow_unknown = True
+
+    validation_msgs = []
+    raw_metadata_dict = typed_metadata_df.to_dict(orient="records")
+    for curr_idx, curr_row in enumerate(raw_metadata_dict):
+        if not v.validate(curr_row, config):
+            curr_sample_name = curr_row[SAMPLE_NAME_KEY]
+            for curr_field_name, curr_err_msg in v.errors.items():
+                validation_msgs.append({
+                    SAMPLE_NAME_KEY: curr_sample_name,
+                    "field_name": curr_field_name,
+                    "error_message": curr_err_msg})
+            # next error for curr row
+        # endif row is not valid
+    # next row
+
+    return validation_msgs

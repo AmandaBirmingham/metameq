@@ -347,7 +347,7 @@ def _construct_sample_type_metadata_dict(
         sample_type_for_metadata = sample_type_alias
         sample_type_specific_dict = \
             host_sample_types_dict[sample_type_alias]
-        if not METADATA_FIELDS_KEY in sample_type_specific_dict:
+        if METADATA_FIELDS_KEY not in sample_type_specific_dict:
             raise ValueError(f"May not chain aliases "
                              f"('{sample_type}' to '{sample_type}')")
     # endif sample type is an alias
@@ -362,7 +362,7 @@ def _construct_sample_type_metadata_dict(
             raise ValueError(f"Base sample type '{sample_type_base}' "
                              f"must only have metadata fields")
         sample_type_specific_dict_metadata = update_wip_metadata_dict(
-            sample_type_specific_dict[METADATA_FIELDS_KEY],
+            sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}),
             base_sample_dict[METADATA_FIELDS_KEY])
         sample_type_specific_dict[METADATA_FIELDS_KEY] = \
             sample_type_specific_dict_metadata
@@ -442,11 +442,3 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
 
     out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.{extension}")
     output_df.to_csv(out_fp, sep=sep, index=False)
-
-
-if __name__ == '__main__':
-    write_extended_metadata(
-        "/Users/abirmingham/Desktop/extended_abtx_metadata_w_faked_host_height_not_applicable.csv",
-        "/Users/abirmingham/Work/Repositories/custom_abtx_metadata_generator/config.yml",
-        "/Users/abirmingham/Desktop",
-        "test_qiimp2_cli2")

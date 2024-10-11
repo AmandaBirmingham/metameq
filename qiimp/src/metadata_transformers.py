@@ -1,8 +1,5 @@
 import pandas
 from dateutil import parser
-from qiimp.src.util import METADATA_TRANSFORMERS_KEY, \
-    SOURCES_KEY, FUNCTION_KEY, \
-    update_metadata_df_field
 
 
 # individual transformer functions

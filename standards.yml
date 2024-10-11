@@ -621,8 +621,6 @@ host_type_specific_metadata:
                                   - 1729361
                                 default: 1729361
                                 type: integer
-                          stool:
-                            alias: feces
                           # TODO: is this the correct level to introduce feces?
                           feces:
                             metadata_fields:
