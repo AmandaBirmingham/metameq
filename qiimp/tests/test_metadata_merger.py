@@ -1,7 +1,7 @@
 import numpy as np
 import pandas
 from pandas.testing import assert_frame_equal
-from os.path import dirname, join
+from os.path import dirname
 from unittest import TestCase
 from qiimp.src.metadata_merger import _check_for_nans, \
     _check_for_duplicate_field_vals, _validate_merge, \
@@ -10,9 +10,6 @@ from qiimp.src.metadata_merger import _check_for_nans, \
 
 
 class TestMetadataMerger(TestCase):
-    # get the parent directory of the current file
-    TEST_DIR = dirname(__file__)
-
     def test__check_for_nans_wo_nans(self):
         # test case 1: no nans in selected column
         df = pandas.DataFrame({
