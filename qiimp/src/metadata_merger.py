@@ -1,18 +1,19 @@
 import pandas
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Tuple
 from qiimp.src.util import validate_required_columns_exist
 
 
 def merge_sample_and_subject_metadata(
         sample_metadata_df: pandas.DataFrame,
         subject_metadata_df: pandas.DataFrame,
-        merge_col_sample: str, merge_col_subject: Optional[str] = None) -> \
+        merge_col_sample: str, merge_col_subject: Optional[str] = None,
+        join_type: Literal["left", "right", "inner", "outer"] = "left") -> \
         pandas.DataFrame:
 
     result = merge_many_to_one_metadata(
         sample_metadata_df, subject_metadata_df,
         merge_col_sample, merge_col_subject,
-        "sample", "subject")
+        "sample", "subject", join_type=join_type)
 
     return result
 
@@ -20,7 +21,8 @@ def merge_sample_and_subject_metadata(
 def merge_many_to_one_metadata(
         many_metadata_df: pandas.DataFrame, one_metadata_df: pandas.DataFrame,
         merge_col_many: str, merge_col_one: Optional[str] = None,
-        set_name_many: str = "many-set", set_name_one: str = "one-set") -> \
+        set_name_many: str = "many-set", set_name_one: str = "one-set",
+        join_type: Literal["left", "right", "inner", "outer"] = "left") -> \
         pandas.DataFrame:
 
     merge_col_one = merge_col_many if merge_col_one is None else merge_col_one
@@ -33,7 +35,7 @@ def merge_many_to_one_metadata(
 
     # merge the sample and host dfs on the selected columns
     merge_df = pandas.merge(many_metadata_df, one_metadata_df,
-                            how="left", validate="many_to_one",
+                            how=join_type, validate="many_to_one",
                             left_on=merge_col_many,
                             right_on=merge_col_one)
 
@@ -61,6 +63,28 @@ def merge_one_to_one_metadata(
                             right_on=merge_col_right)
 
     return merge_df
+
+
+def find_common_df_cols(left_df: pandas.DataFrame,
+                        right_df: pandas.DataFrame) -> List[str]:
+    left_non_merge_cols = set(left_df.columns)
+    right_non_merge_cols = set(right_df.columns)
+    common_cols = left_non_merge_cols.intersection(right_non_merge_cols)
+    return list(common_cols)
+
+
+def find_common_col_names(left_cols, right_cols,
+                          left_exclude_list: List[str] = None,
+                          right_exclude_list: List[str] = None) -> List[str]:
+    if left_exclude_list is None:
+        left_exclude_list = []
+    if right_exclude_list is None:
+        right_exclude_list = []
+
+    left_non_merge_cols = set(left_cols) - set(left_exclude_list)
+    right_non_merge_cols = set(right_cols) - set(right_exclude_list)
+    common_cols = left_non_merge_cols.intersection(right_non_merge_cols)
+    return list(common_cols)
 
 
 def _validate_merge(
@@ -91,6 +115,14 @@ def _validate_merge(
     if check_right_for_dups:
         error_msgs.extend(_check_for_duplicate_field_vals(
             right_df, set_name_right, right_on))
+
+    # check for non-merge columns with the same name in both dataframes
+    common_cols = find_common_col_names(
+        left_df.columns, right_df.columns, [left_on], [right_on])
+    if common_cols:
+        error_msgs.append(
+            f"Both {set_name_left} and {set_name_right} metadata have "
+            f"non-merge columns with the following names: {common_cols}")
 
     if error_msgs:
         joined_msgs = "\n".join(error_msgs)

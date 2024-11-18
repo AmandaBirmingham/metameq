@@ -2,13 +2,16 @@ import cerberus
 import copy
 from datetime import datetime
 from dateutil import parser
+import logging
 import os
-import pandas
 from pathlib import Path
 from qiimp.src.util import SAMPLE_NAME_KEY, get_extension
 
 _TYPE_KEY = "type"
 _ANYOF_KEY = "anyof"
+
+# Define a logger for this module
+logger = logging.getLogger(__name__)
 
 
 class QiimpValidator(cerberus.Validator):
@@ -34,8 +37,8 @@ def validate_metadata_df(metadata_df, sample_type_full_metadata_fields_dict):
             sample_type_full_metadata_fields_dict.items():
 
         if curr_field not in typed_metadata_df.columns:
-            # TODO: decide whether to make this a warning or take out
-            print(f"Field {curr_field} not in metadata file")
+            logging.info(
+                f"Standard field {curr_field} not in metadata file")
             continue
 
         curr_allowed_types = _get_allowed_pandas_types(
@@ -48,19 +51,19 @@ def validate_metadata_df(metadata_df, sample_type_full_metadata_fields_dict):
     return validation_msgs
 
 
-def output_validation_msgs(validation_msgs, out_dir, out_base, sep="\t",
+def output_validation_msgs(validation_msgs_df, out_dir, out_base, sep="\t",
                            suppress_empty_fails=False):
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     extension = get_extension(sep)
     out_fp = os.path.join(
         out_dir, f"{timestamp_str}_{out_base}_validation_errors.{extension}")
-    msgs_df = pandas.DataFrame(validation_msgs)
-    if msgs_df.empty:
+
+    if validation_msgs_df.empty:
         if not suppress_empty_fails:
             Path(out_fp).touch()
         # else, just do nothing
     else:
-        msgs_df.to_csv(out_fp, sep=sep, index=False)
+        validation_msgs_df.to_csv(out_fp, sep=sep, index=False)
 
 
 def _make_cerberus_schema(sample_type_metadata_dict):

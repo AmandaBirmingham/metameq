@@ -26,6 +26,7 @@ host_type_specific_metadata:
         type: string
     host_type_specific_metadata:
       ebi_submittable:
+        "default": "not provided"
         metadata_fields:
           anonymized_name:
             empty: true
@@ -162,13 +163,6 @@ host_type_specific_metadata:
             empty: false
             field_desc: The geographical origin of the sample as defined by the country or location
               as chosen from the GAZ ontology, e.g. USA:CA:San Diego .
-            is_phi: false
-            required: true
-            type: string
-          host_subject_id:
-            empty: false
-            field_desc: A label that applies to all samples belonging to one subject or one
-              sample
             is_phi: false
             required: true
             type: string
@@ -311,6 +305,13 @@ host_type_specific_metadata:
               host_scientific_name:
                 empty: false
                 field_desc: host scientific name e.g. Homo sapiens
+                is_phi: false
+                required: true
+                type: string
+              host_subject_id:
+                empty: false
+                field_desc: A label that applies to all samples belonging to one subject or one
+                  sample
                 is_phi: false
                 required: true
                 type: string
@@ -785,6 +786,223 @@ host_type_specific_metadata:
                                 is_phi: false
                                 required: false
                             sample_type_specific_metadata:
+                              antecubital crease:
+                                alias: "antecubital fossa"
+                              antecubital fossa:
+                                # TODO: this is a duplicate of "skin of elbow"
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:elbow
+                                    default: UBERON:elbow
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of arm"
+                                    default: "skin of arm"
+                                    type: string
+                              axilla skin:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:axilla
+                                    default: UBERON:axilla
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "axilla skin"
+                                    default: "axilla skin"
+                                    type: string
+                              back:
+                                alias: "skin of back"
+                              buccal mucosa:
+                                base_type: "saliva"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:buccal mucosa
+                                    default: UBERON:buccal mucosa
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "buccal mucosa"
+                                    default: "buccal mucosa"
+                                    type: string
+                              cheek:
+                                alias: "skin of cheek"
+                              # TODO: why is this a different item than (rather than an alias of) "skin of elbow"?
+                              elbow skin:
+                                alias: "skin of elbow"
+                              external auditory canal:
+                                alias: "skin of external ear canal"
+                              face:
+                                alias: "skin of face"
+                              feces:
+                                metadata_fields:
+                                  env_package:
+                                    allowed:
+                                      - human-gut
+                                    default: human-gut
+                                    type: string
+                                  scientific_name:
+                                    allowed:
+                                      - human gut metagenome
+                                    default: human gut metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 408170
+                                    default: 408170
+                                    type: integer
+                              forehead:
+                                alias: "skin of forehead"
+                              glabella:
+                                alias: "glabella skin"
+                              glabella skin:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:glabella skin
+                                    default: UBERON:glabella skin
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of forehead"
+                                    default: "skin of forehead"
+                                    type: string
+                              heel skin:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:heel
+                                    default: UBERON:heel
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of foot"
+                                    default: "skin of foot"
+                                    type: string
+                              hypothenar palm:
+                                alias: "skin of palm of manus"
+                              inguinal crease:
+                                alias: "skin of inguinal fold"
+                              interdigit web:
+                                alias: "manual digit skin"
+                              manual digit skin:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:manual digit
+                                    default: UBERON:manual digit
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of hand"
+                                    default: "skin of hand"
+                                    type: string
+                              manubrium:
+                                alias: "skin of manubrium of sternum"
+                              nail of pedal digit:
+                                base_type: "skin"
+                                metadata_fields:
+                                  env_material:
+                                    allowed:
+                                      - organic material
+                                    default: organic material
+                                    type: string
+                                  env_package:
+                                    allowed:
+                                      - human-associated
+                                    default: human-associated
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:pedal digit
+                                    default: UBERON:pedal digit
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:nail
+                                    default: UBERON:nail
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "nail of pedal digit"
+                                    default: "nail of pedal digit"
+                                    type: string
+                              nose:
+                                alias: "nose skin"
+                              nose skin:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - "UBERON:external nose"
+                                    default: "UBERON:external nose"
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of face"
+                                    default: "skin of face"
+                                    type: string
+                              occiput:
+                                alias: "skin of occiput"
+                              oral mucosa:
+                                alias: "buccal mucosa"
+                              palm:
+                                alias: "skin of palm of manus"
+                              plantar heel:
+                                alias: "heel skin"
+                              pedal digit skin:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:pedal digit skin
+                                    default: UBERON:pedal digit skin
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of foot"
+                                    default: "skin of foot"
+                                    type: string
+                              popliteal area:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:popliteal area
+                                    default: UBERON:popliteal area
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of knee"
+                                    default: "skin of knee"
+                                    type: string
+                              popliteal crease:
+                                alias: "popliteal area"
+                              popliteal fossa:
+                                alias: "popliteal area"
+                              retroauricular crease:
+                                alias: "retroauricular region"
+                              retroauricular region:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:retroauricular area
+                                    default: UBERON:retroauricular area
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of external ear"
+                                    default: "skin of external ear"
+                                    type: string
                               saliva:
                                 metadata_fields:
                                   env_package:
@@ -802,6 +1020,8 @@ host_type_specific_metadata:
                                       - 447426
                                     default: 447426
                                     type: integer
+                              scalp:
+                                alias: "skin of scalp"
                               skin:
                                 metadata_fields:
                                   env_package:
@@ -819,6 +1039,19 @@ host_type_specific_metadata:
                                       - 539655
                                     default: 539655
                                     type: integer
+                              skin of back:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - "UBERON:skin of back"
+                                    default: "UBERON:skin of back"
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of trunk"
+                                    default: "skin of trunk"
+                                    type: string
                               skin of breast:
                                 base_type: "skin"
                                 metadata_fields:
@@ -832,9 +1065,91 @@ host_type_specific_metadata:
                                       - "skin"
                                     default: "skin"
                                     type: string
+                              skin of cheek:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:cheek
+                                    default: UBERON:cheek
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of head"
+                                    default: "skin of head"
+                                    type: string
+                              skin of elbow:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:elbow
+                                    default: UBERON:elbow
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of arm"
+                                    default: "skin of arm"
+                                    type: string
+                              skin of external ear:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:ear
+                                    default: UBERON:ear
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of external ear"
+                                    default: "skin of external ear"
+                                    type: string
+                              skin of external ear canal:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:external acoustic meatus
+                                    default: UBERON:external acoustic meatus
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of external ear"
+                                    default: "skin of external ear"
+                                    type: string
+                              skin of face:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:face
+                                    default: UBERON:face
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of face"
+                                    default: "skin of face"
+                                    type: string
+                              skin of forearm:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:skin of forearm
+                                    default: UBERON:skin of forearm
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of arm"
+                                    default: "skin of arm"
+                                    type: string
+                              # TODO: for ABTX, the qiita_sample_type for skin of forehead is "skin",
+                              #  but for TRPCA it is given as "skin of forehead"; why?
                               skin of forehead:
                                 base_type: "skin"
                                 metadata_fields:
+                                  # TODO: for ABTX, the host_body_site for skin of forehead is "UBERON:skin of forehead",
+                                  #  but for TRPCA it is given as "UBERON:forehead"; why?
                                   host_body_site:
                                     allowed:
                                       - UBERON:skin of forehead
@@ -858,49 +1173,120 @@ host_type_specific_metadata:
                                       - "skin"
                                     default: "skin"
                                     type: string
-                              skin of left hand:
+                              skin of inguinal fold:
                                 base_type: "skin"
                                 metadata_fields:
                                   host_body_site:
                                     allowed:
-                                      - UBERON:skin of hand
-                                    default: UBERON:skin of hand
+                                      - UBERON:inguinal fold
+                                    default: UBERON:inguinal fold
                                     type: string
                                   qiita_sample_type:
                                     allowed:
-                                      - "skin"
-                                    default: "skin"
+                                      - "inguinal skin region"
+                                    default: "inguinal skin region"
                                     type: string
-                              skin of right hand:
+                              skin of manubrium of sternum:
                                 base_type: "skin"
                                 metadata_fields:
                                   host_body_site:
                                     allowed:
-                                      - UBERON:skin of hand
-                                    default: UBERON:skin of hand
+                                      - UBERON:manubrium of sternum
+                                    default: UBERON:manubrium of sternum
                                     type: string
                                   qiita_sample_type:
                                     allowed:
-                                      - "skin"
-                                    default: "skin"
+                                      - "skin of chest"
+                                    default: "skin of chest"
                                     type: string
-                              feces:
+                              skin of occiput:
+                                base_type: "skin"
                                 metadata_fields:
-                                  env_package:
+                                  host_body_site:
                                     allowed:
-                                      - human-gut
-                                    default: human-gut
+                                      - UBERON:surface of occiput
+                                    default: UBERON:surface of occiput
                                     type: string
-                                  scientific_name:
+                                  qiita_sample_type:
                                     allowed:
-                                      - human gut metagenome
-                                    default: human gut metagenome
+                                      - "skin of head"
+                                    default: "skin of head"
                                     type: string
-                                  taxon_id:
+                              skin of palm of hypothenar manus:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
                                     allowed:
-                                      - 408170
-                                    default: 408170
-                                    type: integer
+                                      - UBERON:hypothenar eminence
+                                    default: UBERON:hypothenar eminence
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of hand"
+                                    default: "skin of hand"
+                                    type: string
+                              skin of palm of manus :
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:palmar part of manus
+                                    default: UBERON:palmar part of manus
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of hand"
+                                    default: "skin of hand"
+                                    type: string
+                              skin of scalp:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:scalp
+                                    default: UBERON:scalp
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of head"
+                                    default: "skin of head"
+                                    type: string
+                              skin of umbilical area:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:umbilicus
+                                    default: UBERON:umbilicus
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of trunk"
+                                    default: "skin of trunk"
+                                    type: string
+                              thigh:
+                                alias: "upper leg skin"
+                              toe web space:
+                                alias: "pedal digit skin"
+                              toenail:
+                                alias: "nail of pedal digit"
+                              umbilicus:
+                                alias: "skin of umbilical area"
+                              upper leg skin:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:upper leg skin
+                                    default: UBERON:upper leg skin
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - "skin of leg"
+                                    default: "skin of leg"
+                                    type: string
+                              volar forearm:
+                                alias: "skin of forearm"
                           mouse:
                             metadata_fields:
                               env_biome:
@@ -1071,8 +1457,63 @@ host_type_specific_metadata:
                               - Surface (non-saline)
                             default: Surface (non-saline)
                             type: string
+                        host_type_specific_metadata:
+                          control surface:
+                            metadata_fields:
+                              env_biome:
+                                allowed:
+                                  - urban biome
+                                default: urban biome
+                                type: string
+                              env_feature:
+                                allowed:
+                                  - research facility
+                                default: research facility
+                                type: string
+                              env_material:
+                                allowed:
+                                  - anthropogenic environmental material
+                                default: anthropogenic environmental material
+                                type: string
+                              env_package:
+                                allowed:
+                                  - misc environment
+                                default: misc environment
+                                type: string
+                              scientific_name:
+                                allowed:
+                                  - indoor metagenome
+                                default: indoor metagenome
+                                type: string
+                              taxon_id:
+                                allowed:
+                                  - 1256227
+                                default: 1256227
+                                type: integer
+                            sample_type_specific_metadata:
+                              control surface:
+                                metadata_fields:
+                                  qiita_sample_type:
+                                    allowed:
+                                      - control surface
+                                    default: control surface
+                                    type: string
+                              control glove:
+                                metadata_fields:
+                                  qiita_sample_type:
+                                    allowed:
+                                      - control glove
+                                    default: control glove
+                                    type: string
+                              control swab:
+                                metadata_fields:
+                                  qiita_sample_type:
+                                    allowed:
+                                      - control swab
+                                    default: control swab
+                                    type: string
           control:
-            default: "not applicable"
+            #default: "not applicable"
             metadata_fields:
               empo_1:
                 allowed:
@@ -1100,6 +1541,7 @@ host_type_specific_metadata:
                 default: 256318
                 type: integer
             host_type_specific_metadata:
+              # NB: control surfaces are actually under free-living!
               sterile_water_blank:
                 metadata_fields:
                   empo_2:

@@ -1,8 +1,11 @@
+import logging
 import numpy as np
 import os
 import pandas
 from pathlib import Path
 from datetime import datetime
+from typing import List
+import yaml
 from qiimp.src.util import extract_config_dict, extract_stds_config, \
     deepcopy_dict, validate_required_columns_exist, get_extension, \
     load_df_with_best_fit_encoding, update_metadata_df_field, \
@@ -11,28 +14,15 @@ from qiimp.src.util import extract_config_dict, extract_stds_config, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, \
     DEFAULT_KEY, REQUIRED_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
     LEAVE_BLANK_VAL, SAMPLE_NAME_KEY, \
-    ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY, \
-    PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY
+    ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY, OVERWRITE_NON_NANS_KEY, \
+    METADATA_TRANSFORMERS_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
+    SOURCES_KEY, FUNCTION_KEY, REQUIRED_RAW_METADATA_FIELDS
 from qiimp.src.metadata_configurator import combine_stds_and_study_config, \
     flatten_nested_stds_dict, update_wip_metadata_dict
 from qiimp.src.metadata_validator import validate_metadata_df, \
     output_validation_msgs
 import qiimp.src.metadata_transformers as transformers
 
-# Load in the config file
-# Load in the user-supplied metadata file into a pandas dataframe
-# For each host type:
-#  Filter the metadata file to only include samples from that host type
-#  Find the host type in the config dictionary and copy it
-#  For each sample type:
-#    Filter the host metadata file to only include samples from that sample type
-#    Find the sample type in the host config dictionary and copy it
-#    Set the metadata for each sample to be the metadata for the host-sample-type dict
-
-
-REQUIRED_RAW_METADATA_FIELDS = [SAMPLE_NAME_KEY,
-                                HOSTTYPE_SHORTHAND_KEY,
-                                SAMPLETYPE_SHORTHAND_KEY]
 
 # columns added to the metadata that are not actually part of it
 INTERNAL_COL_KEYS = [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY,
@@ -40,8 +30,136 @@ INTERNAL_COL_KEYS = [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY,
 
 REQ_PLACEHOLDER = "_QIIMP2_REQUIRED"
 
+# Define a logger for this module
+logger = logging.getLogger(__name__)
 
 pandas.set_option("future.no_silent_downcasting", True)
+
+# TODO: find a way to inform user that they *MAY NOT* have a 'sample_id' column
+#  (Per Antonio 10/28/24, this is a reserved name for Qiita and may not be
+#  in the metadata).
+
+def get_reserved_cols(raw_metadata_df, study_specific_config_dict,
+                      study_specific_transformers_dict=None):
+    validate_required_columns_exist(
+        raw_metadata_df, [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY],
+        "metadata missing required columns")
+
+    # get unique HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY combinations
+    temp_df = raw_metadata_df[
+        [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY]].copy()
+    temp_df.drop_duplicates(inplace=True)
+
+    # add a SAMPLE_NAME_KEY column to the df that holds sequential integers
+    temp_df[SAMPLE_NAME_KEY] = range(1, len(temp_df) + 1)
+
+    temp_df = _catch_nan_required_fields(temp_df)
+
+    # extend the metadata_df
+    metadata_df, _ = _extend_metadata_df(
+        temp_df, study_specific_config_dict,
+        study_specific_transformers_dict)
+
+    return sorted(metadata_df.columns.to_list())
+
+
+def id_missing_cols(a_df: pandas.DataFrame) -> List[str]:
+    # if any of the required columns are missing, return the names of those
+    # columns
+    missing_cols = set(REQUIRED_RAW_METADATA_FIELDS) - set(a_df.columns)
+    return list(missing_cols)
+
+
+def find_standard_cols(
+        a_df: pandas.DataFrame, study_specific_config_dict: dict,
+        study_specific_transformers_dict: dict = None,
+        suppress_missing_name_err=False) -> List[str]:
+
+    err_msg = "metadata missing required columns"
+    if suppress_missing_name_err:
+        # get a copy of the required columns list and remove the sample name
+        required_cols = REQUIRED_RAW_METADATA_FIELDS.copy()
+        required_cols.remove(SAMPLE_NAME_KEY)
+        validate_required_columns_exist(a_df, required_cols, err_msg)
+    else:
+        validate_required_columns_exist(
+            a_df, REQUIRED_RAW_METADATA_FIELDS, err_msg)
+
+    # get the intersection of the standard columns and the columns in the
+    # input dataframe
+    standard_cols = get_reserved_cols(
+        a_df, study_specific_config_dict,
+        study_specific_transformers_dict=study_specific_transformers_dict)
+
+    standard_cols_set = (set(standard_cols) - set(INTERNAL_COL_KEYS))
+
+    return list(standard_cols_set & set(a_df.columns))
+
+
+def find_nonstandard_cols(
+        a_df: pandas.DataFrame, study_specific_config_dict: dict,
+        study_specific_transformers_dict: dict = None) -> List[str]:
+
+    validate_required_columns_exist(a_df, REQUIRED_RAW_METADATA_FIELDS,
+                                    "metadata missing required columns")
+
+    # get the columns in
+    standard_cols = get_reserved_cols(
+        a_df, study_specific_config_dict,
+        study_specific_transformers_dict=study_specific_transformers_dict)
+
+    return list(set(a_df.columns) - set(standard_cols))
+
+
+def get_extended_metadata_from_df_and_yaml(
+        raw_metadata_df, study_specific_config_fp):
+
+    study_specific_config_dict = \
+        _get_study_specific_config(study_specific_config_fp)
+
+    metadata_df, validation_msgs_df = \
+        _extend_metadata_df(raw_metadata_df, study_specific_config_dict)
+
+    return metadata_df, validation_msgs_df
+
+
+def get_qc_failures(a_df):
+    fails_qc_mask = a_df[QC_NOTE_KEY] != ""
+    qc_fails_df = \
+        a_df.loc[fails_qc_mask, :].copy()
+    return qc_fails_df
+
+
+def write_metadata_results(
+        metadata_df, validation_msgs_df, out_dir, out_name_base,
+        sep="\t", remove_internals=True, suppress_empty_fails=False,
+        internal_col_names=None):
+
+    if internal_col_names is None:
+        internal_col_names = INTERNAL_COL_KEYS
+
+    _output_to_df(metadata_df, out_dir, out_name_base,
+                  internal_col_names,
+                  remove_internals_and_fails=remove_internals, sep=sep,
+                  suppress_empty_fails=suppress_empty_fails)
+    output_validation_msgs(validation_msgs_df, out_dir, out_name_base, sep=",",
+                           suppress_empty_fails=suppress_empty_fails)
+
+
+def write_extended_metadata_from_df(
+        raw_metadata_df, study_specific_config_dict, out_dir, out_name_base,
+        study_specific_transformers_dict=None, sep="\t",
+        suppress_empty_fails=False, internal_col_names=None):
+
+    metadata_df, validation_msgs_df = _extend_metadata_df(
+        raw_metadata_df, study_specific_config_dict,
+        study_specific_transformers_dict)
+
+    write_metadata_results(
+        metadata_df, validation_msgs_df, out_dir, out_name_base,
+        sep, suppress_empty_fails, internal_col_names)
+
+    return metadata_df
 
 
 def write_extended_metadata(
@@ -62,26 +180,29 @@ def write_extended_metadata(
         raise ValueError("Unrecognized input file extension; "
                          "must be .csv, .txt, or .xlsx")
 
+    study_specific_config_dict = \
+        _get_study_specific_config(study_specific_config_fp)
+
+    extended_df = write_extended_metadata_from_df(
+        raw_metadata_df, study_specific_config_dict,
+        out_dir, out_name_base, sep=sep,
+        suppress_empty_fails=suppress_empty_fails)
+
+    return extended_df
+
+
+def _get_study_specific_config(study_specific_config_fp):
     if study_specific_config_fp:
         study_specific_config_dict = \
             extract_config_dict(study_specific_config_fp)
     else:
         study_specific_config_dict = None
 
-    return write_extended_metadata_from_df(
-        raw_metadata_df, study_specific_config_dict,
-        out_dir, out_name_base, sep=sep,
-        suppress_empty_fails=suppress_empty_fails)
+    return study_specific_config_dict
 
 
-def write_extended_metadata_from_df(
-        raw_metadata_df, study_specific_config_dict, out_dir, out_name_base,
-        study_specific_transformers_dict=None, sep="\t",
-        suppress_empty_fails=False, internal_col_names=None):
-
-    if internal_col_names is None:
-        internal_col_names = INTERNAL_COL_KEYS
-
+def _extend_metadata_df(raw_metadata_df, study_specific_config_dict,
+                        study_specific_transformers_dict=None):
     validate_required_columns_exist(
         raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
         "metadata missing required columns")
@@ -89,7 +210,9 @@ def write_extended_metadata_from_df(
     software_config = extract_config_dict(None)
 
     if study_specific_config_dict:
-        study_specific_config_dict.update(software_config)
+        # overwrite default settings in software config with study-specific
+        study_specific_config_dict = \
+            software_config | study_specific_config_dict
         nested_stds_plus_dict = combine_stds_and_study_config(
             study_specific_config_dict)
     else:
@@ -101,22 +224,19 @@ def write_extended_metadata_from_df(
     study_specific_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
         flattened_hosts_dict
 
-    metadata_df, validation_msgs = _populate_metadata_df(
+    metadata_df, validation_msgs_df = _populate_metadata_df(
         raw_metadata_df, study_specific_transformers_dict,
         study_specific_config_dict)
 
-    _output_to_df(metadata_df, out_dir, out_name_base,
-                  internal_col_names, remove_internals=True, sep=sep,
-                  suppress_empty_fails=suppress_empty_fails)
-    output_validation_msgs(validation_msgs, out_dir, out_name_base, sep=",",
-                           suppress_empty_fails=suppress_empty_fails)
-    return metadata_df
+    return metadata_df, validation_msgs_df
 
 
 def _populate_metadata_df(
         raw_metadata_df, transformer_funcs_dict, main_config_dict):
     metadata_df = raw_metadata_df.copy()
     update_metadata_df_field(metadata_df, QC_NOTE_KEY, LEAVE_BLANK_VAL)
+
+    metadata_df = _catch_nan_required_fields(metadata_df)
 
     metadata_df = _transform_metadata(
         metadata_df, transformer_funcs_dict, main_config_dict,
@@ -130,7 +250,29 @@ def _populate_metadata_df(
         metadata_df, transformer_funcs_dict, main_config_dict,
         POST_TRANSFORMERS_KEY)
 
-    return metadata_df, validation_msgs
+    metadata_df = _reorder_df(metadata_df, INTERNAL_COL_KEYS)
+    validation_msgs_df  = pandas.DataFrame(validation_msgs)
+
+    return metadata_df, validation_msgs_df
+
+
+def _catch_nan_required_fields(metadata_df):
+    # if there are any sample_name fields that are NaN, raise an error
+    nan_sample_name_mask = metadata_df[SAMPLE_NAME_KEY].isna()
+    if nan_sample_name_mask.any():
+        raise ValueError(
+            f"Metadata contains NaN sample names")
+
+    # if there are any hosttype_shorthand or sampletype_shorthand fields
+    # that are NaN, set them to "empty" and raise a warning
+    for curr_key in [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY]:
+        nan_mask = metadata_df[curr_key].isna()
+        if nan_mask.any():
+            metadata_df.loc[nan_mask, curr_key] = "empty"
+            logging.warning(f"Metadata contains NaN {curr_key}s; "
+                            f"these have been set to 'empty'")
+
+    return metadata_df
 
 
 # transformer runner function
@@ -139,17 +281,15 @@ def _transform_metadata(
     if transformer_funcs_dict is None:
         transformer_funcs_dict = {}
 
-    metadata_transformers = config_dict.get(
-        transformers.METADATA_TRANSFORMERS_KEY, None)
+    overwrite_non_nans = config_dict.get(OVERWRITE_NON_NANS_KEY, False)
+    metadata_transformers = config_dict.get(METADATA_TRANSFORMERS_KEY, None)
     if metadata_transformers:
         stage_transformers = metadata_transformers.get(stage_key, None)
         if stage_transformers:
             for curr_target_field, curr_transformer_dict in \
                     stage_transformers.items():
-                curr_source_field = curr_transformer_dict[
-                    transformers.SOURCES_KEY]
-                curr_func_name = curr_transformer_dict[
-                    transformers.FUNCTION_KEY]
+                curr_source_field = curr_transformer_dict[SOURCES_KEY]
+                curr_func_name = curr_transformer_dict[FUNCTION_KEY]
 
                 try:
                     curr_func = transformer_funcs_dict[curr_func_name]
@@ -167,7 +307,7 @@ def _transform_metadata(
                 # metadata_df named curr_source_field to fill curr_target_field
                 update_metadata_df_field(metadata_df, curr_target_field,
                                          curr_func, curr_source_field,
-                                         overwrite_non_nans=False)
+                                         overwrite_non_nans=overwrite_non_nans)
             # next stage transformer
         # end if there are stage transformers for this stage
     # end if there are any metadata transformers
@@ -180,7 +320,9 @@ def _generate_metadata_for_host_types(
     # gather global settings
     settings_dict = {DEFAULT_KEY: config.get(DEFAULT_KEY),
                      LEAVE_REQUIREDS_BLANK_KEY:
-                         config.get(LEAVE_REQUIREDS_BLANK_KEY)}
+                         config.get(LEAVE_REQUIREDS_BLANK_KEY),
+                     OVERWRITE_NON_NANS_KEY:
+                         config.get(OVERWRITE_NON_NANS_KEY)}
 
     validation_msgs = []
     host_type_dfs = []
@@ -253,7 +395,8 @@ def _generate_metadata_for_host_type(
 
 
 def _update_metadata_from_config_dict(
-        metadata_df, config_section_dict, dict_is_metadata_fields=False):
+        metadata_df, config_section_dict, dict_is_metadata_fields=False,
+        overwrite_non_nans=False):
 
     if not dict_is_metadata_fields:
         metadata_fields_dict = config_section_dict.get(METADATA_FIELDS_KEY)
@@ -262,24 +405,27 @@ def _update_metadata_from_config_dict(
 
     if metadata_fields_dict:
         metadata_df = _update_metadata_from_dict(
-            metadata_df, metadata_fields_dict)
+            metadata_df, metadata_fields_dict,
+            overwrite_non_nans=overwrite_non_nans )
     return metadata_df
 
 
-def _update_metadata_from_dict(metadata_df, metadata_fields_dict):
+def _update_metadata_from_dict(
+        metadata_df, metadata_fields_dict, overwrite_non_nans):
     output_df = metadata_df.copy()
     for curr_field_name, curr_field_vals_dict in metadata_fields_dict.items():
         if DEFAULT_KEY in curr_field_vals_dict:
             curr_default_val = curr_field_vals_dict[DEFAULT_KEY]
             update_metadata_df_field(
                 output_df, curr_field_name, curr_default_val,
-                overwrite_non_nans=False)
+                overwrite_non_nans=overwrite_non_nans)
             # output_df[curr_field_name] = curr_default_val
         elif REQUIRED_KEY in curr_field_vals_dict:
             curr_required_val = curr_field_vals_dict[REQUIRED_KEY]
             if curr_required_val and curr_field_name not in output_df:
                 update_metadata_df_field(
-                    output_df, curr_field_name, REQ_PLACEHOLDER)
+                    output_df, curr_field_name, REQ_PLACEHOLDER,
+                    overwrite_non_nans=overwrite_non_nans)
             # note that if the field is (a) required, (b) does not have a
             # default value, and (c) IS already in the metadata, it will
             # be left alone, with no changes made to it!
@@ -312,7 +458,8 @@ def _generate_metadata_for_sample_type_in_host(
                 sample_type, host_sample_types_dict, wip_metadata_dict)
 
         sample_type_df = _update_metadata_from_config_dict(
-            sample_type_df, wip_metadata_dict, True)
+            sample_type_df, wip_metadata_dict, True,
+            curr_settings_dict[OVERWRITE_NON_NANS_KEY])
 
         # for fields that are required but not yet filled, either leave blank
         # or fill with NA (later replaced with default) based on config setting
@@ -349,7 +496,7 @@ def _construct_sample_type_metadata_dict(
             host_sample_types_dict[sample_type_alias]
         if METADATA_FIELDS_KEY not in sample_type_specific_dict:
             raise ValueError(f"May not chain aliases "
-                             f"('{sample_type}' to '{sample_type}')")
+                             f"('{sample_type}' to '{sample_type_alias}')")
     # endif sample type is an alias
 
     # if the sample type has a base type
@@ -402,22 +549,18 @@ def _fill_na_if_default(metadata_df, specific_dict, settings_dict):
     return metadata_df
 
 
-def _output_to_df(a_df, out_dir, out_base, internal_col_names,
-                  sep="\t", remove_internals=False,
+def _output_to_df(a_df, out_dir, out_base, internal_col_names, sep="\t",
+                  remove_internals_and_fails=False,
                   suppress_empty_fails=False):
 
     timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     extension = get_extension(sep)
 
-    # sort columns alphabetically
-    a_df = a_df.reindex(sorted(a_df.columns), axis=1)
-
-    if remove_internals:
+    if remove_internals_and_fails:
         # output a file of any qc failures; include no contents
         # (not even header line) if there are no failures--bc it is easy to
         # eyeball "zero bytes"
-        fails_qc_mask = a_df[QC_NOTE_KEY] != ""
-        qc_fails_df = a_df.loc[fails_qc_mask, internal_col_names].copy()
+        qc_fails_df = get_qc_failures(a_df)
         qc_fails_fp = os.path.join(
             out_dir, f"{timestamp_str}_{out_base}_fails.csv")
         if qc_fails_df.empty:
@@ -427,18 +570,49 @@ def _output_to_df(a_df, out_dir, out_base, internal_col_names,
         else:
             qc_fails_df.to_csv(qc_fails_fp, sep=",", index=False)
 
+        # remove the qc fails and the internal columns from the metadata
+        # TODO: I'd like to avoid repeating this mask here + in get_qc_failures
+        fails_qc_mask = a_df[QC_NOTE_KEY] != ""
+        a_df = a_df.loc[~fails_qc_mask, :].copy()
         a_df = a_df.drop(columns=internal_col_names)
-        col_names = list(a_df)
-    else:
-        # move the internal columns to the end of the list of cols to output
-        col_names = list(a_df)
-        for curr_internal_col_name in internal_col_names:
-            col_names.pop(col_names.index(curr_internal_col_name))
-            col_names.append(curr_internal_col_name)
+
+    out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.{extension}")
+    a_df.to_csv(out_fp, sep=sep, index=False)
+
+
+def _reorder_df(a_df, internal_col_names):
+    # sort columns alphabetically
+    a_df = a_df.reindex(sorted(a_df.columns), axis=1)
+
+    # move the internal columns to the end of the list of cols to output
+    col_names = list(a_df)
+    for curr_internal_col_name in internal_col_names:
+        col_names.pop(col_names.index(curr_internal_col_name))
+        col_names.append(curr_internal_col_name)
 
     # move sample name to the first column
     col_names.insert(0, col_names.pop(col_names.index(SAMPLE_NAME_KEY)))
     output_df = a_df.loc[:, col_names].copy()
+    return output_df
 
-    out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.{extension}")
-    output_df.to_csv(out_fp, sep=sep, index=False)
+
+# if __name__ == "__main__":
+#     raw_df = pandas.read_csv("~/Desktop/temp_df.csv")
+#     study_dict = extract_config_dict("/Users/abirmingham/Desktop/trpca/trpca_study.yml")
+#     x = get_reserved_cols(raw_df, study_dict)
+#
+#     # load the existing metadata file
+#     raw_metadata_fp = "/Users/abirmingham/Desktop/temp_15612.csv"
+#     raw_metadata_df = pandas.read_csv(
+#         raw_metadata_fp, sep="\t", dtype=str)
+#
+#     # load the study-specific config file
+#     study_specific_config_fp = "/Users/abirmingham/Desktop/trpca/trpca_study.yml"
+#     with open(study_specific_config_fp, 'r') as file:
+#         study_dict = yaml.load(file, Loader=yaml.FullLoader)
+#
+#     # extend the metadata
+#     out_dir = "/Users/abirmingham/Desktop/"
+#     out_name_base = "temp_merged_df_extended"
+#     write_extended_metadata(
+#         raw_metadata_fp, study_specific_config_fp, out_dir, out_name_base)

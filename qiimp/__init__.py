@@ -5,9 +5,17 @@ from qiimp.src.util import HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
     FUNCTION_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
     extract_config_dict, deepcopy_dict, load_df_with_best_fit_encoding
 from qiimp.src.metadata_extender import \
-    write_extended_metadata, write_extended_metadata_from_df
-from qiimp.src.metadata_merger import merge_sample_and_subject_metadata
-from qiimp.src.metadata_transformers import format_a_datetime
+    write_extended_metadata, write_extended_metadata_from_df, \
+    get_reserved_cols, get_extended_metadata_from_df_and_yaml, \
+    write_metadata_results, id_missing_cols, find_standard_cols, \
+    find_nonstandard_cols, get_qc_failures
+from qiimp.src.metadata_merger import merge_sample_and_subject_metadata, \
+    merge_many_to_one_metadata, merge_one_to_one_metadata, \
+    find_common_col_names, find_common_df_cols
+from qiimp.src.metadata_transformers import \
+    format_a_datetime, standardize_input_sex, set_life_stage_from_age_yrs, \
+    transform_input_sex_to_std_sex, transform_age_to_life_stage, \
+    transform_date_to_formatted_date
 
 __all__ = ["HOSTTYPE_SHORTHAND_KEY", "SAMPLETYPE_SHORTHAND_KEY",
            "SAMPLE_TYPE_KEY", "QC_NOTE_KEY", "LEAVE_BLANK_VAL",
@@ -18,10 +26,16 @@ __all__ = ["HOSTTYPE_SHORTHAND_KEY", "SAMPLETYPE_SHORTHAND_KEY",
            "POST_TRANSFORMERS_KEY",
            "extract_config_dict",
            "deepcopy_dict", "load_df_with_best_fit_encoding",
-           "merge_sample_and_subject_metadata",
-           "write_extended_metadata",
-           "write_extended_metadata_from_df",
-           "format_a_datetime"]
+           "merge_sample_and_subject_metadata", "merge_many_to_one_metadata",
+           "merge_one_to_one_metadata", "find_common_col_names",
+           "find_common_df_cols",
+           "write_extended_metadata", "get_extended_metadata_from_df_and_yaml",
+           "write_extended_metadata_from_df", "write_metadata_results",
+           "get_reserved_cols", "id_missing_cols", "find_standard_cols",
+           "find_nonstandard_cols", "get_qc_failures",
+           "format_a_datetime", "standardize_input_sex",
+           "set_life_stage_from_age_yrs", "transform_input_sex_to_std_sex",
+           "transform_age_to_life_stage", "transform_date_to_formatted_date"]
 
 from . import _version
 __version__ = _version.get_versions()['version']
