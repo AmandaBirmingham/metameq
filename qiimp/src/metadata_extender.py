@@ -39,6 +39,7 @@ pandas.set_option("future.no_silent_downcasting", True)
 #  (Per Antonio 10/28/24, this is a reserved name for Qiita and may not be
 #  in the metadata).
 
+
 def get_reserved_cols(raw_metadata_df, study_specific_config_dict,
                       study_specific_transformers_dict=None):
     validate_required_columns_exist(
@@ -148,7 +149,7 @@ def write_metadata_results(
 
 def write_extended_metadata_from_df(
         raw_metadata_df, study_specific_config_dict, out_dir, out_name_base,
-        study_specific_transformers_dict=None, sep="\t",
+        study_specific_transformers_dict=None, sep="\t", remove_internals=True,
         suppress_empty_fails=False, internal_col_names=None):
 
     metadata_df, validation_msgs_df = _extend_metadata_df(
@@ -157,14 +158,16 @@ def write_extended_metadata_from_df(
 
     write_metadata_results(
         metadata_df, validation_msgs_df, out_dir, out_name_base,
-        sep, suppress_empty_fails, internal_col_names)
+        sep=sep, remove_internals=remove_internals,
+        suppress_empty_fails=suppress_empty_fails,
+        internal_col_names=internal_col_names)
 
     return metadata_df
 
 
 def write_extended_metadata(
-        raw_metadata_fp, study_specific_config_fp,
-        out_dir, out_name_base, sep="\t", suppress_empty_fails=False):
+        raw_metadata_fp, study_specific_config_fp, out_dir, out_name_base,
+        sep="\t", remove_internals=True, suppress_empty_fails=False):
 
     # extract the extension from the raw_metadata_fp file path
     extension = os.path.splitext(raw_metadata_fp)[1]
@@ -186,6 +189,7 @@ def write_extended_metadata(
     extended_df = write_extended_metadata_from_df(
         raw_metadata_df, study_specific_config_dict,
         out_dir, out_name_base, sep=sep,
+        remove_internals=remove_internals,
         suppress_empty_fails=suppress_empty_fails)
 
     return extended_df
