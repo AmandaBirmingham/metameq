@@ -58,14 +58,6 @@ def extract_config_dict(
     return config_dict
 
 
-def _get_grandparent_dir(starting_fp: Optional[str] = None) -> str:
-    if starting_fp is None:
-        starting_fp = __file__
-    curr_dir = os.path.dirname(os.path.abspath(starting_fp))
-    grandparent_dir = os.path.join(curr_dir, os.pardir, os.pardir)
-    return grandparent_dir
-
-
 def extract_yaml_dict(yaml_fp: str) -> dict:
     with open(yaml_fp, "r") as f:
         yaml_dict = yaml.safe_load(f)
@@ -165,3 +157,11 @@ def update_metadata_df_field(
         # Otherwise, it is a constant value
         metadata_df.loc[row_mask, field_name] = field_val_or_func
     # endif using a function/a constant value
+
+
+def _get_grandparent_dir(starting_fp: Optional[str] = None) -> str:
+    if starting_fp is None:
+        starting_fp = __file__
+    curr_dir = os.path.dirname(os.path.abspath(starting_fp))
+    grandparent_dir = os.path.join(curr_dir, os.pardir, os.pardir)
+    return grandparent_dir
