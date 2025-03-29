@@ -245,7 +245,7 @@ class TestUtil(TestCase):
     def test_update_metadata_df_field_constant_no_overwrite_w_nan(self):
         working_df = pandas.DataFrame({
             "sample_name": ["s1", "s2"],
-            "sample_type": [np.NaN, "st2"]
+            "sample_type": [np.nan, "st2"]
         })
 
         exp_df = pandas.DataFrame({
@@ -335,7 +335,7 @@ class TestUtil(TestCase):
 
         working_df = pandas.DataFrame({
             "sample_name": ["s1", "s2"],
-            "sample_type": [np.NaN, "st2"]
+            "sample_type": [np.nan, "st2"]
         })
 
         exp_df = pandas.DataFrame({

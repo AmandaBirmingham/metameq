@@ -16,7 +16,7 @@ class TestMetadataMerger(TestCase):
         # test case 1: no nans in selected column
         df = pandas.DataFrame({
             "a": [1, 2, 3],
-            "b": [4, np.NaN, 6]
+            "b": [4, np.nan, 6]
         })
 
         obs = _check_for_nans(df, "test", "a")
@@ -25,7 +25,7 @@ class TestMetadataMerger(TestCase):
     def test__check_for_nans_w_nans(self):
         # test case 2: nan in selected column (and another, but that's ignored)
         df = pandas.DataFrame({
-            "a": [1, np.NaN, 3],
+            "a": [1, np.nan, 3],
             "b": [4, np.nan, 6]
         })
 
@@ -121,12 +121,12 @@ class TestMetadataMerger(TestCase):
     def test__validate_merge_err_msgs(self):
         # test case 1: no errors
         left_df = pandas.DataFrame({
-            "id": ['x', np.NaN, 'x'],
+            "id": ['x', np.nan, 'x'],
             "a": [1, 2, 3],
             "b": [4, 5, 6]
         })
         right_df = pandas.DataFrame({
-            "name": [np.NaN, 'y', 'y'],
+            "name": [np.nan, 'y', 'y'],
             "c": [7, 8, 9],
             "d": [10, 11, 12]
         })
@@ -180,7 +180,7 @@ class TestMetadataMerger(TestCase):
             "b": [4, 5, 6]
         })
         right_df = pandas.DataFrame({
-            "name": ['x', np.NaN, 'z'],
+            "name": ['x', np.nan, 'z'],
             "c": [7, 8, 9],
             "d": [10, 11, 12]
         })
@@ -229,7 +229,7 @@ class TestMetadataMerger(TestCase):
             "b": [5, 6, 7, 8]
         })
         right_df = pandas.DataFrame({
-            "name": ['x', 'y', np.NaN],
+            "name": ['x', 'y', np.nan],
             "c": [9, 10, 11],
             "d": [12, 13, 14]
         })
@@ -276,7 +276,7 @@ class TestMetadataMerger(TestCase):
             "b": [5, 6, 7, 8]
         })
         right_df = pandas.DataFrame({
-            "name": ['x', 'y', np.NaN],
+            "name": ['x', 'y', np.nan],
             "c": [9, 10, 11],
             "d": [12, 13, 14]
         })
