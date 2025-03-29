@@ -70,7 +70,7 @@ def find_common_df_cols(left_df: pandas.DataFrame,
     left_non_merge_cols = set(left_df.columns)
     right_non_merge_cols = set(right_df.columns)
     common_cols = left_non_merge_cols.intersection(right_non_merge_cols)
-    return list(common_cols)
+    return sorted(list(common_cols))
 
 
 def find_common_col_names(left_cols, right_cols,
@@ -84,7 +84,7 @@ def find_common_col_names(left_cols, right_cols,
     left_non_merge_cols = set(left_cols) - set(left_exclude_list)
     right_non_merge_cols = set(right_cols) - set(right_exclude_list)
     common_cols = left_non_merge_cols.intersection(right_non_merge_cols)
-    return list(common_cols)
+    return sorted(list(common_cols))
 
 
 def _validate_merge(
