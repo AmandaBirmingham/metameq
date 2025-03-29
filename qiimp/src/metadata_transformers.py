@@ -9,7 +9,7 @@ def pass_through(row, source_fields):
 
 def transform_input_sex_to_std_sex(row, source_fields):
     x = _get_one_source_field(
-        row, source_fields, "transform_sex_at_birth_to_sex")
+        row, source_fields, "standardize_input_sex")
 
     return standardize_input_sex(x)
 
@@ -109,12 +109,11 @@ def _help_transform_mapping(
     raise ValueError(f"Unrecognized {field_name}: {input_val}")
 
 
-def _format_field_val(row, source_fields, field_type, format_string):
-    x = _get_one_source_field(row, source_fields, "format_field_val")
-
-    result = x
-    # format string should be something like '{0:g}' or '{0:.2f}'
-    # field type should be something like float or int
-    if isinstance(x, field_type):
-        result = format_string.format(x)
-    return result
+#def _format_field_val(row, source_fields, field_type, format_string):
+#    x = _get_one_source_field(row, source_fields, "format_field_val")
+#    result = x
+#    # format string should be something like '{0:g}' or '{0:.2f}'
+#    # field type should be something like float or int
+#    if isinstance(x, field_type) and not pandas.isnull(x):
+#        result = format_string.format(x)
+#    return result
