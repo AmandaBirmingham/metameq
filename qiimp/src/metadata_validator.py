@@ -19,7 +19,7 @@ class QiimpValidator(cerberus.Validator):
         # convert the field string to a date
         try:
             putative_date = parser.parse(value, fuzzy=True, dayfirst=False)
-        except:
+        except Exception:  # noqa: E722
             self._error(field, "Must be a valid date")
             return
 

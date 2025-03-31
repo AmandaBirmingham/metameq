@@ -1,6 +1,6 @@
 import pandas
 from dateutil import parser
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Union
 from datetime import datetime
 
 
@@ -325,7 +325,7 @@ def _help_transform_mapping(
     raise ValueError(f"Unrecognized {field_name}: {input_val}")
 
 
-#def _format_field_val(row, source_fields, field_type, format_string):
+# def _format_field_val(row, source_fields, field_type, format_string):
 #    x = _get_one_source_field(row, source_fields, "format_field_val")
 #    result = x
 #    # format string should be something like '{0:g}' or '{0:.2f}'

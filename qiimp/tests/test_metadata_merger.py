@@ -1,7 +1,6 @@
 import numpy as np
 import pandas
 from pandas.testing import assert_frame_equal
-from os.path import dirname
 from unittest import TestCase
 from qiimp.src.metadata_merger import _check_for_nans, \
     _check_for_duplicate_field_vals, _validate_merge, \
@@ -294,7 +293,7 @@ class TestMetadataMerger(TestCase):
         list2 = ['col2', 'col3', 'col4']
         result = find_common_col_names(list1, list2)
         self.assertEqual(result, ['col2', 'col3'])
-        
+
     def test_find_common_col_names_empty(self):
         """Test finding common column names with empty lists"""
         result = find_common_col_names([], [])
@@ -327,7 +326,7 @@ class TestMetadataMerger(TestCase):
             'col3': [9, 10],
             'col4': [11, 12]
         })
-        
+
         result = find_common_df_cols(df1, df2)
         self.assertEqual(result, ['col2', 'col3'])
 
@@ -415,7 +414,7 @@ class TestMetadataMerger(TestCase):
             "c": [7, 8, 90],
             "d": [10, 11, 120]
         })
-        
+
         with self.assertRaises(ValueError):
             merge_one_to_one_metadata(left_df, right_df, 'id')
 
@@ -489,7 +488,6 @@ class TestMetadataMerger(TestCase):
 
         assert_frame_equal(obs, exp)
 
-    
     def test_validate_merge(self):
         """Test validating merge operation"""
         left_df = pandas.DataFrame({

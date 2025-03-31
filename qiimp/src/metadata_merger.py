@@ -1,5 +1,5 @@
 import pandas
-from typing import List, Optional, Literal, Tuple
+from typing import List, Optional, Literal
 from qiimp.src.util import validate_required_columns_exist
 
 
@@ -360,4 +360,3 @@ def _check_for_nans(metadata_df: pandas.DataFrame,
         error_msgs.append(
             f"'{df_name}' metadata has NaNs in column '{col_name}'")
     return error_msgs
-

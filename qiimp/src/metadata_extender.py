@@ -4,8 +4,7 @@ import os
 import pandas
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple, Any, Union, Literal
-import yaml
+from typing import List, Dict, Optional, Tuple, Any
 from qiimp.src.util import extract_config_dict, extract_stds_config, \
     deepcopy_dict, validate_required_columns_exist, get_extension, \
     load_df_with_best_fit_encoding, update_metadata_df_field, \
@@ -46,8 +45,8 @@ def get_reserved_cols(
         study_specific_transformers_dict: Optional[Dict[str, Any]] = None) -> List[str]:
     """Get a list of all reserved column names for all host+sample type combinations in the metadata.
 
-    Note that 'reserved' is not the same as 'required'.  Some column names (e.g., 
-        irb_institute for human host types) are not *required*, but are *reserved*, so they can 
+    Note that 'reserved' is not the same as 'required'.  Some column names (e.g.,
+        irb_institute for human host types) are not *required*, but are *reserved*, so they can
         only be used to name columns that hold standardized info, not for arbitrary metadata.
 
     Parameters
@@ -133,7 +132,7 @@ def find_standard_cols(
     Returns
     -------
     List[str]
-        List of standard column names found in the DataFrame. 
+        List of standard column names found in the DataFrame.
         Empty if there are no standard columns.
 
     Raises
@@ -149,7 +148,7 @@ def find_standard_cols(
     # endif
     validate_required_columns_exist(a_df, required_cols, err_msg)
 
-    # get the intersection of the reserved standard columns and 
+    # get the intersection of the reserved standard columns and
     # the columns in the input dataframe
     standard_cols = get_reserved_cols(
         a_df, study_specific_config_dict,
@@ -178,7 +177,7 @@ def find_nonstandard_cols(
     Returns
     -------
     List[str]
-        List of non-standard column names found in the DataFrame. 
+        List of non-standard column names found in the DataFrame.
         Empty if there are no non-standard columns.
 
     Raises
@@ -279,10 +278,10 @@ def write_metadata_results(
     if internal_col_names is None:
         internal_col_names = INTERNAL_COL_KEYS
 
-    _output_metadata_df_to_files(metadata_df, out_dir, out_name_base,
-                  internal_col_names,
-                  remove_internals_and_fails=remove_internals, sep=sep,
-                  suppress_empty_fails=suppress_empty_fails)
+    _output_metadata_df_to_files(
+        metadata_df, out_dir, out_name_base, internal_col_names,
+        remove_internals_and_fails=remove_internals, sep=sep,
+        suppress_empty_fails=suppress_empty_fails)
     
     output_validation_msgs(validation_msgs_df, out_dir, out_name_base, sep=",",
                            suppress_empty_fails=suppress_empty_fails)
@@ -474,7 +473,7 @@ def extend_metadata_df(
             software_config | software_plus_study_flat_config_dict
         
         # combine the software+study flat-host-type config's host type specific info
-        # with the standards nested-host-type config's host type specific info to get
+        # with the standards nested-host-type config's host type specific info
         # to get a full combined, nested dictionary starting from HOST_TYPE_SPECIFIC_METADATA_KEY
         full_nested_hosts_dict = combine_stds_and_study_config(
             software_plus_study_flat_config_dict)
@@ -516,9 +515,9 @@ def _populate_metadata_df(
         Fully combined flat-host-type config dictionary.
     transformer_funcs_dict : Optional[Dict[str, Any]]
         Dictionary of transformer functions, keyed by field name,
-        with the each value being a dict with keys SOURCES_KEY and FUNCTION_KEY,
-        which map to lists of source field names for the transformer to use and an existing transformer 
-        function name, respectively.
+        with each value being a dict with keys SOURCES_KEY and FUNCTION_KEY,
+        which map to lists of source field names for the transformer to use
+        and an existing transformer function name, respectively.
 
     Returns
     -------
@@ -553,7 +552,7 @@ def _populate_metadata_df(
     metadata_df = _reorder_df(metadata_df, INTERNAL_COL_KEYS)
 
     # Turn the validation messages into a DataFrame of validation messages for easier use downstream.
-    validation_msgs_df  = pandas.DataFrame(validation_msgs)
+    validation_msgs_df = pandas.DataFrame(validation_msgs)
 
     return metadata_df, validation_msgs_df
 
@@ -579,8 +578,7 @@ def _catch_nan_required_fields(metadata_df: pandas.DataFrame) -> pandas.DataFram
     # if there are any sample_name fields that are NaN, raise an error
     nan_sample_name_mask = metadata_df[SAMPLE_NAME_KEY].isna()
     if nan_sample_name_mask.any():
-        raise ValueError(
-            f"Metadata contains NaN sample names")
+        raise ValueError("Metadata contains NaN sample names")
 
     # if there are any hosttype_shorthand or sampletype_shorthand fields
     # that are NaN, set them to "empty" and raise a warning
@@ -600,11 +598,11 @@ def _transform_metadata(
         full_flat_config_dict: Dict[str, Any],
         stage_key: str,
         transformer_funcs_dict: Optional[Dict[str, Any]]) -> pandas.DataFrame:
-    """Apply transformations defined in the full_flat_config_dict to metadata fields using the dictionary of transformer functions.
+    """Apply transformations defined in full_flat_config_dict to metadata fields using dict of transformer functions.
 
     Parameters
     ----------
-    raw_metadata_df : pandas.DataFrame
+    metadata_df : pandas.DataFrame
         The metadata DataFrame to transform, which must contain at least
         the columns in REQUIRED_RAW_METADATA_FIELDS.
     full_flat_config_dict : Dict[str, Any]
@@ -613,9 +611,9 @@ def _transform_metadata(
         Key indicating the transformation stage (pre or post).
     transformer_funcs_dict : Optional[Dict[str, Any]]
         Dictionary of transformer functions, keyed by field name,
-        with the each value being a dict with keys SOURCES_KEY and FUNCTION_KEY,
-        which map to lists of source field names for the transformer to use and an existing transformer 
-        function name, respectively.
+        with each value being a dict with keys SOURCES_KEY and FUNCTION_KEY,
+        which map to lists of source field names for the transformer to use
+        and an existing transformer function name, respectively.
 
     Returns
     -------
@@ -645,8 +643,8 @@ def _transform_metadata(
                     curr_func = transformer_funcs_dict[curr_func_name]
                 except KeyError:
                     try:
-                        # if the transformer function isn't in the dictionary that was passed in, 
-                        # probably it is one of the ones built into qiimp, 
+                        # if the transformer function isn't in the dictionary
+                        # that was passed in, probably it is a built-in one,
                         # so look for it in the qiimp transformers module
                         # looking into the qiimp transformers module
                         curr_func = getattr(transformers, curr_func_name)
@@ -697,7 +695,7 @@ def _generate_metadata_for_host_types(
 
     validation_msgs = []
     host_type_dfs = []
-    # For all of the host types present in the metadata, generate the specific metadata
+    # For all the host types present in the metadata, generate the specific metadata
     host_type_shorthands = pandas.unique(metadata_df[HOSTTYPE_SHORTHAND_KEY])
     for curr_host_type_shorthand in host_type_shorthands:
         concatted_dfs, curr_validation_msgs = _generate_metadata_for_a_host_type(
@@ -790,7 +788,8 @@ def _generate_metadata_for_a_host_type(
             validation_msgs.extend(curr_validation_msgs)
         # next sample type in metadata for this host type
 
-        # Concatenate the processed sample-type-specific metadata DataFrames for the host type into a single output DataFrame
+        # Concatenate the processed sample-type-specific metadata DataFrames
+        # for the host type into a single output DataFrame
         concatted_df = pandas.concat(dfs_to_concat, ignore_index=True)
     # endif host_type is valid
 
@@ -806,9 +805,9 @@ def _generate_metadata_for_a_sample_type_in_a_host_type(
 
     Parameters
     ----------
-    host_type_df : pandas.DataFrame
+    host_type_metadata_df : pandas.DataFrame
         DataFrame containing metadata samples for a specific host type.
-    sample_type : str
+    a_sample_type : str
         The sample type to process.
     global_plus_host_settings_dict : Dict[str, Any]
         Dictionary containing default/nan/etc settings for current context.
@@ -822,9 +821,9 @@ def _generate_metadata_for_a_sample_type_in_a_host_type(
             - The updated metadata DataFrame with sample-type-specific elements added
             - A list of validation messages
     """
-    # copy the metadata fields dict from the host type config 
-    # to be the basis of the work-in-progress metadata dict--these are the default fields
-    # that will be overwritten, if necessary, by the sample type-specific fields
+    # copy the metadata fields dict from the host type config to be the
+    # basis of the work-in-progress metadata dict--these are the default fields
+    # that will be overwritten, if necessary, by sample type-specific fields
     wip_metadata_fields_dict = deepcopy_dict(
         a_host_type_config_dict.get(METADATA_FIELDS_KEY, {}))
 
@@ -856,7 +855,7 @@ def _generate_metadata_for_a_sample_type_in_a_host_type(
         # update the metadata df with the sample type specific metadata fields
         # TODO: this is taking in wip_metadata_fields_dict instead of full_sample_type_metadata_fields_dict,
         # which only works because the code underlying _construct_sample_type_metadata_fields_dict
-        # is *modifying* wip_metadata_fields_dict in place. This should be corrected, but that 
+        # is *modifying* wip_metadata_fields_dict in place. This should be corrected, but that
         # needs to wait until there are tests to make sure doing so doesn't break anything.
         sample_type_df = _update_metadata_from_dict(
             sample_type_df, wip_metadata_fields_dict, dict_is_metadata_fields=True,
@@ -873,7 +872,7 @@ def _generate_metadata_for_a_sample_type_in_a_host_type(
         sample_type_df = _fill_na_if_default(
             sample_type_df, full_sample_type_metadata_fields_dict, global_plus_host_settings_dict)
 
-        # validate the metadata df based on the specific requirements 
+        # validate the metadata df based on the specific requirements
         # for this host+sample type
         validation_msgs = validate_metadata_df(
             sample_type_df, full_sample_type_metadata_fields_dict)
@@ -892,7 +891,7 @@ def _construct_sample_type_metadata_fields_dict(
     sample_type : str
         The sample type to process.
     host_sample_types_config_dict : Dict[str, Any]
-        Dictionary containing config for *all* sample types in 
+        Dictionary containing config for *all* sample types in
         the host type in question.
     a_host_type_metadata_fields_dict : Dict[str, Any]
         Dictionary containing metadata fields for the host type in question.
@@ -977,9 +976,9 @@ def _update_metadata_from_dict(
     config_section_dict : Dict[str, Any]
         The relevant section of a config dictionary to use.
     dict_is_metadata_fields : bool, default=False
-        Whether the config dict contains a 
-        METADATA_FIELDS_KEY (in which case False) or is itself the contents 
-        of a METADATA_FIELDS_KEY (in which case True).
+        Whether the config dict contains a METADATA_FIELDS_KEY
+        (in which case False) or is itself the contents of
+        a METADATA_FIELDS_KEY (in which case True).
     overwrite_non_nans : bool, default=False
         Whether to overwrite non-NaN values with default values.
 
@@ -993,10 +992,9 @@ def _update_metadata_from_dict(
     else:
         metadata_fields_dict = config_section_dict
 
-    if metadata_fields_dict:
-        output_df = _update_metadata_from_metadata_fields_dict(
-            metadata_df, metadata_fields_dict,
-            overwrite_non_nans=overwrite_non_nans )
+    output_df = _update_metadata_from_metadata_fields_dict(
+        metadata_df, metadata_fields_dict,
+        overwrite_non_nans=overwrite_non_nans)
     return output_df
 
 
@@ -1023,9 +1021,9 @@ def _update_metadata_from_metadata_fields_dict(
     output_df = metadata_df.copy()
     # loop through each metadata field in the metadata fields dict
     for curr_field_name, curr_field_vals_dict in metadata_fields_dict.items():
-        # if the field has a default value (regardless of whether it is required), 
-        # update the metadata df with it.
-        # what exactly will be updated depends on the value of overwrite_non_nans:
+        # if the field has a default value (regardless of whether it is
+        # required), update the metadata df with it. what exactly will be
+        # updated depends on the value of overwrite_non_nans:
         # if overwrite_non_nans is True, then all values will be updated;
         # if overwrite_non_nans is False, then only NA values will be updated
         # if the field already exists in the metadata; otherwise, the field
@@ -1101,8 +1099,8 @@ def _output_metadata_df_to_files(
     out_base : str
         Base name for output files.
     internal_col_names : List[str]
-        List of internal column names 
-        that will be moved to the end of the DataFrame.
+        List of internal column names that will be moved
+        to the end of the DataFrame.
     sep : str, default="\t"
         Separator to use in output files.
     remove_internals_and_fails : bool, default=False

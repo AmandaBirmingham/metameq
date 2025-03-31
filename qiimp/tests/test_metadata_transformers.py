@@ -274,4 +274,4 @@ class TestMetadataTransformers(TestCase):
         """Test _help_transform_mapping with make_lower=True"""
         mapping = {'a': '1', 'b': '2'}
         result = _help_transform_mapping('A', mapping, make_lower=True)
-        self.assertEqual(result, '1') 
+        self.assertEqual(result, '1')
