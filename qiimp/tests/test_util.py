@@ -11,6 +11,16 @@ from qiimp.src.util import _get_grandparent_dir, extract_config_dict, \
 
 
 class TestUtil(TestCase):
+    """Test suite for utility functions in qiimp.src.util module.
+    
+    This class contains tests for various utility functions including:
+    - Configuration file handling
+    - DataFrame operations
+    - File path operations
+    - Dictionary operations
+    - Data validation
+    """
+
     # get the parent directory of the current file
     TEST_DIR = path.dirname(__file__)
 
@@ -33,24 +43,30 @@ class TestUtil(TestCase):
 
     # Tests for extract_config_dict
     def test_extract_config_dict_w_config_fp(self):
+        """Test extracting config dictionary from a valid config file path."""
         config_fp = path.join(self.TEST_DIR, "data/test_config.yml")
         obs = extract_config_dict(config_fp)
         self.assertDictEqual(self.TEST_CONFIG_DICT, obs)
 
     def test_extract_config_dict_missing_file(self):
+        """Test that attempting to extract config from non-existent file raises FileNotFoundError."""
         with self.assertRaises(FileNotFoundError):
             extract_config_dict("nonexistent.yml")
 
-    def test_extract_config_dict_starting_fp(self):
-        # NB: this test is looking at the *real* config, which may change, so
-        # just checking that a couple of the expected keys (which are not in
-        # the test config) are present.
-        starting_fp = path.join(self.TEST_DIR, "data")
-        obs = extract_config_dict(None, starting_fp)
+    def test_extract_config_dict_starting_dirpath(self):
+        """Test extracting config dictionary using a starting directory path.
+        
+        NB: this test is looking at the *real* config, which may change, so
+        just checking that a couple of the expected keys (which are not in
+        the test config) are present.
+        """
+        starting_dirpath = path.join(self.TEST_DIR, "data")
+        obs = extract_config_dict(None, starting_dirpath)
         self.assertIn("default", obs)
         self.assertIn("leave_requireds_blank", obs)
 
     def test_extract_config_dict_invalid_yaml(self):
+        """Test that attempting to extract config from invalid YAML raises an exception."""
         # Create a temporary invalid YAML file
         invalid_yaml_path = path.join(self.TEST_DIR, "data/invalid.yml")
         with open(invalid_yaml_path, "w") as f:
@@ -61,32 +77,41 @@ class TestUtil(TestCase):
 
     # Tests for extract_yaml_dict
     def test_extract_yaml_dict(self):
+        """Test extracting YAML dictionary from a valid YAML file."""
         config_fp = path.join(self.TEST_DIR, "data/test_config.yml")
         obs = extract_yaml_dict(config_fp)
         self.assertDictEqual(self.TEST_CONFIG_DICT, obs)
 
     # Tests for extract_stds_config
     def test_extract_stds_config(self):
-        # NB: this is looking at the real standards file, which may change, so
-        # just checking that one of the expected keys (which is not in
-        # the test config) is present.
+        """Test extracting standards configuration with default settings.
+        
+        Verifies that the extracted config contains expected standard keys.
+        """
         obs = extract_stds_config(None)
         self.assertIn("ebi_null_vals_all", obs)
 
     def test_extract_stds_config_default_path(self):
-        # This test assumes the default standards.yml exists
+        """Test extracting standards configuration using default path.
+        
+        NB: This test assumes the default standards.yml exists. This may change, so
+        it just checking that a couple of the expected keys are present.
+        """
         config = extract_stds_config(None)
         self.assertIsInstance(config, dict)
         self.assertIn("host_type_specific_metadata", config)
 
     def test_extract_stds_config_custom_path(self):
+        """Test extracting standards configuration using a custom path."""
         config = extract_stds_config(path.join(self.TEST_DIR, "data/test_config.yml"))
         self.assertDictEqual(config, self.TEST_CONFIG_DICT)
 
     # Tests for deepcopy_dict
     def test_deepcopy_dict(self):
-        # copy a dict with a nested structure and ensure that the original
-        # is not modified when the copy is modified
+        """Test deep copying of nested dictionary structure.
+        
+        Verifies that modifications to the copy do not affect the original dictionary.
+        """
         obs = deepcopy_dict(self.TEST_CONFIG_DICT)
         self.assertDictEqual(self.TEST_CONFIG_DICT, obs)
         self.assertIsNot(self.TEST_CONFIG_DICT, obs)
@@ -96,7 +121,7 @@ class TestUtil(TestCase):
 
     # Tests for load_df_with_best_fit_encoding
     def test_load_df_with_best_fit_encoding_utf8(self):
-        """Test loading DataFrame with UTF-8 encoding"""
+        """Test loading DataFrame from a file with UTF-8 encoding."""
         test_data = "col1,col2\nval1,val2"
         test_file = path.join(self.TEST_DIR, "data/test_utf8.csv")
         with open(test_file, "w", encoding="utf-8") as f:
@@ -113,7 +138,7 @@ class TestUtil(TestCase):
                 os.remove(test_file)
 
     def test_load_df_with_best_fit_encoding_utf8_sig(self):
-        """Test loading DataFrame with UTF-8 with BOM signature encoding"""
+        """Test loading DataFrame from a file with UTF-8 with BOM signature encoding."""
         test_data = "col1,col2\nval1,val2"
         test_file = path.join(self.TEST_DIR, "data/test_utf8_sig.csv")
         with open(test_file, "w", encoding="utf-8-sig") as f:
@@ -130,12 +155,12 @@ class TestUtil(TestCase):
                 os.remove(test_file)
 
     def test_load_df_with_best_fit_encoding_invalid_file(self):
-        """Test loading DataFrame with invalid file"""
+        """Test that attempting to load DataFrame from non-existent file raises ValueError."""
         with self.assertRaises(ValueError):
             load_df_with_best_fit_encoding("nonexistent.csv", ",")
 
     def test_load_df_with_best_fit_encoding_unsupported_encoding(self):
-        """Test loading DataFrame with unsupported encoding"""
+        """Test that attempting to load DataFrame with unsupported encoding raises ValueError."""
         test_file = os.path.join(self.TEST_DIR, "data/test.biom")
         
         try:
@@ -147,6 +172,8 @@ class TestUtil(TestCase):
 
     # Tests for validate_required_columns_exist
     def test_validate_required_columns_exist_empty_df(self):
+        """Test that validation of required columns in an empty DataFrame raises ValueError."""
+
         empty_df = pandas.DataFrame()
         with self.assertRaisesRegex(ValueError, "test_df missing columns: \\['sample_name', 'sample_type'\\]"):
             validate_required_columns_exist(
@@ -154,6 +181,7 @@ class TestUtil(TestCase):
                 "test_df missing columns")
 
     def test_validate_required_columns_exist_no_err(self):
+        """Test successful validation of required columns when all required columns exist."""
         test_df = pandas.DataFrame({
             "sample_name": ["s1", "s2"],
             "sample_type": ["st1", "st2"]
@@ -165,6 +193,8 @@ class TestUtil(TestCase):
         self.assertTrue(True)
 
     def test_validate_required_columns_exist_err(self):
+        """Test that validation of required columns when a required column is missing raises ValueError."""
+
         test_df = pandas.DataFrame({
             "sample_name": ["s1", "s2"],
             "sample_tye": ["st1", "st2"]
@@ -178,6 +208,8 @@ class TestUtil(TestCase):
 
     # Tests for get_extension
     def test_get_extension(self):
+        """Test that the correct file extension is returned for different separator types."""
+
         # Test comma separator
         self.assertEqual(get_extension(","), "csv")
         
@@ -190,6 +222,8 @@ class TestUtil(TestCase):
 
     # Tests for update_metadata_df_field
     def test_update_metadata_df_field_constant_new_field(self):
+        """Test that a new field can be added to the DataFrame with a constant value."""
+
         working_df = pandas.DataFrame({
             "sample_name": ["s1", "s2"],
             "sample_type": ["st1", "st2"]
@@ -207,6 +241,11 @@ class TestUtil(TestCase):
         assert_frame_equal(exp_df, working_df)
 
     def test_update_metadata_df_field_constant_overwrite(self):
+        """Test overwriting existing field in DataFrame with constant value.
+        
+        Verifies that an existing field can be overwritten with a constant value
+        when overwrite_non_nans is True.
+        """
         working_df = pandas.DataFrame({
             "sample_name": ["s1", "s2"],
             "sample_type": ["st1", "st2"]
@@ -225,6 +264,11 @@ class TestUtil(TestCase):
         assert_frame_equal(exp_df, working_df)
 
     def test_update_metadata_df_field_constant_no_overwrite_no_nan(self):
+        """Test (not) updating field in DataFrame with constant value when no NaN values exist.
+        
+        Verifies that no changes are made when overwrite_non_nans is False
+        and there are no NaN values to replace.
+        """
         working_df = pandas.DataFrame({
             "sample_name": ["s1", "s2"],
             "sample_type": ["st1", "st2"]
@@ -243,6 +287,11 @@ class TestUtil(TestCase):
         assert_frame_equal(exp_df, working_df)
 
     def test_update_metadata_df_field_constant_no_overwrite_w_nan(self):
+        """Test updating field in DataFrame with constant value when NaN values exist.
+        
+        Verifies that only NaN values are replaced when overwrite_non_nans is False
+        and there are NaN values to replace.
+        """
         working_df = pandas.DataFrame({
             "sample_name": ["s1", "s2"],
             "sample_type": [np.nan, "st2"]
@@ -261,6 +310,11 @@ class TestUtil(TestCase):
         assert_frame_equal(exp_df, working_df)
 
     def test_update_metadata_df_field_function_new_field(self):
+        """Test updating DataFrame with a new field using a function.
+        
+        Verifies that a new field can be added to the DataFrame using a function
+        to compute values based on existing fields.
+        """
         def test_func(row, source_fields):
             return f"processed_{row[source_fields[0]]}"
 
@@ -281,6 +335,11 @@ class TestUtil(TestCase):
         assert_frame_equal(exp_df, working_df)        
 
     def test_update_metadata_df_field_function_overwrite(self):
+        """Test overwriting existing field in DataFrame using a function.
+        
+        Verifies that an existing field can be overwritten using a function
+        to compute values based on existing fields when overwrite_non_nans is True.
+        """
         def test_func(row, source_fields):
             source_field = source_fields[0]
             last_char = row[source_field][-1]
@@ -305,6 +364,11 @@ class TestUtil(TestCase):
         assert_frame_equal(exp_df, working_df)
 
     def test_update_metadata_df_field_function_no_overwrite_no_nan(self):
+        """Test (not) updating field in DataFrame with function when no NaN values exist.
+        
+        Verifies that, when using a function, no changes are made when overwrite_non_nans is False
+        and there are no NaN values to replace.
+        """
         def test_func(row, source_fields):
             source_field = source_fields[0]
             last_char = row[source_field][-1]
@@ -328,6 +392,11 @@ class TestUtil(TestCase):
         assert_frame_equal(exp_df, working_df)
 
     def test_update_metadata_df_field_function_no_overwrite_w_nan(self):
+        """Test updating field in DataFrame with function when NaN values exist.
+        
+        Verifies that, when using a function, only NaN values are replaced when overwrite_non_nans is False
+        and there are NaN values to replace.
+        """
         def test_func(row, source_fields):
             source_field = source_fields[0]
             last_char = row[source_field][-1]
@@ -350,8 +419,12 @@ class TestUtil(TestCase):
         # there is only one NaN value in the column in question
         assert_frame_equal(exp_df, working_df)
 
-
     def test_update_metadata_df_field_function_multiple_sources(self):
+        """Test updating field using function with multiple source fields.
+        
+        Verifies that a new field can be created using a function that combines
+        values from multiple source fields.
+        """
         def test_func(row, source_fields):
             return f"{row[source_fields[0]]}_{row[source_fields[1]]}"
 
@@ -371,13 +444,13 @@ class TestUtil(TestCase):
             ["sample_name", "sample_type"], overwrite_non_nans=True)
         assert_frame_equal(exp_df, working_df)
 
-
-
     # Tests for _get_grandparent_dir
     def test__get_grandparent_dir_no_fp(self):
+        """Test getting grandparent directory without file path."""
         obs = _get_grandparent_dir()
         self.assertTrue(obs.endswith("qiimp/src/../.."))
 
     def test__get_grandparent_dir_with_fp(self):
+        """Test getting grandparent directory with file path."""
         obs = _get_grandparent_dir("/Users/username/Desktop/hello/world.py")
         self.assertTrue(obs.endswith("Desktop/hello/../.."))

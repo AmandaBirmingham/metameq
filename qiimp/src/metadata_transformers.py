@@ -1,36 +1,146 @@
 import pandas
 from dateutil import parser
+from typing import Any, Dict, List, Optional, Union
+from datetime import datetime
 
 
 # individual transformer functions
-def pass_through(row, source_fields):
+def pass_through(row: pandas.Series, source_fields: List[str]) -> Any:
+    """Pass through a value from a source field without transformation.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row of data containing the source field.
+    source_fields : list
+        List containing exactly one source field name.
+
+    Returns
+    -------
+    Any
+        The value from the source field.
+
+    Raises
+    ------
+    ValueError
+        If source_fields does not contain exactly one field name.
+    """
     return _get_one_source_field(row, source_fields, "pass_through")
 
 
-def transform_input_sex_to_std_sex(row, source_fields):
+def transform_input_sex_to_std_sex(row: pandas.Series, source_fields: List[str]) -> str:
+    """Transform input sex value to standardized sex value.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row of data containing the source field.
+    source_fields : list
+        List containing exactly one source field name.
+
+    Returns
+    -------
+    str
+        Standardized sex value: 'female', 'male', 'intersex', or 'not provided'.
+
+    Raises
+    ------
+    ValueError
+        If source_fields does not contain exactly one field name.
+        If the input sex value is not recognized.
+    """
     x = _get_one_source_field(
         row, source_fields, "standardize_input_sex")
 
     return standardize_input_sex(x)
 
 
-def transform_age_to_life_stage(row, source_fields):
-    # NB: Input age is assumed to be in years.  Because of this, this function
-    # does NOT attempt to identify neonates--children aged 0-6 *weeks*. All
-    # ages under 17 are considered "child".
+def transform_age_to_life_stage(row: pandas.Series, source_fields: List[str]) -> str:
+    """Transform age in years to life stage category.
+
+    Note: Input age is assumed to be in years. Because of this, this function
+    does NOT attempt to identify neonates--children aged 0-6 *weeks*. All
+    ages under 17 are considered "child".
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row of data containing the source field.
+    source_fields : list
+        List containing exactly one source field name.
+
+    Returns
+    -------
+    str
+        Life stage category: 'child' for ages < 17, 'adult' for ages >= 17.
+
+    Raises
+    ------
+    ValueError
+        If source_fields does not contain exactly one field name.
+        If the age value is not convertable to an integer.
+    """
     x = _get_one_source_field(
         row, source_fields, "transform_age_to_life_stage")
     return set_life_stage_from_age_yrs(x, source_fields[0])
 
 
-def transform_date_to_formatted_date(row, source_fields):
+def transform_date_to_formatted_date(row: pandas.Series, source_fields: List[str]) -> str:
+    """Transform date to standardized format (YYYY-MM-DD HH:MM).
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row of data containing the source field.
+    source_fields : list
+        List containing exactly one source field name.
+
+    Returns
+    -------
+    str
+        Formatted date string in YYYY-MM-DD HH:MM format.
+
+    Raises
+    ------
+    ValueError
+        If source_fields does not contain exactly one field name.
+        If the source field cannot be parsed as a date.
+    """
     x = _get_one_source_field(
-        row, source_fields, "transform_age_to_life_stage")
+        row, source_fields, "transform_date_to_formatted_date")
     return format_a_datetime(x, source_fields[0])
 
 
-def help_transform_mapping(row, source_fields, mapping,
-                           field_name="help_transform_mapping"):
+def help_transform_mapping(
+        row: pandas.Series,
+        source_fields: List[str],
+        mapping: Dict[str, Any],
+        field_name: str = "help_transform_mapping") -> Any:
+    """Transform a value using a provided mapping dictionary.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row of data containing the source field.
+    source_fields : list
+        List containing exactly one source field name.
+    mapping : dict
+        Dictionary mapping input values to output values.
+    field_name : str, optional
+        Name of the field being transformed, used in error messages.
+        Defaults to "help_transform_mapping".
+
+    Returns
+    -------
+    Any
+        The mapped value from the mapping dictionary.
+
+    Raises
+    ------
+    ValueError
+        If source_fields does not contain exactly one field name.
+        If the input value is not found in the mapping dictionary.
+    """
     x = _get_one_source_field(
         row, source_fields, field_name)
 
@@ -38,7 +148,24 @@ def help_transform_mapping(row, source_fields, mapping,
 
 
 # helper functions
-def standardize_input_sex(input_val):
+def standardize_input_sex(input_val: str) -> str:
+    """Standardize sex input to Qiita standard values.
+
+    Parameters
+    ----------
+    input_val : str
+        Input sex value to standardize.
+
+    Returns
+    -------
+    str
+        Standardized sex value: 'female', 'male', 'intersex', or 'not provided'.
+
+    Raises
+    ------
+    ValueError
+        If the input sex value is not recognized.
+    """
     qiita_standard_female = "female"
     qiita_standard_male = "male"
     qiita_standard_intersex = "intersex"
@@ -57,11 +184,31 @@ def standardize_input_sex(input_val):
     return standardized_sex
 
 
-def set_life_stage_from_age_yrs(age_in_yrs, source_name="input"):
-    # NB: Input age is assumed to be in years.  Because of this, this function
-    # does NOT attempt to identify neonates--children aged 0-6 *weeks*. All
-    # ages under 17 are considered "child".
+def set_life_stage_from_age_yrs(age_in_yrs: Union[float, int], source_name: str = "input") -> str:
+    """Convert age in years to life stage category.
 
+    Note: Input age is assumed to be in years. Because of this, this function
+    does NOT attempt to identify neonates--children aged 0-6 *weeks*. All
+    ages under 17 are considered "child".
+
+    Parameters
+    ----------
+    age_in_yrs : float or int
+        Age in years.
+    source_name : str, optional
+        Name of the source field, used in error messages.
+        Defaults to "input".
+
+    Returns
+    -------
+    str
+        Life stage category: 'child' for ages < 17, 'adult' for ages >= 17.
+
+    Raises
+    ------
+    ValueError
+        If age_in_yrs is not convertable to an integer.
+    """
     if pandas.isnull(age_in_yrs):
         return age_in_yrs
 
@@ -75,7 +222,27 @@ def set_life_stage_from_age_yrs(age_in_yrs, source_name="input"):
     return "adult"
 
 
-def format_a_datetime(x, source_name="input"):
+def format_a_datetime(x: Union[str, datetime], source_name: str = "input") -> str:
+    """Format a datetime value to YYYY-MM-DD HH:MM string format.
+
+    Parameters
+    ----------
+    x : str or datetime
+        Input datetime value to format.
+    source_name : str, optional
+        Name of the source field, used in error messages.
+        Defaults to "input".
+
+    Returns
+    -------
+    str
+        Formatted datetime string in YYYY-MM-DD HH:MM format.
+
+    Raises
+    ------
+    ValueError
+        If the input cannot be parsed as a datetime.
+    """
     if pandas.isnull(x):
         return x
     if hasattr(x, "strftime"):
@@ -90,14 +257,63 @@ def format_a_datetime(x, source_name="input"):
     return formatted_x
 
 
-def _get_one_source_field(row, source_fields, func_name):
+def _get_one_source_field(row: pandas.Series, source_fields: List[str], func_name: str) -> Any:
+    """Get a single source field value from a row of data.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row of data containing the source field.
+    source_fields : list
+        List of source field names.
+    func_name : str
+        Name of the calling function, used in error messages.
+
+    Returns
+    -------
+    Any
+        The value from the source field.
+
+    Raises
+    ------
+    ValueError
+        If source_fields does not contain exactly one field name.
+    """
     if len(source_fields) != 1:
         raise ValueError(f"{func_name} requires exactly one source field")
     return row[source_fields[0]]
 
 
 def _help_transform_mapping(
-        input_val, mapping, field_name="value", make_lower=False):
+        input_val: Any,
+        mapping: Dict[str, Any],
+        field_name: str = "value",
+        make_lower: bool = False) -> Any:
+    """Transform a value using a mapping dictionary.
+
+    Parameters
+    ----------
+    input_val : Any
+        Input value to transform.
+    mapping : dict
+        Dictionary mapping input values to output values.
+    field_name : str, optional
+        Name of the field being transformed, used in error messages.
+        Defaults to "value".
+    make_lower : bool, optional
+        Whether to convert input to lowercase before mapping.
+        Defaults to False.
+
+    Returns
+    -------
+    Any
+        The mapped value from the mapping dictionary.
+
+    Raises
+    ------
+    ValueError
+        If the input value is not found in the mapping dictionary.
+    """
     if pandas.isnull(input_val):
         return input_val
 
