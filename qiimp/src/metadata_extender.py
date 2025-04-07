@@ -436,7 +436,9 @@ def _get_study_specific_config(study_specific_config_fp: Optional[str]) -> Optio
 def extend_metadata_df(
         raw_metadata_df: pandas.DataFrame,
         study_specific_config_dict: Optional[Dict[str, Any]],
-        study_specific_transformers_dict: Optional[Dict[str, Any]] = None) -> Tuple[pandas.DataFrame, pandas.DataFrame]:
+        study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
+        software_config_dict: Optional[Dict[str, Any]] = None
+) -> Tuple[pandas.DataFrame, pandas.DataFrame]:
     """Extend a metadata DataFrame based on metadata standards and study-specific configurations.
 
     Parameters
@@ -447,6 +449,9 @@ def extend_metadata_df(
         Study-specific flat-host-type config dictionary.
     study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
         Dictionary of custom transformers for this study (only).
+    software_config_dict : Optional[Dict[str, Any]], default=None
+        Software configuration dictionary. If None, the default software
+        config pulled from the config.yml file will be used.
 
     Returns
     -------
@@ -464,13 +469,14 @@ def extend_metadata_df(
         raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
         "metadata missing required columns")
 
-    software_config = extract_config_dict(None)
+    if software_config_dict is None:
+        software_config_dict = extract_config_dict(None)
 
     if study_specific_config_dict:
         # overwrite default settings in software config with study-specific ones (if any)
         software_plus_study_flat_config_dict = deepcopy_dict(study_specific_config_dict)
         software_plus_study_flat_config_dict = \
-            software_config | software_plus_study_flat_config_dict
+            software_config_dict | software_plus_study_flat_config_dict
         
         # combine the software+study flat-host-type config's host type specific info
         # with the standards nested-host-type config's host type specific info
@@ -478,7 +484,7 @@ def extend_metadata_df(
         full_nested_hosts_dict = combine_stds_and_study_config(
             software_plus_study_flat_config_dict)
     else:
-        software_plus_study_flat_config_dict = software_config
+        software_plus_study_flat_config_dict = software_config_dict
         # no need to combine the standards' host info with anything else,
         # since the software config doesn't include any host type specific info
         full_nested_hosts_dict = extract_stds_config(None)
