@@ -12,7 +12,7 @@ def pass_through(row: pandas.Series, source_fields: List[str]) -> Any:
     ----------
     row : pandas.Series
         Row of data containing the source field.
-    source_fields : list
+    source_fields : List[str]
         List containing exactly one source field name.
 
     Returns
@@ -35,7 +35,7 @@ def transform_input_sex_to_std_sex(row: pandas.Series, source_fields: List[str])
     ----------
     row : pandas.Series
         Row of data containing the source field.
-    source_fields : list
+    source_fields : List[str]
         List containing exactly one source field name.
 
     Returns
@@ -66,7 +66,7 @@ def transform_age_to_life_stage(row: pandas.Series, source_fields: List[str]) ->
     ----------
     row : pandas.Series
         Row of data containing the source field.
-    source_fields : list
+    source_fields : List[str]
         List containing exactly one source field name.
 
     Returns
@@ -92,7 +92,7 @@ def transform_date_to_formatted_date(row: pandas.Series, source_fields: List[str
     ----------
     row : pandas.Series
         Row of data containing the source field.
-    source_fields : list
+    source_fields : List[str]
         List containing exactly one source field name.
 
     Returns
@@ -122,9 +122,9 @@ def help_transform_mapping(
     ----------
     row : pandas.Series
         Row of data containing the source field.
-    source_fields : list
+    source_fields : List[str]
         List containing exactly one source field name.
-    mapping : dict
+    mapping : Dict[str, Any]
         Dictionary mapping input values to output values.
     field_name : str, optional
         Name of the field being transformed, used in error messages.
@@ -193,7 +193,7 @@ def set_life_stage_from_age_yrs(age_in_yrs: Union[float, int], source_name: str 
 
     Parameters
     ----------
-    age_in_yrs : float or int
+    age_in_yrs : Union[float, int]
         Age in years.
     source_name : str, optional
         Name of the source field, used in error messages.
@@ -207,7 +207,7 @@ def set_life_stage_from_age_yrs(age_in_yrs: Union[float, int], source_name: str 
     Raises
     ------
     ValueError
-        If age_in_yrs is not convertable to an integer.
+        If age_in_yrs is not null or convertable to an integer.
     """
     if pandas.isnull(age_in_yrs):
         return age_in_yrs
@@ -222,12 +222,12 @@ def set_life_stage_from_age_yrs(age_in_yrs: Union[float, int], source_name: str 
     return "adult"
 
 
-def format_a_datetime(x: Union[str, datetime], source_name: str = "input") -> str:
+def format_a_datetime(x: Union[str, datetime, None], source_name: str = "input") -> str:
     """Format a datetime value to YYYY-MM-DD HH:MM string format.
 
     Parameters
     ----------
-    x : str or datetime
+    x : Union[str, datetime, None]
         Input datetime value to format.
     source_name : str, optional
         Name of the source field, used in error messages.
@@ -264,7 +264,7 @@ def _get_one_source_field(row: pandas.Series, source_fields: List[str], func_nam
     ----------
     row : pandas.Series
         Row of data containing the source field.
-    source_fields : list
+    source_fields : List[str]
         List of source field names.
     func_name : str
         Name of the calling function, used in error messages.
@@ -295,7 +295,7 @@ def _help_transform_mapping(
     ----------
     input_val : Any
         Input value to transform.
-    mapping : dict
+    mapping : Dict[str, Any]
         Dictionary mapping input values to output values.
     field_name : str, optional
         Name of the field being transformed, used in error messages.
