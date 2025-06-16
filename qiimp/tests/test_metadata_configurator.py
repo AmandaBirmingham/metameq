@@ -2,11 +2,10 @@ from unittest import TestCase
 from qiimp.src.util import \
     HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_FIELDS_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
-    STUDY_SPECIFIC_METADATA_KEY, ALIAS_KEY, BASE_TYPE_KEY
+    ALIAS_KEY, BASE_TYPE_KEY
 from qiimp.src.metadata_configurator import \
     _make_combined_stds_and_study_host_type_dicts, \
-    flatten_nested_stds_dict, combine_stds_and_study_config, \
-    update_wip_metadata_dict, _combine_base_and_added_host_type, \
+    flatten_nested_stds_dict,  \
     _combine_base_and_added_metadata_fields, \
     _combine_base_and_added_sample_type_specific_metadata, \
     _id_sample_type_definition
@@ -993,142 +992,31 @@ class TestMetadataConfigurator(TestCase):
             self.FLATTENED_STDS_W_STUDY_DICT[HOST_TYPE_SPECIFIC_METADATA_KEY],
             out_flattened_dict)
 
-    def test_combine_stds_and_study_config(self):
-        """Test combining standards and study configuration dictionaries."""
-        study_config_dict = {
-            STUDY_SPECIFIC_METADATA_KEY: self.FLAT_STUDY_DICT
-        }
-        out_dict = combine_stds_and_study_config(study_config_dict)
-        
-        self.maxDiff = None
-        self.assertDictEqual(
-            self.NESTED_STDS_W_STUDY_DICT,
-            out_dict)
-
-    def test_update_wip_metadata_dict(self):
-        """Test updating work-in-progress metadata dictionary with standards metadata fields."""
-        wip_dict = {
-            "field1": {
-                "allowed": ["value1"],
-                "type": "string"
-            },
-            "field2": {
-                "anyof": [{"type": "string"}]
-            }
-        }
-        stds_dict = {
-            "field1": {
-                "allowed": ["value2"],
-                "type": "string"
-            },
-            "field2": {
-                "allowed": ["value3"],
-                "type": "string"
-            },
-            "field3": {
-                "type": "string"
-            }
-        }
-        
-        expected = {
-            "field1": {
-                "allowed": ["value2"],
-                "type": "string"
-            },
-            "field2": {
-                "allowed": ["value3"],
-                "type": "string"
-            },
-            "field3": {
-                "type": "string"
-            }
-        }
-        
-        result = update_wip_metadata_dict(wip_dict, stds_dict)
-        self.assertDictEqual(expected, result)
-
-    def test__combine_base_and_added_host_type(self):
-        """Test combining base and additional host type configurations."""
-        base_dict = {
-            DEFAULT_KEY: "base_default",
-            METADATA_FIELDS_KEY: {
-                "field1": {
-                    "allowed": ["value1"],
-                    "type": "string"
-                }
-            },
-            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
-                "sample1": {
-                    "alias": "sample2"
-                }
-            }
-        }
-        add_dict = {
-            DEFAULT_KEY: "add_default",
-            METADATA_FIELDS_KEY: {
-                "field1": {
-                    "allowed": ["value2"],
-                    "type": "string"
-                },
-                "field2": {
-                    "type": "string"
-                }
-            },
-            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
-                "sample2": {
-                    METADATA_FIELDS_KEY: {
-                        "field3": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        }
-        
-        expected = {
-            DEFAULT_KEY: "add_default",
-            METADATA_FIELDS_KEY: {
-                "field1": {
-                    "allowed": ["value2"],
-                    "type": "string"
-                },
-                "field2": {
-                    "type": "string"
-                }
-            },
-            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
-                "sample1": {
-                    "alias": "sample2"
-                },
-                "sample2": {
-                    METADATA_FIELDS_KEY: {
-                        "field3": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        }
-        
-        result = _combine_base_and_added_host_type(base_dict, add_dict)
-        self.assertDictEqual(expected, result)
-
     def test__combine_base_and_added_metadata_fields(self):
         """Test combining base and additional metadata fields."""
         base_dict = {
             METADATA_FIELDS_KEY: {
+                # in both, add wins
                 "field1": {
                     "allowed": ["value1"],
                     "type": "string"
+                },
+                # in base only
+                "fieldX": {
+                    "type": "string",
+                    "allowed": ["valueX"]
                 }
             }
         }
+
         add_dict = {
+            # in both, add wins
             METADATA_FIELDS_KEY: {
                 "field1": {
                     "allowed": ["value2"],
                     "type": "string"
                 },
+                # in add only
                 "field2": {
                     "type": "string"
                 }
@@ -1142,6 +1030,10 @@ class TestMetadataConfigurator(TestCase):
             },
             "field2": {
                 "type": "string"
+            },
+            "fieldX": {
+                "type": "string",
+                "allowed": ["valueX"]
             }
         }
         
@@ -1152,10 +1044,29 @@ class TestMetadataConfigurator(TestCase):
         """Test combining base and additional sample type specific metadata."""
         base_dict = {
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
-                "sample1": {
-                    "alias": "sample2"
+                # defined in stds w metadata fields but in add as an alias
+                "sample_type1": {
+                    METADATA_FIELDS_KEY: {
+                        "confuse": {
+                            "allowed": ["value1"],
+                            "type": "string"
+                        },
+                    }
                 },
-                "sample2": {
+                # defined in both w metadata fields, must combine, add wins
+                "sample_type2": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {
+                            "type": "string"
+                        },
+                        "fieldX": {
+                            "type": "string",
+                            "allowed": ["valueX"]
+                        }
+                    }
+                },
+                # defined only in base
+                "sample_type4": {
                     METADATA_FIELDS_KEY: {
                         "field1": {
                             "type": "string"
@@ -1164,9 +1075,15 @@ class TestMetadataConfigurator(TestCase):
                 }
             }
         }
+
         add_dict = {
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
-                "sample2": {
+                # defined here as an alias, defined in stds w metadata fields
+                "sample_type1": {
+                    "alias": "sample_type2"
+                },
+                # defined in both w metadata fields, must combine, add wins
+                "sample_type2": {
                     METADATA_FIELDS_KEY: {
                         "field1": {
                             "allowed": ["value1"],
@@ -1177,17 +1094,18 @@ class TestMetadataConfigurator(TestCase):
                         }
                     }
                 },
-                "sample3": {
-                    "base_type": "sample2"
+                # defined only in add
+                "sample_type3": {
+                    "base_type": "sample_type2"
                 }
             }
         }
         
         expected = {
-            "sample1": {
-                "alias": "sample2"
+            "sample_type1": {
+                "alias": "sample_type2"
             },
-            "sample2": {
+            "sample_type2": {
                 METADATA_FIELDS_KEY: {
                     "field1": {
                         "allowed": ["value1"],
@@ -1195,11 +1113,22 @@ class TestMetadataConfigurator(TestCase):
                     },
                     "field2": {
                         "type": "string"
+                    },
+                    "fieldX": {
+                        "type": "string",
+                        "allowed": ["valueX"]
                     }
                 }
             },
-            "sample3": {
-                "base_type": "sample2"
+            "sample_type3": {
+                "base_type": "sample_type2"
+            },
+            "sample_type4": {
+                METADATA_FIELDS_KEY: {
+                    "field1": {
+                        "type": "string"
+                    }
+                }
             }
         }
         
@@ -1234,7 +1163,7 @@ class TestMetadataConfigurator(TestCase):
         result = _id_sample_type_definition("test_sample", sample_dict)
         self.assertEqual(BASE_TYPE_KEY, result)
 
-    def test__id_sample_type_definition_invalid_alias_metadata(self):
+    def test__id_sample_type_definition_err_alias_metadata(self):
         """Test that sample type with both alias and metadata fields raises ValueError."""
         sample_dict = {
             ALIAS_KEY: "other_sample",
@@ -1247,7 +1176,7 @@ class TestMetadataConfigurator(TestCase):
         with self.assertRaisesRegex(ValueError, "Sample type 'test_sample' has both 'alias' and 'metadata_fields' keys"):
             _id_sample_type_definition("test_sample", sample_dict)
 
-    def test__id_sample_type_definition_invalid_alias_base(self):
+    def test__id_sample_type_definition_err_alias_base(self):
         """Test that sample type with both alias and base type raises ValueError."""
         sample_dict = {
             ALIAS_KEY: "other_sample",
@@ -1256,7 +1185,7 @@ class TestMetadataConfigurator(TestCase):
         with self.assertRaisesRegex(ValueError, "Sample type 'test_sample' has both 'alias' and 'base_type' keys"):
             _id_sample_type_definition("test_sample", sample_dict)
 
-    def test__id_sample_type_definition_invalid_no_keys(self):
+    def test__id_sample_type_definition_err_no_keys(self):
         """Test that sample type with neither alias nor metadata fields raises ValueError."""
         sample_dict = {}
         with self.assertRaisesRegex(ValueError, "Sample type 'test_sample' has neither 'alias' nor 'metadata_fields' keys"):
