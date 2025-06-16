@@ -1513,7 +1513,7 @@ host_type_specific_metadata:
                                     default: control swab
                                     type: string
           control:
-            #default: "not applicable"
+            default: "not applicable"
             metadata_fields:
               empo_1:
                 allowed:
