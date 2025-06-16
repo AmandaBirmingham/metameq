@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from qiimp.src.util import extract_stds_config, deepcopy_dict, \
     METADATA_FIELDS_KEY, STUDY_SPECIFIC_METADATA_KEY, \
     HOST_TYPE_SPECIFIC_METADATA_KEY, \
@@ -7,10 +7,23 @@ from qiimp.src.util import extract_stds_config, deepcopy_dict, \
 
 
 def combine_stds_and_study_config(
-        study_config_dict: Dict,
+        study_config_dict: Dict[str, Any],
         stds_fp: Optional[str] = None) \
-        -> Dict:
+        -> Dict[str, Any]:
+    """Combine standards and study-specific-configuration dictionaries.
 
+    Parameters
+    ----------
+    study_config_dict : Dict[str, Any]
+        Study-specific flat-host-type config dictionary.
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Nested-host-type config dictionary combining standards and study-specific info.
+    """
     stds_nested_dict = extract_stds_config(stds_fp)
     study_flat_dict = study_config_dict.get(STUDY_SPECIFIC_METADATA_KEY, {})
     combined_host_types_dict = _make_combined_stds_and_study_host_type_dicts(
@@ -21,16 +34,32 @@ def combine_stds_and_study_config(
     return stds_plus_study_nested_dict
 
 
-# At each level, this method adds info from the host types dictionary for the
-# previous host level's standards nested dictionary (arg 1) into a copy of a
-# growing flat-and-complete hosts dictionary for the previous level (arg 2).
-# The result is a flat hosts dictionary that (a) contains all hosts and (b)
-# has complete metadata definitions for each host.
 def flatten_nested_stds_dict(
-        parent_stds_nested_dict: Dict,
-        parent_flattened_host_dict: Dict = None) \
-        -> Dict:
+        parent_stds_nested_dict: Dict[str, Any],
+        parent_flattened_host_dict: Optional[Dict[str, Any]] = None) \
+        -> Dict[str, Any]:
+    """Flatten a nested standards dictionary into a flat structure.
 
+    Note: this method is called recursively.
+    At each level, this method adds info from the host types dictionary for the
+    previous host level's standards nested dictionary (arg 1) into a copy of a growing
+    flat-and-complete hosts dictionary for the previous level (arg 2). The result is a
+    flat hosts dictionary that (a) contains all hosts and (b) has complete metadata
+    definitions for each host.
+
+    Parameters
+    ----------
+    parent_stds_nested_dict : Dict[str, Any]
+        Parent (previous host)-level standards nested dictionary.
+    parent_flattened_host_dict : Optional[Dict[str, Any]], default=None
+        Parent (previous host)-level flattened host dictionary. If None, a new empty dictionary
+        will be created.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Flattened dictionary containing all host types and their complete metadata definitions.
+    """
     # if this is the top-level call, set flat parent to new dict.
     # this is what we will be copying to add *TO*
     if parent_flattened_host_dict is None:
@@ -69,49 +98,83 @@ def flatten_nested_stds_dict(
     return wip_host_types_dict
 
 
+# TODO: Rewrite so this doesn't BOTH modify the wip in place AND return a pointer to it.
+# The fact that it returns a dictionary makes it unclear that this returned value is not a copy 
+# but is in fact the same dictionary as the one passed in, now with modifications.
+# This is confusing and error-prone.
 def update_wip_metadata_dict(
-        curr_wip_metadata_fields_dict, curr_stds_metadata_fields_dict):
+        wip_metadata_fields_dict: Dict[str, Any],
+        stds_metadata_fields_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Update work-in-progress metadata dictionary *in place* with standards metadata fields.
 
-    for curr_metadata_field, curr_stds_metadata_field_dict in curr_stds_metadata_fields_dict.items():
-        if curr_metadata_field not in curr_wip_metadata_fields_dict:
-            curr_wip_metadata_fields_dict[curr_metadata_field] = {}
+    Parameters
+    ----------
+    wip_metadata_fields_dict : Dict[str, Any]
+        Current work-in-progress metadata fields dictionary.
+    stds_metadata_fields_dict : Dict[str, Any]
+        Standards metadata fields dictionary to incorporate.
+
+    Returns
+    -------
+    Dict[str, Any]
+        (Pointer to) updated work-in-progress metadata fields dictionary.
+    """
+    for curr_metadata_field, curr_stds_metadata_field_dict in stds_metadata_fields_dict.items():
+        if curr_metadata_field not in wip_metadata_fields_dict:
+            wip_metadata_fields_dict[curr_metadata_field] = {}
 
         if ALLOWED_KEY in curr_stds_metadata_field_dict:
             # remove the ANYOF_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if ANYOF_KEY in curr_wip_metadata_fields_dict[curr_metadata_field]:
-                del curr_wip_metadata_fields_dict[curr_metadata_field][ANYOF_KEY]
+            if ANYOF_KEY in wip_metadata_fields_dict[curr_metadata_field]:
+                del wip_metadata_fields_dict[curr_metadata_field][ANYOF_KEY]
 
         if ANYOF_KEY in curr_stds_metadata_field_dict:
             # remove the ALLOWED_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if ALLOWED_KEY in curr_wip_metadata_fields_dict[curr_metadata_field]:
-                del curr_wip_metadata_fields_dict[curr_metadata_field][ALLOWED_KEY]
+            if ALLOWED_KEY in wip_metadata_fields_dict[curr_metadata_field]:
+                del wip_metadata_fields_dict[curr_metadata_field][ALLOWED_KEY]
 
             # remove the TYPE_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if TYPE_KEY in curr_wip_metadata_fields_dict[curr_metadata_field]:
-                del curr_wip_metadata_fields_dict[curr_metadata_field][TYPE_KEY]
+            if TYPE_KEY in wip_metadata_fields_dict[curr_metadata_field]:
+                del wip_metadata_fields_dict[curr_metadata_field][TYPE_KEY]
 
         # TODO: Q: is it possible to have a list of allowed with a default
         #  at high level, then lower down have a list of allowed WITHOUT
         #  a default?  If so, how do we handle that?
 
         # update curr_wip_metadata_fields_dict[curr_metadata_field] with curr_stds_metadata_field_dict
-        curr_wip_metadata_fields_dict[curr_metadata_field].update(curr_stds_metadata_field_dict)
+        wip_metadata_fields_dict[curr_metadata_field].update(curr_stds_metadata_field_dict)
     # next metadata field
 
-    return curr_wip_metadata_fields_dict
+    return wip_metadata_fields_dict
 
 
-# At each level, this method adds info from a static, flat study-specific
-# hosts dictionary (the same at every level; arg 1) into a copy of the host
-# types dictionary for the previous host level's standards nested dictionary
-# (arg 2). (Note that the flat study-specific hosts dictionary is NOT expected
-# to (a) contains all hosts nor to (b) have complete metadata definitions for
-# each host.) The result is an augmented nested hosts dictionary.
 def _make_combined_stds_and_study_host_type_dicts(
-        flat_study_dict: Dict,
-        parent_host_stds_nested_dict: Dict) \
-        -> Dict:
+        flat_study_dict: Dict[str, Any],
+        parent_host_stds_nested_dict: Dict[str, Any]) \
+        -> Dict[str, Any]:
+    """Combine standards and study-specific host type dictionaries.
 
+    At each level, this method adds info from a static, flat study-specific
+    hosts dictionary (the same at every level; arg 1) into a copy of the host
+    types dictionary for the previous host level's standards nested dictionary (arg 2). 
+    (Note that the flat study-specific hosts dictionary is NOT expected
+    to (a) contains all hosts nor to (b) have complete metadata definitions for
+    each host.) The result is an augmented nested hosts dictionary.
+
+    Parameters
+    ----------
+    flat_study_dict : Dict[str, Any]
+        Flat study-specific dictionary. Note that this is the same at every level
+        and is NOT the full study-specific config dictionary,
+        only the contents of the STUDY_SPECIFIC_METADATA_KEY section thereof.
+    parent_host_stds_nested_dict : Dict[str, Any]
+        Parent (previous host)-level standards nested dictionary.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Nested dictionary combining standards and study-specific metadata definitions.
+    """
     # get all the host type dicts for the study (these are flat);
     # these are what we will be adding *FROM*
     study_host_types_dict = flat_study_dict.get(
@@ -163,75 +226,122 @@ def _make_combined_stds_and_study_host_type_dicts(
 
 
 def _combine_base_and_added_host_type(
-        curr_host_type_base_dict, curr_host_type_add_dict):
+        host_type_base_dict: Dict[str, Any],
+        host_type_add_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Combine base and additional host type configurations.
 
+    Parameters
+    ----------
+    host_type_base_dict : Dict[str, Any]
+        Base host type configuration dictionary.
+    host_type_add_dict : Dict[str, Any]
+        Additional host type configuration to incorporate.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Combined host type configuration dictionary.
+    """
     # make a copy of the base for the current host type to add info to
-    curr_host_type_wip_nested_dict = \
-        deepcopy_dict(curr_host_type_base_dict)
+    host_type_wip_nested_dict = \
+        deepcopy_dict(host_type_base_dict)
 
     # look for a default key in the add dict for this host; if
     # it exists, add it to the wip dict (ok to overwrite existing)
-    if DEFAULT_KEY in curr_host_type_add_dict:
-        curr_host_type_wip_nested_dict[DEFAULT_KEY] = \
-            curr_host_type_add_dict.get(DEFAULT_KEY)
+    if DEFAULT_KEY in host_type_add_dict:
+        host_type_wip_nested_dict[DEFAULT_KEY] = \
+            host_type_add_dict.get(DEFAULT_KEY)
 
     # combine add metadata fields with the wip metadata fields
     # for the current host type and assign to wip if not empty
-    curr_host_type_wip_metadata_fields_dict = \
+    host_type_wip_metadata_fields_dict = \
         _combine_base_and_added_metadata_fields(
-            curr_host_type_base_dict,
-            curr_host_type_add_dict)
-    if curr_host_type_wip_metadata_fields_dict:
-        curr_host_type_wip_nested_dict[METADATA_FIELDS_KEY] = \
-            curr_host_type_wip_metadata_fields_dict
+            host_type_base_dict,
+            host_type_add_dict)
+    if host_type_wip_metadata_fields_dict:
+        host_type_wip_nested_dict[METADATA_FIELDS_KEY] = \
+            host_type_wip_metadata_fields_dict
     # endif the host type combination is not empty
 
     # combine any sample-type specific entries within the current host
     # type and assign to wip if not empty
     curr_host_wip_sample_types_dict = \
         _combine_base_and_added_sample_type_specific_metadata(
-            curr_host_type_wip_nested_dict,
-            curr_host_type_add_dict)
+            host_type_wip_nested_dict,
+            host_type_add_dict)
     # if we got back a non-empty dictionary of sample types,
     # add it to the wip for this host type dict
     if curr_host_wip_sample_types_dict:
-        curr_host_type_wip_nested_dict[
+        host_type_wip_nested_dict[
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY] = \
             curr_host_wip_sample_types_dict
     # endif the sample types dictionary is not empty
 
-    return curr_host_type_wip_nested_dict
+    return host_type_wip_nested_dict
 
 
 def _combine_base_and_added_metadata_fields(
-        curr_host_type_base_dict, curr_host_type_add_dict):
+        host_type_base_dict: Dict[str, Any],
+        host_type_add_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Combine just the metadata fields from base and additional host type dictionaries.
 
+    Parameters
+    ----------
+    host_type_base_dict : Dict[str, Any]
+        Base host type configuration dictionary.
+    host_type_add_dict : Dict[str, Any]
+        Additional configuration to incorporate.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Combined metadata fields dictionary.
+    """
     # copy the metadata fields from the base to make the wip metadata fields
-    curr_host_type_wip_metadata_fields_dict = deepcopy_dict(
-        curr_host_type_base_dict.get(METADATA_FIELDS_KEY, {}))
+    host_type_wip_metadata_fields_dict = deepcopy_dict(
+        host_type_base_dict.get(METADATA_FIELDS_KEY, {}))
 
     # update the wip with the add metadata fields
-    curr_host_type_add_metadata_fields_dict = \
-        curr_host_type_add_dict.get(METADATA_FIELDS_KEY, {})
-    curr_host_type_wip_metadata_fields_dict = \
+    host_type_add_metadata_fields_dict = \
+        host_type_add_dict.get(METADATA_FIELDS_KEY, {})
+    host_type_wip_metadata_fields_dict = \
         update_wip_metadata_dict(
-            curr_host_type_wip_metadata_fields_dict,
-            curr_host_type_add_metadata_fields_dict)
+            host_type_wip_metadata_fields_dict,
+            host_type_add_metadata_fields_dict)
 
-    return curr_host_type_wip_metadata_fields_dict
+    return host_type_wip_metadata_fields_dict
 
 
 def _combine_base_and_added_sample_type_specific_metadata(
-        curr_host_type_base_dict, curr_host_type_add_dict):
+        host_type_base_dict: Dict[str, Any],
+        host_type_add_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Combine just sample type specific metadata from base and additional host type dictionaries.
 
+    Parameters
+    ----------
+    host_type_base_dict : Dict[str, Any]
+        Base host type configuration dictionary.
+    host_type_add_dict : Dict[str, Any]
+        Additional configuration to incorporate.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Combined sample type specific metadata dictionary.
+
+    Raises
+    ------
+    ValueError
+        If sample type has both alias and metadata fields, or both alias and base type.
+    """
     # copy the dictionary of sample types from the base to make the wip dict
     curr_host_wip_sample_types_dict = deepcopy_dict(
-        curr_host_type_base_dict.get(
+        host_type_base_dict.get(
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {}))
 
     # loop over the sample types in the add dict
     curr_host_add_sample_types_dict = \
-        curr_host_type_add_dict.get(
+        host_type_add_dict.get(
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
     for curr_sample_type, curr_sample_type_add_dict \
             in curr_host_add_sample_types_dict.items():
@@ -294,7 +404,27 @@ def _combine_base_and_added_sample_type_specific_metadata(
     return curr_host_wip_sample_types_dict
 
 
-def _id_sample_type_definition(sample_type_name, sample_type_dict):
+def _id_sample_type_definition(sample_type_name: str, sample_type_dict: Dict[str, Any]) -> str:
+    """Identify the type of sample type definition in the dictionary.
+
+    Parameters
+    ----------
+    sample_type_name : str
+        Name of the sample type.
+    sample_type_dict : Dict[str, Any]
+        Dictionary containing sample type configuration.
+
+    Returns
+    -------
+    str
+        The type of definition (ALIAS_KEY, METADATA_FIELDS_KEY, or BASE_TYPE_KEY).
+
+    Raises
+    ------
+    ValueError
+        If sample type has both alias and metadata fields, or both alias and base type,
+        or neither alias nor metadata fields.
+    """
     has_alias = ALIAS_KEY in sample_type_dict
     has_metadata = METADATA_FIELDS_KEY in sample_type_dict
     has_base = BASE_TYPE_KEY in sample_type_dict

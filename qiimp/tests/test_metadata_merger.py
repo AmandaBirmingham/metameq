@@ -10,9 +10,16 @@ from qiimp.src.metadata_merger import _check_for_nans, \
 
 
 class TestMetadataMerger(TestCase):
+    """Test suite for metadata merging functions in qiimp.src.metadata_merger module."""
+    
     # Tests for _check_for_nans
     def test__check_for_nans_wo_nans(self):
-        # test case 1: no nans in selected column
+        """Test checking for NaNs when no NaNs are present in the selected column.
+
+        Verifies that an empty list is returned when checking a column that
+        contains no NaN values, even if other columns contain NaNs.
+        """
+
         df = pandas.DataFrame({
             "a": [1, 2, 3],
             "b": [4, np.nan, 6]
@@ -22,7 +29,12 @@ class TestMetadataMerger(TestCase):
         self.assertEqual([], obs)
 
     def test__check_for_nans_w_nans(self):
-        # test case 2: nan in selected column (and another, but that's ignored)
+        """Test checking for NaNs when NaNs are present in the selected column.
+
+        Verifies that a list containing appropriate message string(s) is returned
+        when checking a column that contains NaN values.
+        """
+
         df = pandas.DataFrame({
             "a": [1, np.nan, 3],
             "b": [4, np.nan, 6]
@@ -39,7 +51,12 @@ class TestMetadataMerger(TestCase):
 
     # Tests for _check_for_duplicate_field_vals
     def test__check_for_duplicate_field_vals(self):
-        # test case 1: no duplicates in selected column
+        """Test checking for duplicate values when no duplicates are present.
+
+        Verifies that an empty list is returned when checking a column that
+        contains no duplicate values, even if other columns contain duplicates.
+        """
+
         df = pandas.DataFrame({
             "a": [1, 2, 3],
             "b": [4, 5, 5]
@@ -49,8 +66,12 @@ class TestMetadataMerger(TestCase):
         self.assertEqual([], obs)
 
     def test__check_for_duplicate_field_vals_w_duplicates(self):
-        # test case 2: duplicates in selected column (and in other, but those
-        # are ignored)
+        """Test checking for duplicate values when duplicates are present.
+
+        Verifies that a list containing appropriate message string(s) is returned
+        when checking a column that contains duplicate values.
+        """
+
         df = pandas.DataFrame({
             "a": [1, 2, 2, 3, 1],
             "b": [4, 5, 6, 6, 4]
@@ -62,13 +83,18 @@ class TestMetadataMerger(TestCase):
              "column 'a': [1 2]"], obs)
 
     def test_check_for_duplicate_field_vals_with_empty(self):
+        """Test that checking for duplicate values in an empty DataFrame returns an empty list."""
         df = pandas.DataFrame()
         result = _check_for_duplicate_field_vals(df, "test", "col")
         self.assertEqual(result, [])
 
     # Tests for _validate_merge
     def test__validate_merge(self):
-        # test case 1: no errors
+        """Test validating merge operation with valid input data.
+
+        Verifies that no exceptions are raised when validating a merge operation
+        with valid input DataFrames and merge columns.
+        """
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
             "a": [1, 2, 3],
@@ -84,6 +110,11 @@ class TestMetadataMerger(TestCase):
         self.assertTrue(True)
 
     def test__validate_merge_err_left_col(self):
+        """Test validating merge operation with missing left merge column.
+
+        Verifies that a ValueError is raised with an appropriate message when
+        the left DataFrame is missing the specified merge column.
+        """
         # test case 1: no errors
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
@@ -101,6 +132,11 @@ class TestMetadataMerger(TestCase):
             _validate_merge(left_df, right_df, "c", "c")
 
     def test__validate_merge_err_right_col(self):
+        """Test validating merge operation with missing right merge column.
+
+        Verifies that a ValueError is raised with an appropriate message when
+        the right DataFrame is missing the specified merge column.
+        """
         # test case 1: no errors
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
@@ -118,6 +154,12 @@ class TestMetadataMerger(TestCase):
             _validate_merge(left_df, right_df, "a", "a")
 
     def test__validate_merge_err_msgs(self):
+        """Test validating merge operation with multiple validation errors.
+
+        Verifies that a ValueError is raised with a comprehensive error message
+        when multiple validation issues are present (e.g., NaNs and duplicates) in
+        both DataFrames.
+        """
         # test case 1: no errors
         left_df = pandas.DataFrame({
             "id": ['x', np.nan, 'x'],
@@ -146,6 +188,12 @@ class TestMetadataMerger(TestCase):
 
     # Tests for merge_one_to_one_metadata
     def test_merge_one_to_one_metadata_left(self):
+        """Test one-to-one metadata merge with left join type.
+
+        Verifies that the merge operation correctly performs a left join,
+        preserving all rows from the left DataFrame and matching rows from
+        the right DataFrame.
+        """
         # test case 1: no errors
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
@@ -172,6 +220,11 @@ class TestMetadataMerger(TestCase):
         assert_frame_equal(obs, exp)
 
     def test_merge_one_to_one_metadata_err(self):
+        """Test one-to-one metadata merge with validation errors.
+
+        Verifies that appropriate errors are raised when attempting to merge
+        DataFrames with validation issues (e.g., NaNs in merge columns).
+        """
         # this doesn't test ALL the errors, just that errors can be thrown
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
@@ -193,6 +246,11 @@ class TestMetadataMerger(TestCase):
 
     # Tests for merge_many_to_one_metadata
     def test_merge_many_to_one_metadata(self):
+        """Test many-to-one metadata merge operation.
+
+        Verifies that the merge operation correctly handles cases where multiple
+        rows in the left DataFrame map to a single row in the right DataFrame.
+        """
         # test case 1: no errors
         left_df = pandas.DataFrame({
             "id": [101, 102, 103, 104],
@@ -220,6 +278,11 @@ class TestMetadataMerger(TestCase):
         assert_frame_equal(obs, exp)
 
     def test_merge_many_to_one_metadata_err(self):
+        """Test many-to-one metadata merge with validation errors.
+
+        Verifies that appropriate errors are raised when attempting to merge
+        DataFrames with validation issues (e.g., NaNs in merge columns).
+        """
         # this doesn't test ALL the errors, just that errors can be thrown
         left_df = pandas.DataFrame({
             "id": [101, 102, 103, 104],
@@ -242,6 +305,11 @@ class TestMetadataMerger(TestCase):
 
     # Tests for merge_sample_and_subject_metadata
     def test_merge_sample_and_subject_metadata(self):
+        """Test merging sample and subject metadata.
+
+        Verifies that the merge operation correctly combines sample metadata
+        with corresponding subject metadata based on matching identifiers.
+        """
         left_df = pandas.DataFrame({
             "id": [101, 102, 103, 104],
             "name": ['x', 'y', 'z', 'x'],
@@ -268,6 +336,12 @@ class TestMetadataMerger(TestCase):
         assert_frame_equal(obs, exp)
 
     def test_merge_sample_and_subject_metadata_err(self):
+        """Test merging sample and subject metadata with validation errors.
+
+        Verifies that appropriate errors are raised when attempting to merge
+        sample and subject metadata with validation issues (e.g., NaNs in
+        merge columns).
+        """
         left_df = pandas.DataFrame({
             "id": [101, 102, 103, 104],
             "name": ['x', 'y', 'z', 'x'],
@@ -353,6 +427,12 @@ class TestMetadataMerger(TestCase):
 
     # Tests for merge_one_to_one_metadata
     def test_merge_one_to_one_metadata_right(self):
+        """Test one-to-one metadata merge with right join type.
+
+        Verifies that the merge operation correctly performs a right join,
+        preserving all rows from the right DataFrame and matching rows from
+        the left DataFrame.
+        """
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
             "a": [1, 2, 3],
@@ -378,6 +458,11 @@ class TestMetadataMerger(TestCase):
         assert_frame_equal(obs, exp)
 
     def test_merge_one_to_one_metadata_inner(self):
+        """Test one-to-one metadata merge with inner join type.
+
+        Verifies that the merge operation correctly performs an inner join,
+        only keeping rows where there are matches in both DataFrames.
+        """
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
             "a": [1, 2, 3],
@@ -403,7 +488,11 @@ class TestMetadataMerger(TestCase):
         assert_frame_equal(obs, exp)
 
     def test_merge_one_to_one_metadata_with_nans(self):
-        """Test merging one-to-one metadata with NaN values"""
+        """Test one-to-one metadata merge with NaN values in merge columns.
+
+        Verifies that appropriate errors are raised when attempting to merge
+        DataFrames containing NaN values in the merge columns.
+        """
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
             "a": [1, 2, 3],
@@ -419,7 +508,11 @@ class TestMetadataMerger(TestCase):
             merge_one_to_one_metadata(left_df, right_df, 'id')
 
     def test_merge_one_to_one_metadata_with_duplicates(self):
-        """Test merging one-to-one metadata with duplicate values"""
+        """Test one-to-one metadata merge with duplicate values in merge columns.
+
+        Verifies that appropriate errors are raised when attempting to merge
+        DataFrames containing duplicate values in the merge columns.
+        """
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
             "a": [1, 2, 3],
@@ -436,6 +529,12 @@ class TestMetadataMerger(TestCase):
 
     # Tests for merge_many_to_one_metadata
     def test_merge_many_to_one_metadata_with_duplicates(self):
+        """Test many-to-one metadata merge with duplicate values in "many" merge column.
+
+        Verifies that the merge operation correctly handles cases where multiple
+        rows in the left DataFrame map to a single row in the right DataFrame,
+        including when there are duplicate values in the "many" merge column.
+        """
         left_df = pandas.DataFrame({
             "id": [101, 102, 103, 104],
             "name": ['x', 'y', 'z', 'x'],
@@ -463,6 +562,12 @@ class TestMetadataMerger(TestCase):
 
     # Tests for merge_sample_and_subject_metadata
     def test_merge_sample_and_subject_metadata_with_missing(self):
+        """Test merging sample and subject metadata with missing matches.
+
+        Verifies that the merge operation correctly handles cases where some
+        samples do not have matching subject metadata, resulting in NaN values
+        for those samples.
+        """
         sample_df = pandas.DataFrame({
             "id": [101, 102, 103, 104],
             "name": ['x', 'y', 'z', 'w'],
@@ -489,7 +594,12 @@ class TestMetadataMerger(TestCase):
         assert_frame_equal(obs, exp)
 
     def test_validate_merge(self):
-        """Test validating merge operation"""
+        """Test validating merge operation with valid input data.
+
+        Verifies that no exceptions are raised when validating a merge operation
+        with valid input DataFrames and merge columns, even when there are NaN
+        values in non-merge columns.
+        """
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
             "a": [1, 2, 3],
@@ -506,7 +616,11 @@ class TestMetadataMerger(TestCase):
         # Should not raise any exception
 
     def test_validate_merge_non_existent_col(self):
-        """Test validating merge operation on non-existent column"""
+        """Test validating merge operation with non-existent merge column.
+
+        Verifies that a ValueError is raised when attempting to validate a merge
+        operation using a column that does not exist in one of the DataFrames.
+        """
         left_df = pandas.DataFrame({
             "id": ['x', 'y', 'z'],
             "a": [1, 2, 3],
@@ -523,6 +637,11 @@ class TestMetadataMerger(TestCase):
             _validate_merge(left_df, right_df, 'subject_id', 'name')
 
     def test_validate_merge_with_nans(self):
+        """Test validating merge operation with NaN values in merge columns.
+
+        Verifies that appropriate errors are raised when validating a merge
+        operation with NaN values in the merge columns of either DataFrame.
+        """
         left_df = pandas.DataFrame({
             "id": ['x', np.nan, 'z'],
             "a": [1, 2, 3],

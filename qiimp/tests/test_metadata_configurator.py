@@ -1,10 +1,15 @@
 from unittest import TestCase
 from qiimp.src.util import \
     HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_FIELDS_KEY, \
-    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY
+    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
+    STUDY_SPECIFIC_METADATA_KEY, ALIAS_KEY, BASE_TYPE_KEY
 from qiimp.src.metadata_configurator import \
     _make_combined_stds_and_study_host_type_dicts, \
-    flatten_nested_stds_dict
+    flatten_nested_stds_dict, combine_stds_and_study_config, \
+    update_wip_metadata_dict, _combine_base_and_added_host_type, \
+    _combine_base_and_added_metadata_fields, \
+    _combine_base_and_added_sample_type_specific_metadata, \
+    _id_sample_type_definition
 
 
 class TestMetadataConfigurator(TestCase):
@@ -968,6 +973,7 @@ class TestMetadataConfigurator(TestCase):
     }
 
     def test__make_combined_stds_and_study_host_type_dicts(self):
+        """Test making a combined standards and study host type dictionary."""
         out_nested_dict = _make_combined_stds_and_study_host_type_dicts(
             self.FLAT_STUDY_DICT, self.NESTED_STDS_DICT, )
 
@@ -977,6 +983,7 @@ class TestMetadataConfigurator(TestCase):
             out_nested_dict)
 
     def test_flatten_nested_stds_dict(self):
+        """Test flattening a nested standards dictionary."""
         out_flattened_dict = flatten_nested_stds_dict(
             self.NESTED_STDS_W_STUDY_DICT,
             None)  # , None)
@@ -985,3 +992,272 @@ class TestMetadataConfigurator(TestCase):
         self.assertDictEqual(
             self.FLATTENED_STDS_W_STUDY_DICT[HOST_TYPE_SPECIFIC_METADATA_KEY],
             out_flattened_dict)
+
+    def test_combine_stds_and_study_config(self):
+        """Test combining standards and study configuration dictionaries."""
+        study_config_dict = {
+            STUDY_SPECIFIC_METADATA_KEY: self.FLAT_STUDY_DICT
+        }
+        out_dict = combine_stds_and_study_config(study_config_dict)
+        
+        self.maxDiff = None
+        self.assertDictEqual(
+            self.NESTED_STDS_W_STUDY_DICT,
+            out_dict)
+
+    def test_update_wip_metadata_dict(self):
+        """Test updating work-in-progress metadata dictionary with standards metadata fields."""
+        wip_dict = {
+            "field1": {
+                "allowed": ["value1"],
+                "type": "string"
+            },
+            "field2": {
+                "anyof": [{"type": "string"}]
+            }
+        }
+        stds_dict = {
+            "field1": {
+                "allowed": ["value2"],
+                "type": "string"
+            },
+            "field2": {
+                "allowed": ["value3"],
+                "type": "string"
+            },
+            "field3": {
+                "type": "string"
+            }
+        }
+        
+        expected = {
+            "field1": {
+                "allowed": ["value2"],
+                "type": "string"
+            },
+            "field2": {
+                "allowed": ["value3"],
+                "type": "string"
+            },
+            "field3": {
+                "type": "string"
+            }
+        }
+        
+        result = update_wip_metadata_dict(wip_dict, stds_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_host_type(self):
+        """Test combining base and additional host type configurations."""
+        base_dict = {
+            DEFAULT_KEY: "base_default",
+            METADATA_FIELDS_KEY: {
+                "field1": {
+                    "allowed": ["value1"],
+                    "type": "string"
+                }
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "sample1": {
+                    "alias": "sample2"
+                }
+            }
+        }
+        add_dict = {
+            DEFAULT_KEY: "add_default",
+            METADATA_FIELDS_KEY: {
+                "field1": {
+                    "allowed": ["value2"],
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "string"
+                }
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "sample2": {
+                    METADATA_FIELDS_KEY: {
+                        "field3": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+        
+        expected = {
+            DEFAULT_KEY: "add_default",
+            METADATA_FIELDS_KEY: {
+                "field1": {
+                    "allowed": ["value2"],
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "string"
+                }
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "sample1": {
+                    "alias": "sample2"
+                },
+                "sample2": {
+                    METADATA_FIELDS_KEY: {
+                        "field3": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+        
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_metadata_fields(self):
+        """Test combining base and additional metadata fields."""
+        base_dict = {
+            METADATA_FIELDS_KEY: {
+                "field1": {
+                    "allowed": ["value1"],
+                    "type": "string"
+                }
+            }
+        }
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                "field1": {
+                    "allowed": ["value2"],
+                    "type": "string"
+                },
+                "field2": {
+                    "type": "string"
+                }
+            }
+        }
+        
+        expected = {
+            "field1": {
+                "allowed": ["value2"],
+                "type": "string"
+            },
+            "field2": {
+                "type": "string"
+            }
+        }
+        
+        result = _combine_base_and_added_metadata_fields(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata(self):
+        """Test combining base and additional sample type specific metadata."""
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "sample1": {
+                    "alias": "sample2"
+                },
+                "sample2": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+        add_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "sample2": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {
+                            "allowed": ["value1"],
+                            "type": "string"
+                        },
+                        "field2": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "sample3": {
+                    "base_type": "sample2"
+                }
+            }
+        }
+        
+        expected = {
+            "sample1": {
+                "alias": "sample2"
+            },
+            "sample2": {
+                METADATA_FIELDS_KEY: {
+                    "field1": {
+                        "allowed": ["value1"],
+                        "type": "string"
+                    },
+                    "field2": {
+                        "type": "string"
+                    }
+                }
+            },
+            "sample3": {
+                "base_type": "sample2"
+            }
+        }
+        
+        result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__id_sample_type_definition_alias(self):
+        """Test identifying sample type definition as alias type."""
+        sample_dict = {
+            ALIAS_KEY: "other_sample"
+        }
+        result = _id_sample_type_definition("test_sample", sample_dict)
+        self.assertEqual(ALIAS_KEY, result)
+
+    def test__id_sample_type_definition_metadata(self):
+        """Test identifying sample type definition as metadata type."""
+        sample_dict = {
+            METADATA_FIELDS_KEY: {
+                "field1": {
+                    "type": "string"
+                }
+            }
+        }
+        result = _id_sample_type_definition("test_sample", sample_dict)
+        self.assertEqual(METADATA_FIELDS_KEY, result)
+
+    def test__id_sample_type_definition_base(self):
+        """Test identifying sample type definition as base type."""
+        sample_dict = {
+            BASE_TYPE_KEY: "other_sample"
+        }
+        result = _id_sample_type_definition("test_sample", sample_dict)
+        self.assertEqual(BASE_TYPE_KEY, result)
+
+    def test__id_sample_type_definition_invalid_alias_metadata(self):
+        """Test that sample type with both alias and metadata fields raises ValueError."""
+        sample_dict = {
+            ALIAS_KEY: "other_sample",
+            METADATA_FIELDS_KEY: {
+                "field1": {
+                    "type": "string"
+                }
+            }
+        }
+        with self.assertRaisesRegex(ValueError, "Sample type 'test_sample' has both 'alias' and 'metadata_fields' keys"):
+            _id_sample_type_definition("test_sample", sample_dict)
+
+    def test__id_sample_type_definition_invalid_alias_base(self):
+        """Test that sample type with both alias and base type raises ValueError."""
+        sample_dict = {
+            ALIAS_KEY: "other_sample",
+            BASE_TYPE_KEY: "other_sample"
+        }
+        with self.assertRaisesRegex(ValueError, "Sample type 'test_sample' has both 'alias' and 'base_type' keys"):
+            _id_sample_type_definition("test_sample", sample_dict)
+
+    def test__id_sample_type_definition_invalid_no_keys(self):
+        """Test that sample type with neither alias nor metadata fields raises ValueError."""
+        sample_dict = {}
+        with self.assertRaisesRegex(ValueError, "Sample type 'test_sample' has neither 'alias' nor 'metadata_fields' keys"):
+            _id_sample_type_definition("test_sample", sample_dict)
