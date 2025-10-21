@@ -1,6 +1,6 @@
 import pandas
 from typing import List, Optional, Literal
-from qiimp.src.util import validate_required_columns_exist
+from metameq.src.util import validate_required_columns_exist
 
 
 def merge_sample_and_subject_metadata(

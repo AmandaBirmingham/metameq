@@ -1,4 +1,4 @@
-name: qiimp
+name: metameq
 channels:
   - defaults
 dependencies:
