@@ -1,4 +1,4 @@
-![METAMEQ logo](https://raw.githubusercontent.com/biocore/pysyndna/main/docs/absolute_quant_fit_models_workflow.png?raw=true)
+![METAMEQ logo](https://raw.githubusercontent.com/biocore/metameq/main/metameq.png?raw=true)
 
 # Metadata Extension Tool to Annotate Microbiome Experiments for Qiita
 
