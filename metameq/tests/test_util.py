@@ -4,14 +4,14 @@ from pandas.testing import assert_frame_equal
 import os
 import os.path as path
 from unittest import TestCase
-from qiimp.src.util import _get_grandparent_dir, extract_config_dict, \
+from metameq.src.util import _get_grandparent_dir, extract_config_dict, \
     extract_yaml_dict, extract_stds_config, deepcopy_dict, \
     validate_required_columns_exist, update_metadata_df_field, get_extension, \
     load_df_with_best_fit_encoding
 
 
 class TestUtil(TestCase):
-    """Test suite for utility functions in qiimp.src.util module."""
+    """Test suite for utility functions in metameq.src.util module."""
 
     # get the parent directory of the current file
     TEST_DIR = path.dirname(__file__)
@@ -440,7 +440,7 @@ class TestUtil(TestCase):
     def test__get_grandparent_dir_no_fp(self):
         """Test getting grandparent directory without file path."""
         obs = _get_grandparent_dir()
-        self.assertTrue(obs.endswith("qiimp/src/../.."))
+        self.assertTrue(obs.endswith("metameq/src/../.."))
 
     def test__get_grandparent_dir_with_fp(self):
         """Test getting grandparent directory with file path."""

@@ -1,5 +1,5 @@
 import click
-from qiimp import write_extended_metadata as _write_extended_metadata
+from metameq import write_extended_metadata as _write_extended_metadata
 
 
 @click.group()

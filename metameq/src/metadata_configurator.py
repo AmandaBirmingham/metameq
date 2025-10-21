@@ -1,5 +1,5 @@
 from typing import Dict, Optional, Any
-from qiimp.src.util import extract_stds_config, deepcopy_dict, \
+from metameq.src.util import extract_stds_config, deepcopy_dict, \
     METADATA_FIELDS_KEY, STUDY_SPECIFIC_METADATA_KEY, \
     HOST_TYPE_SPECIFIC_METADATA_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, ALIAS_KEY, BASE_TYPE_KEY, \

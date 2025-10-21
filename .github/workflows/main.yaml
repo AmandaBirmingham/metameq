@@ -6,7 +6,7 @@ jobs:
   build:
     strategy:
       matrix:
-        python-version: ['3.8', '3.10']
+        python-version: ['3.9', '3.10']
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     defaults:
@@ -24,11 +24,11 @@ jobs:
 
     - name: Install conda environment
       run: |
-        conda env create -n qiimp -f qiimp_environment.yml     
+        conda env create -n metameq -f environment.yml     
 
     - name: Test with pytest
       run: |
-        conda activate qiimp
+        conda activate metameq
         conda install pytest
         which python
         pip install -e . --no-deps
@@ -36,7 +36,7 @@ jobs:
 
     - name: Lint with flake8
       run: |
-        conda activate qiimp
+        conda activate metameq
         conda install flake8
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics

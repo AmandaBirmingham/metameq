@@ -52,8 +52,8 @@ def get_config() -> VersioneerConfig:
     cfg.VCS = "git"
     cfg.style = "pep440"
     cfg.tag_prefix = ""
-    cfg.parentdir_prefix = "qiimp-"
-    cfg.versionfile_source = "qiimp/_version.py"
+    cfg.parentdir_prefix = "metameq-"
+    cfg.versionfile_source = "metameq/_version.py"
     cfg.verbose = False
     return cfg
 

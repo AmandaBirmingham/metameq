@@ -5,7 +5,7 @@ from dateutil import parser
 import logging
 import os
 from pathlib import Path
-from qiimp.src.util import SAMPLE_NAME_KEY, get_extension
+from metameq.src.util import SAMPLE_NAME_KEY, get_extension
 
 _TYPE_KEY = "type"
 _ANYOF_KEY = "anyof"
@@ -14,7 +14,7 @@ _ANYOF_KEY = "anyof"
 logger = logging.getLogger(__name__)
 
 
-class QiimpValidator(cerberus.Validator):
+class MetameqValidator(cerberus.Validator):
     def _check_with_date_not_in_future(self, field, value):
         # convert the field string to a date
         try:
@@ -154,7 +154,7 @@ def _get_allowed_pandas_types(field_name, field_definition):
 
 
 def _generate_validation_msg(typed_metadata_df, config):
-    v = QiimpValidator()
+    v = MetameqValidator()
     v.allow_unknown = True
 
     validation_msgs = []

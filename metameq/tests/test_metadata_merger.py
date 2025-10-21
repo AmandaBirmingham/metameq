@@ -2,7 +2,7 @@ import numpy as np
 import pandas
 from pandas.testing import assert_frame_equal
 from unittest import TestCase
-from qiimp.src.metadata_merger import _check_for_nans, \
+from metameq.src.metadata_merger import _check_for_nans, \
     _check_for_duplicate_field_vals, _validate_merge, \
     merge_many_to_one_metadata, merge_one_to_one_metadata, \
     merge_sample_and_subject_metadata, find_common_col_names, \
@@ -10,7 +10,7 @@ from qiimp.src.metadata_merger import _check_for_nans, \
 
 
 class TestMetadataMerger(TestCase):
-    """Test suite for metadata merging functions in qiimp.src.metadata_merger module."""
+    """Test suite for metadata merging functions in metameq.src.metadata_merger module."""
     
     # Tests for _check_for_nans
     def test__check_for_nans_wo_nans(self):
