@@ -2,7 +2,7 @@ from datetime import datetime
 import pandas
 import numpy as np
 from unittest import TestCase
-from qiimp.src.metadata_transformers import (
+from metameq.src.metadata_transformers import (
     pass_through,
     transform_input_sex_to_std_sex,
     transform_age_to_life_stage,

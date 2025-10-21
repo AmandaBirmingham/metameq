@@ -5,7 +5,7 @@ import pandas
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any
-from qiimp.src.util import extract_config_dict, extract_stds_config, \
+from metameq.src.util import extract_config_dict, extract_stds_config, \
     deepcopy_dict, validate_required_columns_exist, get_extension, \
     load_df_with_best_fit_encoding, update_metadata_df_field, \
     HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
@@ -16,18 +16,18 @@ from qiimp.src.util import extract_config_dict, extract_stds_config, \
     ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY, OVERWRITE_NON_NANS_KEY, \
     METADATA_TRANSFORMERS_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
     SOURCES_KEY, FUNCTION_KEY, REQUIRED_RAW_METADATA_FIELDS
-from qiimp.src.metadata_configurator import combine_stds_and_study_config, \
+from metameq.src.metadata_configurator import combine_stds_and_study_config, \
     flatten_nested_stds_dict, update_wip_metadata_dict
-from qiimp.src.metadata_validator import validate_metadata_df, \
+from metameq.src.metadata_validator import validate_metadata_df, \
     output_validation_msgs
-import qiimp.src.metadata_transformers as transformers
+import metameq.src.metadata_transformers as transformers
 
 
 # columns added to the metadata that are not actually part of it
 INTERNAL_COL_KEYS = [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY,
                      QC_NOTE_KEY]
 
-REQ_PLACEHOLDER = "_QIIMP2_REQUIRED"
+REQ_PLACEHOLDER = "_METAMEQ_REQUIRED"
 
 # Define a logger for this module
 logger = logging.getLogger(__name__)
@@ -651,13 +651,13 @@ def _transform_metadata(
                     try:
                         # if the transformer function isn't in the dictionary
                         # that was passed in, probably it is a built-in one,
-                        # so look for it in the qiimp transformers module
-                        # looking into the qiimp transformers module
+                        # so look for it in the metameq transformers module
+                        # looking into the metameq transformers module
                         curr_func = getattr(transformers, curr_func_name)
                     except AttributeError:
                         raise ValueError(
                             f"Unable to find transformer '{curr_func_name}'")
-                    # end try to find in qiimp transformers
+                    # end try to find in metameq transformers
                 # end try to find in input (study-specific) transformers
 
                 # apply the function named curr_func_name to the column(s) of the

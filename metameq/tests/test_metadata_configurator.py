@@ -1,9 +1,9 @@
 from unittest import TestCase
-from qiimp.src.util import \
+from metameq.src.util import \
     HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_FIELDS_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
     ALIAS_KEY, BASE_TYPE_KEY
-from qiimp.src.metadata_configurator import \
+from metameq.src.metadata_configurator import \
     _make_combined_stds_and_study_host_type_dicts, \
     flatten_nested_stds_dict,  \
     _combine_base_and_added_metadata_fields, \
