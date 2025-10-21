@@ -1,7 +1,6 @@
 ![METAMEQ logo](https://raw.githubusercontent.com/AmandaBirmingham/metameq/main/metameq_medium.png?raw=true)
 
-## Metadata Extension Tool to Annotate
-## Microbiome Experiments for Qiita
+### Metadata Extension Tool to Annotate Microbiome Experiments for Qiita
 
 A python tool to extend an existing tabular metadata file by inferring and adding 
 the standard annotation columns required for submission to [Qiita](https://qiita.ucsd.edu/) and [EBI](https://www.ebi.ac.uk/).
