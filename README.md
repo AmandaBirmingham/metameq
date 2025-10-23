@@ -1,4 +1,8 @@
-![METAMEQ logo](https://raw.githubusercontent.com/AmandaBirmingham/metameq/main/metameq_medium.png?raw=true)
+<picture style="width: 50%; display: block;">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/metameq_dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/metameq_light.svg">
+  <img alt="METAMEQ logo" src="assets/metameq_medium.png" style="width: 100%;">
+</picture>
 
 ### Metadata Extension Tool to Annotate Microbiome Experiments for Qiita
 
