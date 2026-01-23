@@ -1,8 +1,10 @@
 import copy
-import os
+from importlib.resources import files
 import pandas
 from typing import List, Optional, Union, Callable
 import yaml
+
+CONFIG_MODULE_PATH = "metameq.config"
 
 # config keys
 METADATA_FIELDS_KEY = "metadata_fields"
@@ -48,8 +50,7 @@ REQUIRED_RAW_METADATA_FIELDS = [SAMPLE_NAME_KEY,
 
 
 def extract_config_dict(
-        config_fp: Union[str, None],
-        starting_fp: Optional[str] = None) -> dict:
+        config_fp: Union[str, None]) -> dict:
     """Extract configuration dictionary from a YAML file.
 
     If no config file path is provided, looks for config.yml in the grandparent
@@ -59,10 +60,7 @@ def extract_config_dict(
     ----------
     config_fp : Union[str, None]
         Path to the configuration YAML file. If None, will look for config.yml
-        in the grandparent directory of the starting file path or current file.
-    starting_fp : Optional[str]
-        Starting file path to use for finding the grandparent directory.
-        If None, uses the current file's location.
+        in the "config" module of the package.
 
     Returns
     -------
@@ -77,8 +75,8 @@ def extract_config_dict(
         If the YAML file is invalid.
     """
     if config_fp is None:
-        grandparent_dir = _get_grandparent_dir(starting_fp)
-        config_fp = os.path.join(grandparent_dir, "config.yml")
+        config_dir = files(CONFIG_MODULE_PATH)
+        config_fp = config_dir.joinpath("config.yml")
 
     # read in config file
     config_dict = extract_yaml_dict(config_fp)
@@ -114,13 +112,13 @@ def extract_stds_config(stds_fp: Union[str, None]) -> dict:
     """Extract standards dictionary from a YAML file.
 
     If no standards file path is provided, looks for standards.yml in the
-    grandparent directory of this code file.
+    "config" module of the package.
 
     Parameters
     ----------
     stds_fp : Union[str, None]
         Path to the standards YAML file. If None, will look for
-        standards.yml in the grandparent directory.
+        standards.yml in the "config" module.
 
     Returns
     -------
@@ -135,7 +133,8 @@ def extract_stds_config(stds_fp: Union[str, None]) -> dict:
         If the YAML file is invalid.
     """
     if not stds_fp:
-        stds_fp = os.path.join(_get_grandparent_dir(), "standards.yml")
+        config_dir = files(CONFIG_MODULE_PATH)
+        stds_fp = config_dir.joinpath("standards.yml")
     return extract_config_dict(stds_fp)
 
 
@@ -298,23 +297,3 @@ def update_metadata_df_field(
         # Otherwise, it is a constant value
         metadata_df.loc[row_mask, field_name] = field_val_or_func
     # endif using a function/a constant value
-
-
-def _get_grandparent_dir(starting_fp: Optional[str] = None) -> str:
-    """Get the grandparent directory of a given file path.
-
-    Parameters
-    ----------
-    starting_fp : Optional[str]
-        File path to use as reference. If None, uses this code file's location.
-
-    Returns
-    -------
-    str
-        Path to the grandparent directory.
-    """
-    if starting_fp is None:
-        starting_fp = __file__
-    curr_dir = os.path.dirname(os.path.abspath(starting_fp))
-    grandparent_dir = os.path.join(curr_dir, os.pardir, os.pardir)
-    return grandparent_dir

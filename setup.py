@@ -22,12 +22,16 @@ setup(name='metameq',
       url='https://github.com/AmandaBirmingham/metameq',
       packages=find_packages(),
       include_package_data=True,
-      # TODO: if need to deploy non-code files, add back and tweak
-      # package_data={
-      #     'metameq': [
-      #         '*.*',
-      #         'data/*.*']
-      # },
+      # NB: if changing here, also change the environment.yml
+      install_requires=[
+          'click>=8.0.0',
+          'pandas>=1.3.0',
+          'PyYAML>=5.4.0',
+          'Cerberus>=1.3.4',
+      ],
+      package_data={
+          'metameq': ['config/*.yml']
+      },
       entry_points={
           'console_scripts': ['metameq=metameq.src.__main__:root']}
       )

@@ -4,7 +4,7 @@ from pandas.testing import assert_frame_equal
 import os
 import os.path as path
 from unittest import TestCase
-from metameq.src.util import _get_grandparent_dir, extract_config_dict, \
+from metameq.src.util import extract_config_dict, \
     extract_yaml_dict, extract_stds_config, deepcopy_dict, \
     validate_required_columns_exist, update_metadata_df_field, get_extension, \
     load_df_with_best_fit_encoding
@@ -34,6 +34,17 @@ class TestUtil(TestCase):
         }
 
     # Tests for extract_config_dict
+    def test_extract_config_dict_no_inputs(self):
+        """Test extracting config dictionary with no inputs.
+
+        NB: this test is looking at the *real* config, which may change, so
+        just checking that a couple of the expected keys (which are not in
+        the test config) are present.
+        """
+        obs = extract_config_dict(None)
+        self.assertIn("default", obs)
+        self.assertIn("leave_requireds_blank", obs)
+
     def test_extract_config_dict_w_config_fp(self):
         """Test extracting config dictionary from a valid config file path."""
         config_fp = path.join(self.TEST_DIR, "data/test_config.yml")
@@ -44,18 +55,6 @@ class TestUtil(TestCase):
         """Test that attempting to extract config from non-existent file raises FileNotFoundError."""
         with self.assertRaises(FileNotFoundError):
             extract_config_dict("nonexistent.yml")
-
-    def test_extract_config_dict_starting_dirpath(self):
-        """Test extracting config dictionary using a starting directory path.
-
-        NB: this test is looking at the *real* config, which may change, so
-        just checking that a couple of the expected keys (which are not in
-        the test config) are present.
-        """
-        starting_dirpath = path.join(self.TEST_DIR, "data")
-        obs = extract_config_dict(None, starting_dirpath)
-        self.assertIn("default", obs)
-        self.assertIn("leave_requireds_blank", obs)
 
     def test_extract_config_dict_invalid_yaml(self):
         """Test that attempting to extract config from invalid YAML raises an exception."""
@@ -435,14 +434,3 @@ class TestUtil(TestCase):
             working_df, "combined", test_func,
             ["sample_name", "sample_type"], overwrite_non_nans=True)
         assert_frame_equal(exp_df, working_df)
-
-    # Tests for _get_grandparent_dir
-    def test__get_grandparent_dir_no_fp(self):
-        """Test getting grandparent directory without file path."""
-        obs = _get_grandparent_dir()
-        self.assertTrue(obs.endswith("metameq/src/../.."))
-
-    def test__get_grandparent_dir_with_fp(self):
-        """Test getting grandparent directory with file path."""
-        obs = _get_grandparent_dir("/Users/username/Desktop/hello/world.py")
-        self.assertTrue(obs.endswith("Desktop/hello/../.."))

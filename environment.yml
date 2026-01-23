@@ -2,13 +2,13 @@ name: metameq
 channels:
   - defaults
 dependencies:
+# NB: if changing here, also change the setup.py install_requires
   - python
   - click
-  - flake8
-  - nose
   - pandas
-  - pep8
   - pip
   - pyyaml
+  - flake8
+  - pep8
   - pip:
     - cerberus
