@@ -104,45 +104,45 @@ def flatten_nested_stds_dict(
 # This is confusing and error-prone.
 def update_wip_metadata_dict(
         wip_metadata_fields_dict: Dict[str, Any],
-        stds_metadata_fields_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Update work-in-progress metadata dictionary *in place* with standards metadata fields.
+        add_metadata_fields_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Update work-in-progress metadata dictionary *in place* with additional metadata dictionary.
 
     Parameters
     ----------
     wip_metadata_fields_dict : Dict[str, Any]
         Current work-in-progress metadata fields dictionary.
-    stds_metadata_fields_dict : Dict[str, Any]
-        Standards metadata fields dictionary to incorporate.
+    add_metadata_fields_dict : Dict[str, Any]
+        Metadata fields dictionary to incorporate.
 
     Returns
     -------
     Dict[str, Any]
         (Pointer to) updated work-in-progress metadata fields dictionary.
     """
-    for curr_metadata_field, curr_stds_metadata_field_dict in stds_metadata_fields_dict.items():
-        if curr_metadata_field not in wip_metadata_fields_dict:
-            wip_metadata_fields_dict[curr_metadata_field] = {}
+    for curr_add_metadata_field, curr_add_metadata_field_dict in add_metadata_fields_dict.items():
+        if curr_add_metadata_field not in wip_metadata_fields_dict:
+            wip_metadata_fields_dict[curr_add_metadata_field] = {}
 
-        if ALLOWED_KEY in curr_stds_metadata_field_dict:
+        if ALLOWED_KEY in curr_add_metadata_field_dict:
             # remove the ANYOF_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if ANYOF_KEY in wip_metadata_fields_dict[curr_metadata_field]:
-                del wip_metadata_fields_dict[curr_metadata_field][ANYOF_KEY]
+            if ANYOF_KEY in wip_metadata_fields_dict[curr_add_metadata_field]:
+                del wip_metadata_fields_dict[curr_add_metadata_field][ANYOF_KEY]
 
-        if ANYOF_KEY in curr_stds_metadata_field_dict:
+        if ANYOF_KEY in curr_add_metadata_field_dict:
             # remove the ALLOWED_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if ALLOWED_KEY in wip_metadata_fields_dict[curr_metadata_field]:
-                del wip_metadata_fields_dict[curr_metadata_field][ALLOWED_KEY]
+            if ALLOWED_KEY in wip_metadata_fields_dict[curr_add_metadata_field]:
+                del wip_metadata_fields_dict[curr_add_metadata_field][ALLOWED_KEY]
 
             # remove the TYPE_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if TYPE_KEY in wip_metadata_fields_dict[curr_metadata_field]:
-                del wip_metadata_fields_dict[curr_metadata_field][TYPE_KEY]
+            if TYPE_KEY in wip_metadata_fields_dict[curr_add_metadata_field]:
+                del wip_metadata_fields_dict[curr_add_metadata_field][TYPE_KEY]
 
         # TODO: Q: is it possible to have a list of allowed with a default
         #  at high level, then lower down have a list of allowed WITHOUT
         #  a default?  If so, how do we handle that?
 
-        # update curr_wip_metadata_fields_dict[curr_metadata_field] with curr_stds_metadata_field_dict
-        wip_metadata_fields_dict[curr_metadata_field].update(curr_stds_metadata_field_dict)
+        # update curr_wip_metadata_fields_dict[curr_metadata_field] with curr_add_metadata_field_dict
+        wip_metadata_fields_dict[curr_add_metadata_field].update(curr_add_metadata_field_dict)
     # next metadata field
 
     return wip_metadata_fields_dict
