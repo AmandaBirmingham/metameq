@@ -245,102 +245,6 @@ def get_qc_failures(a_df: pandas.DataFrame) -> pandas.DataFrame:
     return qc_fails_df
 
 
-def write_metadata_results(
-        metadata_df: pandas.DataFrame,
-        validation_msgs_df: pandas.DataFrame,
-        out_dir: str,
-        out_name_base: str,
-        sep: str = "\t",
-        remove_internals: bool = True,
-        suppress_empty_fails: bool = False,
-        internal_col_names: Optional[List[str]] = None) -> None:
-    """Write metadata and validation results to files.
-
-    Parameters
-    ----------
-    metadata_df : pandas.DataFrame
-        The metadata DataFrame to write.
-    validation_msgs_df : pandas.DataFrame
-        DataFrame containing validation messages.
-    out_dir : str
-        Directory where output files will be written.
-    out_name_base : str
-        Base name for output files.
-    sep : str, default="\t"
-        Separator to use in output files.
-    remove_internals : bool, default=True
-        Whether to remove internal columns.
-    suppress_empty_fails : bool, default=False
-        Whether to suppress empty failure files.
-    internal_col_names : Optional[List[str]], default=None
-        List of internal column names.
-    """
-    if internal_col_names is None:
-        internal_col_names = INTERNAL_COL_KEYS
-
-    _output_metadata_df_to_files(
-        metadata_df, out_dir, out_name_base, internal_col_names,
-        remove_internals_and_fails=remove_internals, sep=sep,
-        suppress_empty_fails=suppress_empty_fails)
-    
-    output_validation_msgs(validation_msgs_df, out_dir, out_name_base, sep=",",
-                           suppress_empty_fails=suppress_empty_fails)
-
-
-def write_extended_metadata_from_df(
-        raw_metadata_df: pandas.DataFrame,
-        study_specific_config_dict: Dict[str, Any],
-        out_dir: str,
-        out_name_base: str,
-        study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
-        sep: str = "\t",
-        remove_internals: bool = True,
-        suppress_empty_fails: bool = False,
-        internal_col_names: Optional[List[str]] = None) -> pandas.DataFrame:
-    """Write extended metadata to files starting from a metadata DataFrame and config dictionary.
-
-    Parameters
-    ----------
-    raw_metadata_df : pandas.DataFrame
-        The raw metadata DataFrame to extend.
-    study_specific_config_dict : Dict[str, Any]
-        Study-specific configuration dictionary.
-    out_dir : str
-        Directory where output files will be written.
-    out_name_base : str
-        Base name for output files.
-    study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
-        Dictionary of custom transformers.
-    sep : str, default="\t"
-        Separator to use in output files.
-    remove_internals : bool, default=True
-        Whether to remove internal columns.
-    suppress_empty_fails : bool, default=False
-        Whether to suppress empty failure files.
-    internal_col_names : Optional[List[str]], default=None
-        List of internal column names.
-
-    Returns
-    -------
-    pandas.DataFrame
-        The extended metadata DataFrame.
-    """
-    # extend the metadata DataFrame using the study-specific flat-host-type config dictionary
-    metadata_df, validation_msgs_df = extend_metadata_df(
-        raw_metadata_df, study_specific_config_dict,
-        study_specific_transformers_dict)
-
-    # write the metadata and validation results to files
-    write_metadata_results(
-        metadata_df, validation_msgs_df, out_dir, out_name_base,
-        sep=sep, remove_internals=remove_internals,
-        suppress_empty_fails=suppress_empty_fails,
-        internal_col_names=internal_col_names)
-
-    # for good measure, return the extended metadata DataFrame
-    return metadata_df
-
-
 def write_extended_metadata(
         raw_metadata_fp: str,
         study_specific_config_fp: str,
@@ -432,12 +336,65 @@ def _get_study_specific_config(study_specific_config_fp: Optional[str]) -> Optio
 
     return study_specific_config_dict
 
+def write_extended_metadata_from_df(
+        raw_metadata_df: pandas.DataFrame,
+        study_specific_config_dict: Dict[str, Any],
+        out_dir: str,
+        out_name_base: str,
+        study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
+        sep: str = "\t",
+        remove_internals: bool = True,
+        suppress_empty_fails: bool = False,
+        internal_col_names: Optional[List[str]] = None) -> pandas.DataFrame:
+    """Write extended metadata to files starting from a metadata DataFrame and config dictionary.
+
+    Parameters
+    ----------
+    raw_metadata_df : pandas.DataFrame
+        The raw metadata DataFrame to extend.
+    study_specific_config_dict : Dict[str, Any]
+        Study-specific configuration dictionary.
+    out_dir : str
+        Directory where output files will be written.
+    out_name_base : str
+        Base name for output files.
+    study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
+        Dictionary of custom transformers.
+    sep : str, default="\t"
+        Separator to use in output files.
+    remove_internals : bool, default=True
+        Whether to remove internal columns.
+    suppress_empty_fails : bool, default=False
+        Whether to suppress empty failure files.
+    internal_col_names : Optional[List[str]], default=None
+        List of internal column names.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The extended metadata DataFrame.
+    """
+    # extend the metadata DataFrame using the study-specific flat-host-type config dictionary
+    metadata_df, validation_msgs_df = extend_metadata_df(
+        raw_metadata_df, study_specific_config_dict,
+        study_specific_transformers_dict)
+
+    # write the metadata and validation results to files
+    write_metadata_results(
+        metadata_df, validation_msgs_df, out_dir, out_name_base,
+        sep=sep, remove_internals=remove_internals,
+        suppress_empty_fails=suppress_empty_fails,
+        internal_col_names=internal_col_names)
+
+    # for good measure, return the extended metadata DataFrame
+    return metadata_df
 
 def extend_metadata_df(
         raw_metadata_df: pandas.DataFrame,
         study_specific_config_dict: Optional[Dict[str, Any]],
         study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
-        software_config_dict: Optional[Dict[str, Any]] = None
+        software_config_dict: Optional[Dict[str, Any]] = None,
+        stds_fp: Optional[str] = None
 ) -> Tuple[pandas.DataFrame, pandas.DataFrame]:
     """Extend a metadata DataFrame based on metadata standards and study-specific configurations.
 
@@ -452,6 +409,9 @@ def extend_metadata_df(
     software_config_dict : Optional[Dict[str, Any]], default=None
         Software configuration dictionary. If None, the default software
         config pulled from the config.yml file will be used.
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
 
     Returns
     -------
@@ -477,17 +437,17 @@ def extend_metadata_df(
         software_plus_study_flat_config_dict = deepcopy_dict(study_specific_config_dict)
         software_plus_study_flat_config_dict = \
             software_config_dict | software_plus_study_flat_config_dict
-        
+
         # combine the software+study flat-host-type config's host type specific info
         # with the standards nested-host-type config's host type specific info
         # to get a full combined, nested dictionary starting from HOST_TYPE_SPECIFIC_METADATA_KEY
         full_nested_hosts_dict = combine_stds_and_study_config(
-            software_plus_study_flat_config_dict)
+            software_plus_study_flat_config_dict, stds_fp)
     else:
         software_plus_study_flat_config_dict = software_config_dict
         # no need to combine the standards' host info with anything else,
         # since the software config doesn't include any host type specific info
-        full_nested_hosts_dict = extract_stds_config(None)
+        full_nested_hosts_dict = extract_stds_config(stds_fp)
 
     full_flat_hosts_dict = flatten_nested_stds_dict(
         full_nested_hosts_dict, None)
@@ -504,6 +464,48 @@ def extend_metadata_df(
         study_specific_transformers_dict)
 
     return metadata_df, validation_msgs_df
+
+
+def write_metadata_results(
+        metadata_df: pandas.DataFrame,
+        validation_msgs_df: pandas.DataFrame,
+        out_dir: str,
+        out_name_base: str,
+        sep: str = "\t",
+        remove_internals: bool = True,
+        suppress_empty_fails: bool = False,
+        internal_col_names: Optional[List[str]] = None) -> None:
+    """Write metadata and validation results to files.
+
+    Parameters
+    ----------
+    metadata_df : pandas.DataFrame
+        The metadata DataFrame to write.
+    validation_msgs_df : pandas.DataFrame
+        DataFrame containing validation messages.
+    out_dir : str
+        Directory where output files will be written.
+    out_name_base : str
+        Base name for output files.
+    sep : str, default="\t"
+        Separator to use in output files.
+    remove_internals : bool, default=True
+        Whether to remove internal columns.
+    suppress_empty_fails : bool, default=False
+        Whether to suppress empty failure files.
+    internal_col_names : Optional[List[str]], default=None
+        List of internal column names.
+    """
+    if internal_col_names is None:
+        internal_col_names = INTERNAL_COL_KEYS
+
+    _output_metadata_df_to_files(
+        metadata_df, out_dir, out_name_base, internal_col_names,
+        remove_internals_and_fails=remove_internals, sep=sep,
+        suppress_empty_fails=suppress_empty_fails)
+    
+    output_validation_msgs(validation_msgs_df, out_dir, out_name_base, sep=",",
+                           suppress_empty_fails=suppress_empty_fails)
 
 
 def _populate_metadata_df(
@@ -539,17 +541,22 @@ def _populate_metadata_df(
     # Error for NaNs in sample name, warn for NaNs in host- and sample-type- shorthand fields.
     metadata_df = _catch_nan_required_fields(metadata_df)
 
-    # Apply pre-transformers to the metadata, adding values that depend on transforming other fields.
+    # Apply pre-transformers to the metadata. Pre-transformers run BEFORE host- and sample-type
+    # specific generation (which also includes validation), so they can transform raw input fields
+    # into values that the config validation expects (for example, converting a study's custom sex 
+    # format like "M"/"F" into standardized values like "male"/"female" before validation occurs.
     metadata_df = _transform_metadata(
         metadata_df, full_flat_config_dict,
         PRE_TRANSFORMERS_KEY, transformer_funcs_dict)
 
     # Add specific metadata based on each host type present in the metadata.
+    # This step also validates the metadata against the config requirements.
     metadata_df, validation_msgs = _generate_metadata_for_host_types(
         metadata_df, full_flat_config_dict)
 
-    # Apply post-transformers to the metadata, adding values that depend on transforming other fields
-    # that only now have values.
+    # Apply post-transformers to the metadata. Post-transformers run AFTER host- and sample-type
+    # specific generation, so they can use fields that only exist or were only filled in 
+    # after that step, such as passing through a value filled in by the defaults to another field.
     metadata_df = _transform_metadata(
         metadata_df, full_flat_config_dict,
         POST_TRANSFORMERS_KEY, transformer_funcs_dict)
@@ -849,7 +856,6 @@ def _generate_metadata_for_a_sample_type_in_a_host_type(
         # for these samples but do not error out; move on to the next sample type
         update_metadata_df_field(
             sample_type_df, QC_NOTE_KEY, "invalid sample_type")
-        # sample_type_df[QC_NOTE_KEY] = "invalid sample_type"
     else:
         # resolve any aliases and base types for the sample type and combine its
         # specific metadata fields with the host type's metadata fields
@@ -867,14 +873,15 @@ def _generate_metadata_for_a_sample_type_in_a_host_type(
             sample_type_df, wip_metadata_fields_dict, dict_is_metadata_fields=True,
             overwrite_non_nans=global_plus_host_settings_dict[OVERWRITE_NON_NANS_KEY])
 
-        # for fields that are required but not yet filled, either leave blank
-        # or fill with NA (later replaced with default) based on config setting
+        # for fields that are required but not yet filled, replace the placeholder with
+        # either an indicator that it should be blank or else
+        # fill with NA (replaced with default just below), based on config setting
         leave_reqs_blank = global_plus_host_settings_dict[LEAVE_REQUIREDS_BLANK_KEY]
         reqs_val = LEAVE_BLANK_VAL if leave_reqs_blank else np.nan
         sample_type_df.replace(
             to_replace=REQ_PLACEHOLDER, value=reqs_val, inplace=True)
 
-        # fill NAs with default value if any is set
+        # fill NAs with appropriate default value if any is set
         sample_type_df = _fill_na_if_default(
             sample_type_df, full_sample_type_metadata_fields_dict, global_plus_host_settings_dict)
 
@@ -1025,11 +1032,13 @@ def _update_metadata_from_metadata_fields_dict(
         An updated copy of the metadata DataFrame.
     """
     output_df = metadata_df.copy()
+
     # loop through each metadata field in the metadata fields dict
     for curr_field_name, curr_field_vals_dict in metadata_fields_dict.items():
         # if the field has a default value (regardless of whether it is
-        # required), update the metadata df with it. what exactly will be
-        # updated depends on the value of overwrite_non_nans:
+        # required), update the metadata df with it (this includes adding the 
+        # field if it does not already exist). For existing fields, what exactly
+        # will beupdated depends on the value of overwrite_non_nans:
         # if overwrite_non_nans is True, then all values will be updated;
         # if overwrite_non_nans is False, then only NA values will be updated
         # if the field already exists in the metadata; otherwise, the field
@@ -1107,7 +1116,7 @@ def _output_metadata_df_to_files(
     internal_col_names : List[str]
         List of internal column names that will be moved
         to the end of the DataFrame.
-    sep : str, default="\t"
+    sep : str, default="tab"
         Separator to use in output files.
     remove_internals_and_fails : bool, default=False
         Whether to remove internal columns and failures.
@@ -1169,6 +1178,7 @@ def _reorder_df(a_df: pandas.DataFrame, internal_col_names: List[str]) -> pandas
     # move the internal columns to the end of the list of cols to output
     col_names = list(working_df)
     for curr_internal_col_name in internal_col_names:
+        # TODO: throw an error if the internal col name is not present
         col_names.pop(col_names.index(curr_internal_col_name))
         col_names.append(curr_internal_col_name)
 
