@@ -1,0 +1,44 @@
+host_type_specific_metadata:
+  human:
+    default: "not provided"
+    metadata_fields:
+      sample_name:
+        type: string
+        unique: true
+        required: true
+      sample_type:
+        type: string
+        required: true
+      host_common_name:
+        type: string
+        default: "human"
+    sample_type_specific_metadata:
+      stool:
+        metadata_fields:
+          body_site:
+            type: string
+            default: "gut"
+      blood:
+        metadata_fields:
+          body_site:
+            type: string
+            default: "blood"
+  mouse:
+    default: "not provided"
+    metadata_fields:
+      sample_name:
+        type: string
+        unique: true
+        required: true
+      sample_type:
+        type: string
+        required: true
+      host_common_name:
+        type: string
+        default: "mouse"
+    sample_type_specific_metadata:
+      stool:
+        metadata_fields:
+          body_site:
+            type: string
+            default: "gut"
