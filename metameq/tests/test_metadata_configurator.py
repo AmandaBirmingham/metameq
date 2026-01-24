@@ -1,9 +1,12 @@
+import os.path as path
 from unittest import TestCase
 from metameq.src.util import \
     HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_FIELDS_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
-    ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY
+    ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
+    STUDY_SPECIFIC_METADATA_KEY
 from metameq.src.metadata_configurator import \
+    combine_stds_and_study_config, \
     _make_combined_stds_and_study_host_type_dicts, \
     flatten_nested_stds_dict,  \
     _combine_base_and_added_metadata_fields, \
@@ -973,6 +976,120 @@ class TestMetadataConfigurator(TestCase):
         }
     }
 
+    # Tests for combine_stds_and_study_config
+
+    TEST_DIR = path.dirname(__file__)
+
+    def test_combine_stds_and_study_config_empty_study(self):
+        """Test combining with an empty study config dict uses only standards."""
+        study_config = {}
+
+        result = combine_stds_and_study_config(
+            study_config,
+            path.join(self.TEST_DIR, "data/test_config.yml"))
+
+        expected = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            "empty": False,
+                            "is_phi": False
+                        }
+                    }
+                }
+            }
+        }
+
+        self.assertDictEqual(expected, result)
+
+    def test_combine_stds_and_study_config_with_study_specific_metadata(self):
+        """Test combining when study config has STUDY_SPECIFIC_METADATA_KEY section."""
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "base": {
+                        METADATA_FIELDS_KEY: {
+                            "new_field": {
+                                TYPE_KEY: "string",
+                                DEFAULT_KEY: "study_value"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = combine_stds_and_study_config(
+            study_config,
+            path.join(self.TEST_DIR, "data/test_config.yml"))
+
+        expected = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            "empty": False,
+                            "is_phi": False
+                        },
+                        "new_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "study_value"
+                        }
+                    }
+                }
+            }
+        }
+
+        self.assertDictEqual(expected, result)
+
+    def test_combine_stds_and_study_config_study_overrides_standards(self):
+        """Test that study config values override standards values."""
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "base": {
+                        METADATA_FIELDS_KEY: {
+                            "sample_type": {
+                                "empty": True
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = combine_stds_and_study_config(
+            study_config,
+            path.join(self.TEST_DIR, "data/test_config.yml"))
+
+        expected = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            "empty": True,
+                            "is_phi": False
+                        }
+                    }
+                }
+            }
+        }
+
+        self.assertDictEqual(expected, result)
+
     def test__make_combined_stds_and_study_host_type_dicts(self):
         """Test making a combined standards and study host type dictionary."""
         out_nested_dict = _make_combined_stds_and_study_host_type_dicts(
@@ -982,6 +1099,7 @@ class TestMetadataConfigurator(TestCase):
         self.assertDictEqual(
             self.NESTED_STDS_W_STUDY_DICT[HOST_TYPE_SPECIFIC_METADATA_KEY],
             out_nested_dict)
+
 
     def test_flatten_nested_stds_dict(self):
         """Test flattening a nested standards dictionary."""
