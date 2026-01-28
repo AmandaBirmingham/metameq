@@ -4,6 +4,7 @@ from metameq.src.util import HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
     COLLECTION_TIMESTAMP_KEY, METADATA_TRANSFORMERS_KEY, SOURCES_KEY, \
     FUNCTION_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
     extract_config_dict, deepcopy_dict, load_df_with_best_fit_encoding
+from metameq.src.metadata_configurator import build_full_flat_config_dict
 from metameq.src.metadata_extender import \
     write_extended_metadata, write_extended_metadata_from_df, \
     get_reserved_cols, get_extended_metadata_from_df_and_yaml, \
@@ -24,7 +25,7 @@ __all__ = ["HOSTTYPE_SHORTHAND_KEY", "SAMPLETYPE_SHORTHAND_KEY",
            "COLLECTION_TIMESTAMP_KEY", "METADATA_TRANSFORMERS_KEY",
            "SOURCES_KEY", "FUNCTION_KEY", "PRE_TRANSFORMERS_KEY",
            "POST_TRANSFORMERS_KEY",
-           "extract_config_dict",
+           "extract_config_dict", "build_full_flat_config_dict",
            "deepcopy_dict", "load_df_with_best_fit_encoding",
            "merge_sample_and_subject_metadata", "merge_many_to_one_metadata",
            "merge_one_to_one_metadata", "find_common_col_names",
