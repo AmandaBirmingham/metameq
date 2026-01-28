@@ -27,7 +27,7 @@ def write_extended_metadata(metadata_file_path, config_fp,
                             out_dir, name_base, sep, suppress_fails_files):
     _write_extended_metadata(
         metadata_file_path, config_fp, out_dir, name_base,
-        sep, suppress_fails_files)
+        sep, suppress_empty_fails=suppress_fails_files)
 
 
 if __name__ == '__main__':

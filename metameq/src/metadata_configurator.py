@@ -1,5 +1,6 @@
 from typing import Dict, Optional, Any
-from metameq.src.util import extract_stds_config, deepcopy_dict, \
+from metameq.src.util import extract_config_dict, extract_stds_config, \
+    deepcopy_dict, \
     METADATA_FIELDS_KEY, STUDY_SPECIFIC_METADATA_KEY, \
     HOST_TYPE_SPECIFIC_METADATA_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
@@ -99,50 +100,50 @@ def flatten_nested_stds_dict(
 
 
 # TODO: Rewrite so this doesn't BOTH modify the wip in place AND return a pointer to it.
-# The fact that it returns a dictionary makes it unclear that this returned value is not a copy 
+# The fact that it returns a dictionary makes it unclear that this returned value is not a copy
 # but is in fact the same dictionary as the one passed in, now with modifications.
 # This is confusing and error-prone.
 def update_wip_metadata_dict(
         wip_metadata_fields_dict: Dict[str, Any],
-        stds_metadata_fields_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Update work-in-progress metadata dictionary *in place* with standards metadata fields.
+        add_metadata_fields_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Update work-in-progress metadata dictionary *in place* with additional metadata dictionary.
 
     Parameters
     ----------
     wip_metadata_fields_dict : Dict[str, Any]
         Current work-in-progress metadata fields dictionary.
-    stds_metadata_fields_dict : Dict[str, Any]
-        Standards metadata fields dictionary to incorporate.
+    add_metadata_fields_dict : Dict[str, Any]
+        Metadata fields dictionary to incorporate.
 
     Returns
     -------
     Dict[str, Any]
         (Pointer to) updated work-in-progress metadata fields dictionary.
     """
-    for curr_metadata_field, curr_stds_metadata_field_dict in stds_metadata_fields_dict.items():
-        if curr_metadata_field not in wip_metadata_fields_dict:
-            wip_metadata_fields_dict[curr_metadata_field] = {}
+    for curr_add_metadata_field, curr_add_metadata_field_dict in add_metadata_fields_dict.items():
+        if curr_add_metadata_field not in wip_metadata_fields_dict:
+            wip_metadata_fields_dict[curr_add_metadata_field] = {}
 
-        if ALLOWED_KEY in curr_stds_metadata_field_dict:
+        if ALLOWED_KEY in curr_add_metadata_field_dict:
             # remove the ANYOF_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if ANYOF_KEY in wip_metadata_fields_dict[curr_metadata_field]:
-                del wip_metadata_fields_dict[curr_metadata_field][ANYOF_KEY]
+            if ANYOF_KEY in wip_metadata_fields_dict[curr_add_metadata_field]:
+                del wip_metadata_fields_dict[curr_add_metadata_field][ANYOF_KEY]
 
-        if ANYOF_KEY in curr_stds_metadata_field_dict:
+        if ANYOF_KEY in curr_add_metadata_field_dict:
             # remove the ALLOWED_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if ALLOWED_KEY in wip_metadata_fields_dict[curr_metadata_field]:
-                del wip_metadata_fields_dict[curr_metadata_field][ALLOWED_KEY]
+            if ALLOWED_KEY in wip_metadata_fields_dict[curr_add_metadata_field]:
+                del wip_metadata_fields_dict[curr_add_metadata_field][ALLOWED_KEY]
 
             # remove the TYPE_KEY from curr_wip_metadata_fields_dict[curr_metadata_field] if it exists there
-            if TYPE_KEY in wip_metadata_fields_dict[curr_metadata_field]:
-                del wip_metadata_fields_dict[curr_metadata_field][TYPE_KEY]
+            if TYPE_KEY in wip_metadata_fields_dict[curr_add_metadata_field]:
+                del wip_metadata_fields_dict[curr_add_metadata_field][TYPE_KEY]
 
         # TODO: Q: is it possible to have a list of allowed with a default
         #  at high level, then lower down have a list of allowed WITHOUT
         #  a default?  If so, how do we handle that?
 
-        # update curr_wip_metadata_fields_dict[curr_metadata_field] with curr_stds_metadata_field_dict
-        wip_metadata_fields_dict[curr_metadata_field].update(curr_stds_metadata_field_dict)
+        # update curr_wip_metadata_fields_dict[curr_metadata_field] with curr_add_metadata_field_dict
+        wip_metadata_fields_dict[curr_add_metadata_field].update(curr_add_metadata_field_dict)
     # next metadata field
 
     return wip_metadata_fields_dict
@@ -156,7 +157,7 @@ def _make_combined_stds_and_study_host_type_dicts(
 
     At each level, this method adds info from a static, flat study-specific
     hosts dictionary (the same at every level; arg 1) into a copy of the host
-    types dictionary for the previous host level's standards nested dictionary (arg 2). 
+    types dictionary for the previous host level's standards nested dictionary (arg 2).
     (Note that the flat study-specific hosts dictionary is NOT expected
     to (a) contains all hosts nor to (b) have complete metadata definitions for
     each host.) The result is an augmented nested hosts dictionary.
@@ -447,3 +448,65 @@ def _id_sample_type_definition(sample_type_name: str, sample_type_dict: Dict[str
         raise ValueError(f"Sample type '{sample_type_name}' has neither "
                          f"'{ALIAS_KEY}' nor '{METADATA_FIELDS_KEY}' keys in "
                          "the same sample type dict")
+
+
+def build_full_flat_config_dict(
+        study_specific_config_dict: Optional[Dict[str, Any]] = None,
+        software_config_dict: Optional[Dict[str, Any]] = None,
+        stds_fp: Optional[str] = None
+) -> Dict[str, Any]:
+    """Build a complete flattened configuration dictionary.
+
+    Merges software configuration, study-specific configuration, and standards
+    configuration into a single flat dictionary with fully resolved host type
+    specific metadata.
+
+    Parameters
+    ----------
+    study_specific_config_dict : Optional[Dict[str, Any]], default=None
+        Study-specific flat-host-type config dictionary. If provided, these
+        settings override the software config defaults.
+    software_config_dict : Optional[Dict[str, Any]], default=None
+        Software configuration dictionary with default settings. If None,
+        the default software config from config.yml will be used.
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
+
+    Returns
+    -------
+    Dict[str, Any]
+        A complete flat configuration dictionary with HOST_TYPE_SPECIFIC_METADATA_KEY
+        containing the flattened and merged host type configurations.
+    """
+    if software_config_dict is None:
+        software_config_dict = extract_config_dict(None)
+
+    if study_specific_config_dict:
+        # overwrite default settings in software config with study-specific ones (if any)
+        software_plus_study_flat_config_dict = deepcopy_dict(study_specific_config_dict)
+        software_plus_study_flat_config_dict = \
+            software_config_dict | software_plus_study_flat_config_dict
+
+        # combine the software+study flat-host-type config's host type specific info
+        # with the standards nested-host-type config's host type specific info
+        # to get a full combined, nested dictionary starting from HOST_TYPE_SPECIFIC_METADATA_KEY
+        full_nested_hosts_dict = combine_stds_and_study_config(
+            software_plus_study_flat_config_dict, stds_fp)
+    else:
+        software_plus_study_flat_config_dict = software_config_dict
+        # no need to combine the standards' host info with anything else,
+        # since the software config doesn't include any host type specific info
+        full_nested_hosts_dict = extract_stds_config(stds_fp)
+
+    full_flat_hosts_dict = flatten_nested_stds_dict(
+        full_nested_hosts_dict, None)
+    software_plus_study_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
+        full_flat_hosts_dict
+    # this is just a renaming to indicate that, having overwritten any original
+    # HOST_TYPE_SPECIFIC_METADATA_KEY in the software_plus_study_flat_config_dict
+    # with the complete and flattened combination of software+study+standards, it is now
+    # the "full" flat-host-type config dictionary
+    full_flat_config_dict = software_plus_study_flat_config_dict
+
+    return full_flat_config_dict

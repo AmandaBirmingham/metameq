@@ -1,17 +1,27 @@
+import os.path as path
 from unittest import TestCase
 from metameq.src.util import \
     HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_FIELDS_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
-    ALIAS_KEY, BASE_TYPE_KEY
+    ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
+    STUDY_SPECIFIC_METADATA_KEY, LEAVE_REQUIREDS_BLANK_KEY, \
+    OVERWRITE_NON_NANS_KEY
 from metameq.src.metadata_configurator import \
+    combine_stds_and_study_config, \
     _make_combined_stds_and_study_host_type_dicts, \
     flatten_nested_stds_dict,  \
     _combine_base_and_added_metadata_fields, \
     _combine_base_and_added_sample_type_specific_metadata, \
-    _id_sample_type_definition
+    _combine_base_and_added_host_type, \
+    _id_sample_type_definition, \
+    update_wip_metadata_dict, \
+    build_full_flat_config_dict
 
 
 class TestMetadataConfigurator(TestCase):
+    TEST_DIR = path.dirname(__file__)
+    TEST_STDS_FP = path.join(TEST_DIR, "data/test_standards.yml")
+
     NESTED_STDS_DICT = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 # Top host level (host_associated in this example) has
@@ -971,6 +981,120 @@ class TestMetadataConfigurator(TestCase):
         }
     }
 
+    # Tests for combine_stds_and_study_config
+
+    TEST_DIR = path.dirname(__file__)
+
+    def test_combine_stds_and_study_config_empty_study(self):
+        """Test combining with an empty study config dict uses only standards."""
+        study_config = {}
+
+        result = combine_stds_and_study_config(
+            study_config,
+            path.join(self.TEST_DIR, "data/test_config.yml"))
+
+        expected = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            "empty": False,
+                            "is_phi": False
+                        }
+                    }
+                }
+            }
+        }
+
+        self.assertDictEqual(expected, result)
+
+    def test_combine_stds_and_study_config_with_study_specific_metadata(self):
+        """Test combining when study config has STUDY_SPECIFIC_METADATA_KEY section."""
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "base": {
+                        METADATA_FIELDS_KEY: {
+                            "new_field": {
+                                TYPE_KEY: "string",
+                                DEFAULT_KEY: "study_value"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = combine_stds_and_study_config(
+            study_config,
+            path.join(self.TEST_DIR, "data/test_config.yml"))
+
+        expected = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            "empty": False,
+                            "is_phi": False
+                        },
+                        "new_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "study_value"
+                        }
+                    }
+                }
+            }
+        }
+
+        self.assertDictEqual(expected, result)
+
+    def test_combine_stds_and_study_config_study_overrides_standards(self):
+        """Test that study config values override standards values."""
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "base": {
+                        METADATA_FIELDS_KEY: {
+                            "sample_type": {
+                                "empty": True
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = combine_stds_and_study_config(
+            study_config,
+            path.join(self.TEST_DIR, "data/test_config.yml"))
+
+        expected = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            "empty": True,
+                            "is_phi": False
+                        }
+                    }
+                }
+            }
+        }
+
+        self.assertDictEqual(expected, result)
+
     def test__make_combined_stds_and_study_host_type_dicts(self):
         """Test making a combined standards and study host type dictionary."""
         out_nested_dict = _make_combined_stds_and_study_host_type_dicts(
@@ -980,6 +1104,7 @@ class TestMetadataConfigurator(TestCase):
         self.assertDictEqual(
             self.NESTED_STDS_W_STUDY_DICT[HOST_TYPE_SPECIFIC_METADATA_KEY],
             out_nested_dict)
+
 
     def test_flatten_nested_stds_dict(self):
         """Test flattening a nested standards dictionary."""
@@ -991,6 +1116,368 @@ class TestMetadataConfigurator(TestCase):
         self.assertDictEqual(
             self.FLATTENED_STDS_W_STUDY_DICT[HOST_TYPE_SPECIFIC_METADATA_KEY],
             out_flattened_dict)
+
+    def test_flatten_nested_stds_dict_empty_input(self):
+        """Test flattening an empty dictionary returns empty dict."""
+        input_dict = {}
+
+        result = flatten_nested_stds_dict(input_dict, None)
+
+        self.assertDictEqual({}, result)
+
+    def test_flatten_nested_stds_dict_empty_host_types(self):
+        """Test flattening when HOST_TYPE_SPECIFIC_METADATA_KEY exists but is empty."""
+        input_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {}
+        }
+
+        result = flatten_nested_stds_dict(input_dict, None)
+
+        self.assertDictEqual({}, result)
+
+    def test_flatten_nested_stds_dict_single_level(self):
+        """Test flattening a dictionary with only one host type level (no nesting)."""
+        input_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "host_a": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "field1": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "value1"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "sample1": {
+                            METADATA_FIELDS_KEY: {
+                                "sample_field": {TYPE_KEY: "string"}
+                            }
+                        }
+                    }
+                    # No HOST_TYPE_SPECIFIC_METADATA_KEY here (no nesting)
+                },
+                "host_b": {
+                    DEFAULT_KEY: "not collected",
+                    METADATA_FIELDS_KEY: {
+                        "field2": {
+                            TYPE_KEY: "integer"
+                        }
+                    }
+                }
+            }
+        }
+
+        expected = input_dict[HOST_TYPE_SPECIFIC_METADATA_KEY]
+
+        result = flatten_nested_stds_dict(input_dict, None)
+
+        self.assertDictEqual(expected, result)
+
+    def test_flatten_nested_stds_dict_deeply_nested(self):
+        """Test flattening with 4 levels of host type nesting.
+
+        Tests that metadata inheritance works correctly through multiple
+        levels of nesting: level1 -> level2 -> level3 -> level4.
+        """
+        input_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "host_level1": {
+                    DEFAULT_KEY: "level1_default",
+                    METADATA_FIELDS_KEY: {
+                        "field_a": {TYPE_KEY: "string", DEFAULT_KEY: "a1"}
+                    },
+                    HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                        "host_level2": {
+                            METADATA_FIELDS_KEY: {
+                                "field_b": {TYPE_KEY: "string", DEFAULT_KEY: "b2"}
+                            },
+                            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                                "host_level3": {
+                                    DEFAULT_KEY: "level3_default",
+                                    METADATA_FIELDS_KEY: {
+                                        "field_c": {TYPE_KEY: "string", DEFAULT_KEY: "c3"}
+                                    },
+                                    HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                                        "host_level4": {
+                                            METADATA_FIELDS_KEY: {
+                                                "field_d": {TYPE_KEY: "string", DEFAULT_KEY: "d4"}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        expected = {
+            "host_level1": {
+                DEFAULT_KEY: "level1_default",
+                METADATA_FIELDS_KEY: {
+                    "field_a": {TYPE_KEY: "string", DEFAULT_KEY: "a1"}
+                }
+            },
+            "host_level2": {
+                DEFAULT_KEY: "level1_default",
+                METADATA_FIELDS_KEY: {
+                    "field_a": {TYPE_KEY: "string", DEFAULT_KEY: "a1"},
+                    "field_b": {TYPE_KEY: "string", DEFAULT_KEY: "b2"}
+                }
+            },
+            "host_level3": {
+                DEFAULT_KEY: "level3_default",
+                METADATA_FIELDS_KEY: {
+                    "field_a": {TYPE_KEY: "string", DEFAULT_KEY: "a1"},
+                    "field_b": {TYPE_KEY: "string", DEFAULT_KEY: "b2"},
+                    "field_c": {TYPE_KEY: "string", DEFAULT_KEY: "c3"}
+                }
+            },
+            "host_level4": {
+                DEFAULT_KEY: "level3_default",
+                METADATA_FIELDS_KEY: {
+                    "field_a": {TYPE_KEY: "string", DEFAULT_KEY: "a1"},
+                    "field_b": {TYPE_KEY: "string", DEFAULT_KEY: "b2"},
+                    "field_c": {TYPE_KEY: "string", DEFAULT_KEY: "c3"},
+                    "field_d": {TYPE_KEY: "string", DEFAULT_KEY: "d4"}
+                }
+            }
+        }
+
+        result = flatten_nested_stds_dict(input_dict, None)
+
+        self.assertDictEqual(expected, result)
+
+    def test_flatten_nested_stds_dict_preserves_sample_types(self):
+        """Test that sample_type_specific_metadata is correctly inherited through nesting."""
+        input_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "parent_host": {
+                    DEFAULT_KEY: "not provided",
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "parent_field": {TYPE_KEY: "string", DEFAULT_KEY: "parent"}
+                            }
+                        },
+                        "saliva": {
+                            ALIAS_KEY: "oral"
+                        }
+                    },
+                    HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                        "child_host": {
+                            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                                "stool": {
+                                    METADATA_FIELDS_KEY: {
+                                        "child_field": {TYPE_KEY: "string", DEFAULT_KEY: "child"}
+                                    }
+                                },
+                                "blood": {
+                                    METADATA_FIELDS_KEY: {
+                                        "blood_field": {TYPE_KEY: "string"}
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        expected = {
+            "parent_host": {
+                DEFAULT_KEY: "not provided",
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                    "stool": {
+                        METADATA_FIELDS_KEY: {
+                            "parent_field": {TYPE_KEY: "string", DEFAULT_KEY: "parent"}
+                        }
+                    },
+                    "saliva": {
+                        ALIAS_KEY: "oral"
+                    }
+                }
+            },
+            "child_host": {
+                DEFAULT_KEY: "not provided",
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                    "stool": {
+                        METADATA_FIELDS_KEY: {
+                            "parent_field": {TYPE_KEY: "string", DEFAULT_KEY: "parent"},
+                            "child_field": {TYPE_KEY: "string", DEFAULT_KEY: "child"}
+                        }
+                    },
+                    "saliva": {
+                        ALIAS_KEY: "oral"
+                    },
+                    "blood": {
+                        METADATA_FIELDS_KEY: {
+                            "blood_field": {TYPE_KEY: "string"}
+                        }
+                    }
+                }
+            }
+        }
+
+        result = flatten_nested_stds_dict(input_dict, None)
+
+        self.assertDictEqual(expected, result)
+
+    # Tests for update_wip_metadata_dict
+
+    def test_update_wip_metadata_dict_new_field(self):
+        """Test adding a completely new metadata field to wip dict."""
+        wip = {}
+        stds = {
+            "field1": {
+                TYPE_KEY: "string",
+                ALLOWED_KEY: ["value1", "value2"]
+            }
+        }
+
+        result = update_wip_metadata_dict(wip, stds)
+
+        expected = stds
+        self.assertDictEqual(expected, result)
+
+    def test_update_wip_metadata_dict_update_existing_field(self):
+        """Test updating an existing field with additional properties."""
+        wip = {
+            "field1": {
+                TYPE_KEY: "string"
+            }
+        }
+        stds = {
+            "field1": {
+                DEFAULT_KEY: "default_value"
+            }
+        }
+
+        result = update_wip_metadata_dict(wip, stds)
+
+        expected = {
+            "field1": {
+                TYPE_KEY: "string",
+                DEFAULT_KEY: "default_value"
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test_update_wip_metadata_dict_allowed_replaces_anyof(self):
+        """Test that adding 'allowed' key removes existing 'anyof' key."""
+        wip = {
+            "field1": {
+                ANYOF_KEY: [
+                    {TYPE_KEY: "string"},
+                    {TYPE_KEY: "number"}
+                ],
+                "required": True
+            }
+        }
+        stds = {
+            "field1": {
+                ALLOWED_KEY: ["value1", "value2"]
+            }
+        }
+
+        result = update_wip_metadata_dict(wip, stds)
+
+        # anyof should be removed, allowed should be added, required preserved
+        self.assertNotIn(ANYOF_KEY, result["field1"])
+        self.assertIn(ALLOWED_KEY, result["field1"])
+        self.assertEqual(["value1", "value2"], result["field1"][ALLOWED_KEY])
+        self.assertTrue(result["field1"]["required"])
+
+    def test_update_wip_metadata_dict_anyof_replaces_allowed_and_type(self):
+        """Test that adding 'anyof' key removes existing 'allowed' and 'type' keys."""
+        wip = {
+            "field1": {
+                ALLOWED_KEY: ["old_value"],
+                TYPE_KEY: "string",
+                "required": True
+            }
+        }
+        stds = {
+            "field1": {
+                ANYOF_KEY: [
+                    {TYPE_KEY: "string", ALLOWED_KEY: ["a", "b"]},
+                    {TYPE_KEY: "number", "min": 0}
+                ]
+            }
+        }
+
+        result = update_wip_metadata_dict(wip, stds)
+
+        # allowed and type should be removed, anyof should be added, required preserved
+        self.assertNotIn(ALLOWED_KEY, result["field1"])
+        self.assertNotIn(TYPE_KEY, result["field1"])
+        self.assertIn(ANYOF_KEY, result["field1"])
+        self.assertTrue(result["field1"]["required"])
+
+    def test_update_wip_metadata_dict_preserves_unrelated_keys(self):
+        """Test that keys not in stds dict are preserved in wip dict."""
+        wip = {
+            "field1": {
+                "required": True,
+                "is_phi": False,
+                "empty": False
+            }
+        }
+        stds = {
+            "field1": {
+                DEFAULT_KEY: "new_default"
+            }
+        }
+
+        result = update_wip_metadata_dict(wip, stds)
+
+        expected = {
+            "field1": {
+                "required": True,
+                "is_phi": False,
+                "empty": False,
+                DEFAULT_KEY: "new_default"
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test_update_wip_metadata_dict_multiple_fields(self):
+        """Test updating multiple fields at once."""
+        wip = {
+            "field1": {TYPE_KEY: "string"},
+            "field2": {TYPE_KEY: "integer"}
+        }
+        stds = {
+            "field1": {DEFAULT_KEY: "default1"},
+            "field2": {DEFAULT_KEY: 42},
+            "field3": {TYPE_KEY: "boolean", DEFAULT_KEY: True}
+        }
+
+        result = update_wip_metadata_dict(wip, stds)
+
+        expected = {
+            "field1": {TYPE_KEY: "string", DEFAULT_KEY: "default1"},
+            "field2": {TYPE_KEY: "integer", DEFAULT_KEY: 42},
+            "field3": {TYPE_KEY: "boolean", DEFAULT_KEY: True}
+        }
+        self.assertDictEqual(expected, result)
+
+    def test_update_wip_metadata_dict_returns_same_object(self):
+        """Test that the function returns the same dict object it modifies (not a copy).
+
+        This verifies the documented in-place modification behavior, which is
+        relied upon by other parts of the codebase.
+        """
+        wip = {"field1": {TYPE_KEY: "string"}}
+        stds = {"field1": {DEFAULT_KEY: "x"}}
+
+        result = update_wip_metadata_dict(wip, stds)
+
+        # result should be the exact same object as wip, not a copy
+        self.assertIs(result, wip)
+        # and wip should have been modified in place
+        self.assertIn(DEFAULT_KEY, wip["field1"])
 
     def test__combine_base_and_added_metadata_fields(self):
         """Test combining base and additional metadata fields."""
@@ -1039,6 +1526,266 @@ class TestMetadataConfigurator(TestCase):
         
         result = _combine_base_and_added_metadata_fields(base_dict, add_dict)
         self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_metadata_fields_empty_base(self):
+        """Test combining when base_dict has no metadata_fields key."""
+        base_dict = {}
+
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                "field1": {TYPE_KEY: "string", DEFAULT_KEY: "value1"}
+            }
+        }
+
+        expected = add_dict[METADATA_FIELDS_KEY]
+
+        result = _combine_base_and_added_metadata_fields(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_metadata_fields_empty_add(self):
+        """Test combining when add_dict has no metadata_fields key."""
+        base_dict = {
+            METADATA_FIELDS_KEY: {
+                "field1": {TYPE_KEY: "string", DEFAULT_KEY: "value1"}
+            }
+        }
+
+        add_dict = {}
+
+        expected = base_dict[METADATA_FIELDS_KEY]
+
+        result = _combine_base_and_added_metadata_fields(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_metadata_fields_both_empty(self):
+        """Test combining when both dicts have no metadata_fields key."""
+        base_dict = {}
+        add_dict = {}
+
+        expected = {}
+
+        result = _combine_base_and_added_metadata_fields(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
+    # Tests for _combine_base_and_added_host_type
+
+    def test__combine_base_and_added_host_type_default_key_override(self):
+        """Test that DEFAULT_KEY from add_dict overwrites DEFAULT_KEY from base_dict."""
+        base_dict = {
+            DEFAULT_KEY: "not provided"
+        }
+        add_dict = {
+            DEFAULT_KEY: "not collected"
+        }
+
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+
+        self.assertEqual("not collected", result[DEFAULT_KEY])
+
+    def test__combine_base_and_added_host_type_default_key_preserved(self):
+        """Test that DEFAULT_KEY from base_dict is preserved when add_dict has none."""
+        base_dict = {
+            DEFAULT_KEY: "not provided"
+        }
+        add_dict = {}
+
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+
+        self.assertEqual("not provided", result[DEFAULT_KEY])
+
+    def test__combine_base_and_added_host_type_default_key_added(self):
+        """Test that DEFAULT_KEY from add_dict is added when base_dict has none."""
+        base_dict = {}
+        add_dict = {
+            DEFAULT_KEY: "not collected"
+        }
+
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+
+        self.assertEqual("not collected", result[DEFAULT_KEY])
+
+    def test__combine_base_and_added_host_type_empty_base(self):
+        """Test combining when base_dict is empty."""
+        base_dict = {}
+        add_dict = {
+            DEFAULT_KEY: "not collected",
+            METADATA_FIELDS_KEY: {
+                "field1": {TYPE_KEY: "string"}
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "description": {TYPE_KEY: "string"}
+                    }
+                }
+            }
+        }
+
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+
+        self.assertDictEqual(add_dict, result)
+
+    def test__combine_base_and_added_host_type_empty_add(self):
+        """Test combining when add_dict is empty (result should match base)."""
+        base_dict = {
+            DEFAULT_KEY: "not provided",
+            METADATA_FIELDS_KEY: {
+                "field1": {TYPE_KEY: "string", DEFAULT_KEY: "value1"}
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "description": {TYPE_KEY: "string"}
+                    }
+                }
+            }
+        }
+        add_dict = {}
+
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+
+        self.assertDictEqual(base_dict, result)
+
+    def test__combine_base_and_added_host_type_both_empty(self):
+        """Test combining when both base_dict and add_dict are empty."""
+        base_dict = {}
+        add_dict = {}
+
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+
+        self.assertDictEqual({}, result)
+
+    def test__combine_base_and_added_host_type_full_combination(self):
+        """Test full combination with all components: DEFAULT_KEY, metadata_fields, and sample_types."""
+        base_dict = {
+            DEFAULT_KEY: "not provided",
+            METADATA_FIELDS_KEY: {
+                "country": {
+                    TYPE_KEY: "string",
+                    ALLOWED_KEY: ["USA"],
+                    DEFAULT_KEY: "USA"
+                },
+                "description": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "base description"
+                }
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "location": {TYPE_KEY: "string", DEFAULT_KEY: "UCSD"}
+                    }
+                },
+                "saliva": {
+                    ALIAS_KEY: "oral"
+                }
+            }
+        }
+        add_dict = {
+            DEFAULT_KEY: "not collected",
+            METADATA_FIELDS_KEY: {
+                # Override existing field
+                "description": {
+                    DEFAULT_KEY: "add description"
+                },
+                # Add new field
+                "new_field": {
+                    TYPE_KEY: "integer"
+                }
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                # Override existing sample type
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "location": {DEFAULT_KEY: "UCLA"}
+                    }
+                },
+                # Add new sample type
+                "blood": {
+                    METADATA_FIELDS_KEY: {
+                        "volume": {TYPE_KEY: "number"}
+                    }
+                }
+            }
+        }
+
+        expected = {
+            # DEFAULT_KEY overwritten by add
+            DEFAULT_KEY: "not collected",
+            METADATA_FIELDS_KEY: {
+                # Preserved from base
+                "country": {
+                    TYPE_KEY: "string",
+                    ALLOWED_KEY: ["USA"],
+                    DEFAULT_KEY: "USA"
+                },
+                # Combined: base type preserved, add default overwrites
+                "description": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "add description"
+                },
+                # New from add
+                "new_field": {
+                    TYPE_KEY: "integer"
+                }
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                # Combined: base type preserved, add default overwrites
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "location": {TYPE_KEY: "string", DEFAULT_KEY: "UCLA"}
+                    }
+                },
+                # Preserved from base
+                "saliva": {
+                    ALIAS_KEY: "oral"
+                },
+                # New from add
+                "blood": {
+                    METADATA_FIELDS_KEY: {
+                        "volume": {TYPE_KEY: "number"}
+                    }
+                }
+            }
+        }
+
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_host_type_empty_metadata_fields_result(self):
+        """Test that METADATA_FIELDS_KEY is not included when result would be empty."""
+        base_dict = {
+            DEFAULT_KEY: "not provided"
+            # No METADATA_FIELDS_KEY
+        }
+        add_dict = {
+            # No METADATA_FIELDS_KEY
+        }
+
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+
+        self.assertEqual("not provided", result[DEFAULT_KEY])
+        self.assertNotIn(METADATA_FIELDS_KEY, result)
+
+    def test__combine_base_and_added_host_type_empty_sample_types_result(self):
+        """Test that SAMPLE_TYPE_SPECIFIC_METADATA_KEY is not included when result would be empty."""
+        base_dict = {
+            DEFAULT_KEY: "not provided",
+            METADATA_FIELDS_KEY: {
+                "field1": {TYPE_KEY: "string"}
+            }
+            # No SAMPLE_TYPE_SPECIFIC_METADATA_KEY
+        }
+        add_dict = {
+            # No SAMPLE_TYPE_SPECIFIC_METADATA_KEY
+        }
+
+        result = _combine_base_and_added_host_type(base_dict, add_dict)
+
+        self.assertEqual("not provided", result[DEFAULT_KEY])
+        self.assertIn(METADATA_FIELDS_KEY, result)
+        self.assertNotIn(SAMPLE_TYPE_SPECIFIC_METADATA_KEY, result)
 
     def test__combine_base_and_added_sample_type_specific_metadata(self):
         """Test combining base and additional sample type specific metadata."""
@@ -1135,6 +1882,199 @@ class TestMetadataConfigurator(TestCase):
         result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
         self.assertDictEqual(expected, result)
 
+    def test__combine_base_and_added_sample_type_specific_metadata_empty_base(self):
+        """Test combining when base has no sample_type_specific_metadata."""
+        base_dict = {}
+
+        add_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {"type": "string"}
+                    }
+                }
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "field1": {"type": "string"}
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_empty_add(self):
+        """Test combining when add has no sample_type_specific_metadata."""
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {"type": "string"}
+                    }
+                }
+            }
+        }
+
+        add_dict = {}
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "field1": {"type": "string"}
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_base_type_with_metadata(self):
+        """Test sample type with both base_type AND metadata_fields.
+
+        This is a valid configuration where base_type indicates inheritance and
+        metadata_fields contains overrides. If both base_dict and add_dict have
+        base_type for the same sample type, add_dict's base_type overwrites base_dict's.
+        The metadata_fields are combined as usual (add wins for overlapping fields).
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    BASE_TYPE_KEY: "original_base",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            "allowed": ["stool sample"],
+                            "type": "string"
+                        },
+                        "location": {
+                            "allowed": ["UCSD"],
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+
+        add_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    BASE_TYPE_KEY: "new_base",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            "allowed": ["human stool"],
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+
+        expected = {
+            "stool": {
+                # base_type from add_dict overwrites base_type from base_dict
+                BASE_TYPE_KEY: "new_base",
+                METADATA_FIELDS_KEY: {
+                    # description from add_dict overwrites base_dict
+                    "description": {
+                        "allowed": ["human stool"],
+                        "type": "string"
+                    },
+                    # location preserved from base_dict (not in add_dict)
+                    "location": {
+                        "allowed": ["UCSD"],
+                        "type": "string"
+                    }
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_mismatched_types_add_wins(self):
+        """Test that when definition types differ between base and add, add always wins.
+
+        When the sample type definition type (alias, base_type, or metadata_fields)
+        differs between base_dict and add_dict, the add_dict entry completely
+        replaces the base_dict entry rather than attempting to combine them.
+
+        This test covers all possible type mismatch scenarios:
+        - base has alias, add has metadata_fields
+        - base has alias, add has base_type
+        - base has metadata_fields, add has alias
+        - base has metadata_fields, add has base_type
+        - base has base_type, add has alias
+        - base has base_type, add has metadata_fields
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                # alias -> metadata_fields
+                "sample_alias_to_metadata": {
+                    ALIAS_KEY: "stool"
+                },
+                # alias -> base_type
+                "sample_alias_to_base": {
+                    ALIAS_KEY: "stool"
+                },
+                # metadata_fields -> alias
+                "sample_metadata_to_alias": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {"type": "string"}
+                    }
+                },
+                # metadata_fields -> base_type
+                "sample_metadata_to_base": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {"type": "string"}
+                    }
+                },
+                # base_type -> alias
+                "sample_base_to_alias": {
+                    BASE_TYPE_KEY: "stool"
+                },
+                # base_type -> metadata_fields
+                "sample_base_to_metadata": {
+                    BASE_TYPE_KEY: "stool"
+                }
+            }
+        }
+
+        add_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "sample_alias_to_metadata": {
+                    METADATA_FIELDS_KEY: {
+                        "new_field": {"type": "integer"}
+                    }
+                },
+                "sample_alias_to_base": {
+                    BASE_TYPE_KEY: "saliva"
+                },
+                "sample_metadata_to_alias": {
+                    ALIAS_KEY: "saliva"
+                },
+                "sample_metadata_to_base": {
+                    BASE_TYPE_KEY: "saliva"
+                },
+                "sample_base_to_alias": {
+                    ALIAS_KEY: "saliva"
+                },
+                "sample_base_to_metadata": {
+                    METADATA_FIELDS_KEY: {
+                        "new_field": {"type": "integer"}
+                    }
+                }
+            }
+        }
+
+        # All entries should match add_dict exactly; base_dict is replaced
+        expected = add_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY]
+
+        result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
+        self.assertDictEqual(expected, result)
+
     def test__id_sample_type_definition_alias(self):
         """Test identifying sample type definition as alias type."""
         sample_dict = {
@@ -1153,6 +2093,25 @@ class TestMetadataConfigurator(TestCase):
             }
         }
         result = _id_sample_type_definition("test_sample", sample_dict)
+        self.assertEqual(METADATA_FIELDS_KEY, result)
+
+    def test__id_sample_type_definition_base_with_metadata(self):
+        """Test sample type with both base_type AND metadata_fields returns metadata_fields.
+
+        This is a valid configuration: base_type indicates inheritance from another
+        sample type, while metadata_fields contains overrides specific to this sample type.
+        The function should return METADATA_FIELDS_KEY since metadata takes precedence.
+        """
+        sample_dict = {
+            BASE_TYPE_KEY: "stool",
+            METADATA_FIELDS_KEY: {
+                "description": {
+                    "allowed": ["human dung"],
+                    "type": "string"
+                }
+            }
+        }
+        result = _id_sample_type_definition("dung", sample_dict)
         self.assertEqual(METADATA_FIELDS_KEY, result)
 
     def test__id_sample_type_definition_base(self):
@@ -1190,3 +2149,186 @@ class TestMetadataConfigurator(TestCase):
         sample_dict = {}
         with self.assertRaisesRegex(ValueError, "Sample type 'test_sample' has neither 'alias' nor 'metadata_fields' keys"):
             _id_sample_type_definition("test_sample", sample_dict)
+
+    # Tests for build_full_flat_config_dict
+
+    def test_build_full_flat_config_dict_no_inputs(self):
+        """Test build_full_flat_config_dict with no arguments uses all defaults."""
+        result = build_full_flat_config_dict()
+
+        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
+        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
+        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
+        self.assertIsInstance(hosts_dict, dict)
+
+        # Should have "base" host type with sample_name metadata field
+        self.assertIn("base", hosts_dict)
+        base_host = hosts_dict["base"]
+        self.assertIn(METADATA_FIELDS_KEY, base_host)
+        self.assertIn("sample_name", base_host[METADATA_FIELDS_KEY])
+
+        # Should have "human" host type with host_common_name defaulting to "human"
+        self.assertIn("human", hosts_dict)
+        human_host = hosts_dict["human"]
+        self.assertIn(METADATA_FIELDS_KEY, human_host)
+        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "human",
+            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
+
+        # Should have default software config keys with expected default value
+        self.assertIn(DEFAULT_KEY, result)
+        self.assertEqual("not applicable", result[DEFAULT_KEY])
+
+    def test_build_full_flat_config_dict_with_study_config(self):
+        """Test build_full_flat_config_dict with study config merges correctly."""
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False
+        }
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "custom_field": {
+                                DEFAULT_KEY: "custom_value",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_FP)
+
+        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
+        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
+        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
+        self.assertIsInstance(hosts_dict, dict)
+
+        # Should have "human" host type with host_common_name defaulting to "human"
+        self.assertIn("human", hosts_dict)
+        human_host = hosts_dict["human"]
+        self.assertIn(METADATA_FIELDS_KEY, human_host)
+        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "human",
+            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
+
+        # Should have custom_field from study config
+        self.assertIn("custom_field", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "custom_value",
+            human_host[METADATA_FIELDS_KEY]["custom_field"][DEFAULT_KEY])
+
+        # Should have software config default value
+        self.assertIn(DEFAULT_KEY, result)
+        self.assertEqual("software_default", result[DEFAULT_KEY])
+
+    def test_build_full_flat_config_dict_without_study_config(self):
+        """Test build_full_flat_config_dict with no study config uses standards only."""
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False
+        }
+
+        result = build_full_flat_config_dict(
+            None, software_config, self.TEST_STDS_FP)
+
+        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
+        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
+        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
+        self.assertIsInstance(hosts_dict, dict)
+
+        # Should have "human" host type with host_common_name defaulting to "human"
+        self.assertIn("human", hosts_dict)
+        human_host = hosts_dict["human"]
+        self.assertIn(METADATA_FIELDS_KEY, human_host)
+        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "human",
+            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
+
+        # Should preserve software config settings
+        self.assertEqual("software_default", result[DEFAULT_KEY])
+
+    def test_build_full_flat_config_dict_merges_software_and_study(self):
+        """Test that study config values override software config values."""
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: False,
+            OVERWRITE_NON_NANS_KEY: True
+        }
+        study_config = {
+            DEFAULT_KEY: "study_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_FP)
+
+        # Study config should override software config
+        self.assertEqual("study_default", result[DEFAULT_KEY])
+        self.assertTrue(result[LEAVE_REQUIREDS_BLANK_KEY])
+        # Software config value should be preserved when not overridden
+        self.assertTrue(result[OVERWRITE_NON_NANS_KEY])
+
+    def test_build_full_flat_config_dict_none_software_config(self):
+        """Test that None software_config loads defaults from config.yml."""
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, None, self.TEST_STDS_FP)
+
+        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
+        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
+        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
+        self.assertIsInstance(hosts_dict, dict)
+
+        # Should have "human" host type with host_common_name defaulting to "human"
+        self.assertIn("human", hosts_dict)
+        human_host = hosts_dict["human"]
+        self.assertIn(METADATA_FIELDS_KEY, human_host)
+        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "human",
+            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
+
+        # Should have loaded default software config (which includes DEFAULT_KEY)
+        self.assertIn(DEFAULT_KEY, result)
+        self.assertEqual("not applicable", result[DEFAULT_KEY])
