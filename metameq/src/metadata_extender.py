@@ -5,7 +5,7 @@ import pandas
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any
-from metameq.src.util import extract_config_dict, extract_stds_config, \
+from metameq.src.util import extract_config_dict, \
     deepcopy_dict, validate_required_columns_exist, get_extension, \
     load_df_with_best_fit_encoding, update_metadata_df_field, \
     HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
@@ -16,8 +16,8 @@ from metameq.src.util import extract_config_dict, extract_stds_config, \
     ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY, OVERWRITE_NON_NANS_KEY, \
     METADATA_TRANSFORMERS_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
     SOURCES_KEY, FUNCTION_KEY, REQUIRED_RAW_METADATA_FIELDS
-from metameq.src.metadata_configurator import combine_stds_and_study_config, \
-    flatten_nested_stds_dict, update_wip_metadata_dict
+from metameq.src.metadata_configurator import update_wip_metadata_dict, \
+    build_full_flat_config_dict
 from metameq.src.metadata_validator import validate_metadata_df, \
     output_validation_msgs
 import metameq.src.metadata_transformers as transformers
@@ -72,6 +72,11 @@ def get_reserved_cols(
     validate_required_columns_exist(
         raw_metadata_df, [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY],
         "metadata missing required columns")
+
+    # Essentially, mock a minimal metadata valid metadata dataframe and then
+    # use extend_metadata_df to add all the required columns to it (either empty
+    # or with default values but we don't care about the actual values), then
+    # return the list of column names from that extended df.
 
     # get unique HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY combinations
     temp_df = raw_metadata_df[
@@ -336,6 +341,7 @@ def _get_study_specific_config(study_specific_config_fp: Optional[str]) -> Optio
 
     return study_specific_config_dict
 
+
 def write_extended_metadata_from_df(
         raw_metadata_df: pandas.DataFrame,
         study_specific_config_dict: Dict[str, Any],
@@ -389,6 +395,7 @@ def write_extended_metadata_from_df(
     # for good measure, return the extended metadata DataFrame
     return metadata_df
 
+
 def extend_metadata_df(
         raw_metadata_df: pandas.DataFrame,
         study_specific_config_dict: Optional[Dict[str, Any]],
@@ -429,35 +436,8 @@ def extend_metadata_df(
         raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
         "metadata missing required columns")
 
-    if software_config_dict is None:
-        software_config_dict = extract_config_dict(None)
-
-    if study_specific_config_dict:
-        # overwrite default settings in software config with study-specific ones (if any)
-        software_plus_study_flat_config_dict = deepcopy_dict(study_specific_config_dict)
-        software_plus_study_flat_config_dict = \
-            software_config_dict | software_plus_study_flat_config_dict
-
-        # combine the software+study flat-host-type config's host type specific info
-        # with the standards nested-host-type config's host type specific info
-        # to get a full combined, nested dictionary starting from HOST_TYPE_SPECIFIC_METADATA_KEY
-        full_nested_hosts_dict = combine_stds_and_study_config(
-            software_plus_study_flat_config_dict, stds_fp)
-    else:
-        software_plus_study_flat_config_dict = software_config_dict
-        # no need to combine the standards' host info with anything else,
-        # since the software config doesn't include any host type specific info
-        full_nested_hosts_dict = extract_stds_config(stds_fp)
-
-    full_flat_hosts_dict = flatten_nested_stds_dict(
-        full_nested_hosts_dict, None)
-    software_plus_study_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
-        full_flat_hosts_dict
-    # this is just a renaming to indicate that, having overwritten any original
-    # HOST_TYPE_SPECIFIC_METADATA_KEY in the software_plus_study_flat_config_dict
-    # with the complete and flattened combination of software+study+standards, it is now
-    # the "full" flat-host-type config dictionary
-    full_flat_config_dict = software_plus_study_flat_config_dict
+    full_flat_config_dict = build_full_flat_config_dict(
+        study_specific_config_dict, software_config_dict, stds_fp)
 
     metadata_df, validation_msgs_df = _populate_metadata_df(
         raw_metadata_df, full_flat_config_dict,
@@ -503,7 +483,7 @@ def write_metadata_results(
         metadata_df, out_dir, out_name_base, internal_col_names,
         remove_internals_and_fails=remove_internals, sep=sep,
         suppress_empty_fails=suppress_empty_fails)
-    
+
     output_validation_msgs(validation_msgs_df, out_dir, out_name_base, sep=",",
                            suppress_empty_fails=suppress_empty_fails)
 
@@ -543,7 +523,7 @@ def _populate_metadata_df(
 
     # Apply pre-transformers to the metadata. Pre-transformers run BEFORE host- and sample-type
     # specific generation (which also includes validation), so they can transform raw input fields
-    # into values that the config validation expects (for example, converting a study's custom sex 
+    # into values that the config validation expects (for example, converting a study's custom sex
     # format like "M"/"F" into standardized values like "male"/"female" before validation occurs.
     metadata_df = _transform_metadata(
         metadata_df, full_flat_config_dict,
@@ -555,7 +535,7 @@ def _populate_metadata_df(
         metadata_df, full_flat_config_dict)
 
     # Apply post-transformers to the metadata. Post-transformers run AFTER host- and sample-type
-    # specific generation, so they can use fields that only exist or were only filled in 
+    # specific generation, so they can use fields that only exist or were only filled in
     # after that step, such as passing through a value filled in by the defaults to another field.
     metadata_df = _transform_metadata(
         metadata_df, full_flat_config_dict,
@@ -1036,7 +1016,7 @@ def _update_metadata_from_metadata_fields_dict(
     # loop through each metadata field in the metadata fields dict
     for curr_field_name, curr_field_vals_dict in metadata_fields_dict.items():
         # if the field has a default value (regardless of whether it is
-        # required), update the metadata df with it (this includes adding the 
+        # required), update the metadata df with it (this includes adding the
         # field if it does not already exist). For existing fields, what exactly
         # will beupdated depends on the value of overwrite_non_nans:
         # if overwrite_non_nans is True, then all values will be updated;

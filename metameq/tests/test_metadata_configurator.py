@@ -4,7 +4,8 @@ from metameq.src.util import \
     HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_FIELDS_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
     ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
-    STUDY_SPECIFIC_METADATA_KEY
+    STUDY_SPECIFIC_METADATA_KEY, LEAVE_REQUIREDS_BLANK_KEY, \
+    OVERWRITE_NON_NANS_KEY
 from metameq.src.metadata_configurator import \
     combine_stds_and_study_config, \
     _make_combined_stds_and_study_host_type_dicts, \
@@ -13,10 +14,14 @@ from metameq.src.metadata_configurator import \
     _combine_base_and_added_sample_type_specific_metadata, \
     _combine_base_and_added_host_type, \
     _id_sample_type_definition, \
-    update_wip_metadata_dict
+    update_wip_metadata_dict, \
+    build_full_flat_config_dict
 
 
 class TestMetadataConfigurator(TestCase):
+    TEST_DIR = path.dirname(__file__)
+    TEST_STDS_FP = path.join(TEST_DIR, "data/test_standards.yml")
+
     NESTED_STDS_DICT = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 # Top host level (host_associated in this example) has
@@ -2144,3 +2149,186 @@ class TestMetadataConfigurator(TestCase):
         sample_dict = {}
         with self.assertRaisesRegex(ValueError, "Sample type 'test_sample' has neither 'alias' nor 'metadata_fields' keys"):
             _id_sample_type_definition("test_sample", sample_dict)
+
+    # Tests for build_full_flat_config_dict
+
+    def test_build_full_flat_config_dict_no_inputs(self):
+        """Test build_full_flat_config_dict with no arguments uses all defaults."""
+        result = build_full_flat_config_dict()
+
+        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
+        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
+        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
+        self.assertIsInstance(hosts_dict, dict)
+
+        # Should have "base" host type with sample_name metadata field
+        self.assertIn("base", hosts_dict)
+        base_host = hosts_dict["base"]
+        self.assertIn(METADATA_FIELDS_KEY, base_host)
+        self.assertIn("sample_name", base_host[METADATA_FIELDS_KEY])
+
+        # Should have "human" host type with host_common_name defaulting to "human"
+        self.assertIn("human", hosts_dict)
+        human_host = hosts_dict["human"]
+        self.assertIn(METADATA_FIELDS_KEY, human_host)
+        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "human",
+            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
+
+        # Should have default software config keys with expected default value
+        self.assertIn(DEFAULT_KEY, result)
+        self.assertEqual("not applicable", result[DEFAULT_KEY])
+
+    def test_build_full_flat_config_dict_with_study_config(self):
+        """Test build_full_flat_config_dict with study config merges correctly."""
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False
+        }
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "custom_field": {
+                                DEFAULT_KEY: "custom_value",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_FP)
+
+        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
+        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
+        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
+        self.assertIsInstance(hosts_dict, dict)
+
+        # Should have "human" host type with host_common_name defaulting to "human"
+        self.assertIn("human", hosts_dict)
+        human_host = hosts_dict["human"]
+        self.assertIn(METADATA_FIELDS_KEY, human_host)
+        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "human",
+            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
+
+        # Should have custom_field from study config
+        self.assertIn("custom_field", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "custom_value",
+            human_host[METADATA_FIELDS_KEY]["custom_field"][DEFAULT_KEY])
+
+        # Should have software config default value
+        self.assertIn(DEFAULT_KEY, result)
+        self.assertEqual("software_default", result[DEFAULT_KEY])
+
+    def test_build_full_flat_config_dict_without_study_config(self):
+        """Test build_full_flat_config_dict with no study config uses standards only."""
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False
+        }
+
+        result = build_full_flat_config_dict(
+            None, software_config, self.TEST_STDS_FP)
+
+        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
+        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
+        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
+        self.assertIsInstance(hosts_dict, dict)
+
+        # Should have "human" host type with host_common_name defaulting to "human"
+        self.assertIn("human", hosts_dict)
+        human_host = hosts_dict["human"]
+        self.assertIn(METADATA_FIELDS_KEY, human_host)
+        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "human",
+            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
+
+        # Should preserve software config settings
+        self.assertEqual("software_default", result[DEFAULT_KEY])
+
+    def test_build_full_flat_config_dict_merges_software_and_study(self):
+        """Test that study config values override software config values."""
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: False,
+            OVERWRITE_NON_NANS_KEY: True
+        }
+        study_config = {
+            DEFAULT_KEY: "study_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_FP)
+
+        # Study config should override software config
+        self.assertEqual("study_default", result[DEFAULT_KEY])
+        self.assertTrue(result[LEAVE_REQUIREDS_BLANK_KEY])
+        # Software config value should be preserved when not overridden
+        self.assertTrue(result[OVERWRITE_NON_NANS_KEY])
+
+    def test_build_full_flat_config_dict_none_software_config(self):
+        """Test that None software_config loads defaults from config.yml."""
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, None, self.TEST_STDS_FP)
+
+        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
+        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
+        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
+        self.assertIsInstance(hosts_dict, dict)
+
+        # Should have "human" host type with host_common_name defaulting to "human"
+        self.assertIn("human", hosts_dict)
+        human_host = hosts_dict["human"]
+        self.assertIn(METADATA_FIELDS_KEY, human_host)
+        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
+        self.assertEqual(
+            "human",
+            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
+
+        # Should have loaded default software config (which includes DEFAULT_KEY)
+        self.assertIn(DEFAULT_KEY, result)
+        self.assertEqual("not applicable", result[DEFAULT_KEY])
