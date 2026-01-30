@@ -42,7 +42,7 @@ pandas.set_option("future.no_silent_downcasting", True)
 def get_reserved_cols(
         raw_metadata_df: pandas.DataFrame,
         study_specific_config_dict: Dict[str, Any],
-        study_specific_transformers_dict: Optional[Dict[str, Any]] = None) -> List[str]:
+        stds_fp: Optional[str] = None) -> List[str]:
     """Get a list of all reserved column names for all host+sample type combinations in the metadata.
 
     Note that 'reserved' is not the same as 'required'.  Some column names (e.g.,
@@ -55,8 +55,9 @@ def get_reserved_cols(
         The input metadata DataFrame.
     study_specific_config_dict : Dict[str, Any]
         Study-specific flat-host-type config dictionary.
-    study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
-        Dictionary of custom transformers for this study (only).
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
 
     Returns
     -------
@@ -90,10 +91,10 @@ def get_reserved_cols(
 
     # extend the metadata_df to get all the required columns for all host+sample type combinations;
     # we don't really care about the contents of these columns, just their names.
-    # (I doubt it is necessary to pass the actual study_specific_transformers_dict; could probably just use None)
+    # (Likewise, it is not necessary to pass the actual study_specific_transformers_dict so
+    # just use None)
     metadata_df, _ = extend_metadata_df(
-        temp_df, study_specific_config_dict,
-        study_specific_transformers_dict)
+        temp_df, study_specific_config_dict, None, None, stds_fp)
 
     return sorted(metadata_df.columns.to_list())
 
@@ -119,7 +120,7 @@ def id_missing_cols(a_df: pandas.DataFrame) -> List[str]:
 def find_standard_cols(
         a_df: pandas.DataFrame,
         study_specific_config_dict: Dict[str, Any],
-        study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
+        stds_fp: Optional[str] = None,
         suppress_missing_name_err: bool = False) -> List[str]:
     """Find all the standard columns in the metadata DataFrame.
 
@@ -129,8 +130,9 @@ def find_standard_cols(
         The metadata DataFrame to analyze.
     study_specific_config_dict : Dict[str, Any]
         Study-specific flat-host-type config dictionary.
-    study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
-        Dictionary of custom transformers for this study (only).
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
     suppress_missing_name_err : bool, default=False
         Whether to suppress errors about missing sample name.
 
@@ -156,8 +158,7 @@ def find_standard_cols(
     # get the intersection of the reserved standard columns and
     # the columns in the input dataframe
     standard_cols = get_reserved_cols(
-        a_df, study_specific_config_dict,
-        study_specific_transformers_dict=study_specific_transformers_dict)
+        a_df, study_specific_config_dict, stds_fp)
 
     standard_cols_set = (set(standard_cols) - set(INTERNAL_COL_KEYS))
 
@@ -167,7 +168,7 @@ def find_standard_cols(
 def find_nonstandard_cols(
         a_df: pandas.DataFrame,
         study_specific_config_dict: Dict[str, Any],
-        study_specific_transformers_dict: Optional[Dict[str, Any]] = None) -> List[str]:
+        stds_fp: Optional[str] = None) -> List[str]:
     """Find any non-standard columns in the metadata DataFrame.
 
     Parameters
@@ -176,8 +177,9 @@ def find_nonstandard_cols(
         The metadata DataFrame to analyze.
     study_specific_config_dict : Dict[str, Any]
         Study-specific flat-host-type config dictionary.
-    study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
-        Dictionary of custom transformers for this study (only).
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
 
     Returns
     -------
@@ -195,15 +197,15 @@ def find_nonstandard_cols(
 
     # get the columns in
     standard_cols = get_reserved_cols(
-        a_df, study_specific_config_dict,
-        study_specific_transformers_dict=study_specific_transformers_dict)
+        a_df, study_specific_config_dict, stds_fp)
 
     return list(set(a_df.columns) - set(standard_cols))
 
 
 def get_extended_metadata_from_df_and_yaml(
         raw_metadata_df: pandas.DataFrame,
-        study_specific_config_fp: Optional[str]) -> Tuple[pandas.DataFrame, pandas.DataFrame]:
+        study_specific_config_fp: Optional[str],
+        stds_fp: Optional[str] = None) -> Tuple[pandas.DataFrame, pandas.DataFrame]:
     """Extend metadata using configuration from a study-specific YAML config file.
 
     Parameters
@@ -212,6 +214,9 @@ def get_extended_metadata_from_df_and_yaml(
         The raw metadata DataFrame to extend.
     study_specific_config_fp : Optional[str]
         Path to the study-specific configuration YAML file.
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
 
     Returns
     -------
@@ -226,7 +231,8 @@ def get_extended_metadata_from_df_and_yaml(
 
     # extend the metadata DataFrame using the study-specific flat-host-type config dictionary
     metadata_df, validation_msgs_df = \
-        extend_metadata_df(raw_metadata_df, study_specific_config_dict)
+        extend_metadata_df(raw_metadata_df, study_specific_config_dict,
+                           None, None, stds_fp)
 
     return metadata_df, validation_msgs_df
 
@@ -257,7 +263,8 @@ def write_extended_metadata(
         out_name_base: str,
         sep: str = "\t",
         remove_internals: bool = True,
-        suppress_empty_fails: bool = False) -> pandas.DataFrame:
+        suppress_empty_fails: bool = False,
+        stds_fp: Optional[str] = None) -> pandas.DataFrame:
     """Write extended metadata to files starting from input file paths to metadata and config.
 
     Parameters
@@ -276,6 +283,9 @@ def write_extended_metadata(
         Whether to remove internal columns.
     suppress_empty_fails : bool, default=False
         Whether to suppress empty failure files.
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
 
     Returns
     -------
@@ -310,7 +320,8 @@ def write_extended_metadata(
         raw_metadata_df, study_specific_config_dict,
         out_dir, out_name_base, sep=sep,
         remove_internals=remove_internals,
-        suppress_empty_fails=suppress_empty_fails)
+        suppress_empty_fails=suppress_empty_fails,
+        stds_fp=stds_fp)
 
     # for good measure, return the extended metadata DataFrame
     return extended_df
@@ -351,7 +362,8 @@ def write_extended_metadata_from_df(
         sep: str = "\t",
         remove_internals: bool = True,
         suppress_empty_fails: bool = False,
-        internal_col_names: Optional[List[str]] = None) -> pandas.DataFrame:
+        internal_col_names: Optional[List[str]] = None,
+        stds_fp: Optional[str] = None) -> pandas.DataFrame:
     """Write extended metadata to files starting from a metadata DataFrame and config dictionary.
 
     Parameters
@@ -374,6 +386,9 @@ def write_extended_metadata_from_df(
         Whether to suppress empty failure files.
     internal_col_names : Optional[List[str]], default=None
         List of internal column names.
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
 
     Returns
     -------
@@ -383,7 +398,7 @@ def write_extended_metadata_from_df(
     # extend the metadata DataFrame using the study-specific flat-host-type config dictionary
     metadata_df, validation_msgs_df = extend_metadata_df(
         raw_metadata_df, study_specific_config_dict,
-        study_specific_transformers_dict)
+        study_specific_transformers_dict, None, stds_fp)
 
     # write the metadata and validation results to files
     write_metadata_results(

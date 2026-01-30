@@ -16,10 +16,12 @@ from metameq.src.util import \
     SOURCES_KEY, FUNCTION_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
     STUDY_SPECIFIC_METADATA_KEY
 from metameq.src.metadata_extender import \
-    id_missing_cols, get_qc_failures, _reorder_df, \
-    _catch_nan_required_fields, _fill_na_if_default, \
-    _update_metadata_from_metadata_fields_dict, _update_metadata_from_dict, \
-    _construct_sample_type_metadata_fields_dict, \
+    id_missing_cols, get_qc_failures, get_reserved_cols, find_standard_cols, \
+    find_nonstandard_cols, write_metadata_results, \
+    get_extended_metadata_from_df_and_yaml, write_extended_metadata_from_df, \
+    write_extended_metadata, _reorder_df, _catch_nan_required_fields, \
+    _fill_na_if_default, _update_metadata_from_metadata_fields_dict, \
+    _update_metadata_from_dict, _construct_sample_type_metadata_fields_dict, \
     _generate_metadata_for_a_sample_type_in_a_host_type, \
     _generate_metadata_for_a_host_type, _generate_metadata_for_host_types, \
     _transform_metadata, _populate_metadata_df, extend_metadata_df, \
@@ -66,6 +68,520 @@ class TestMetadataExtender(TestCase):
 
         expected = sorted(REQUIRED_RAW_METADATA_FIELDS)
         self.assertEqual(expected, result)
+
+    # Tests for get_reserved_cols
+
+    def test_get_reserved_cols_single_host_sample_type(self):
+        """Test returns sorted list of reserved column names for a single host/sample type."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "host_common_name": {
+                                DEFAULT_KEY: "human",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {
+                                    "body_site": {
+                                        DEFAULT_KEY: "gut",
+                                        TYPE_KEY: "string"
+                                    },
+                                    "stool_consistency": {
+                                        DEFAULT_KEY: "normal",
+                                        TYPE_KEY: "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = get_reserved_cols(input_df, study_config, self.TEST_STDS_FP)
+
+        # Expected columns are union of study_config fields and test_standards.yml fields
+        expected = [
+            "body_site",
+            "host_common_name",
+            HOSTTYPE_SHORTHAND_KEY,
+            QC_NOTE_KEY,
+            QIITA_SAMPLE_TYPE,
+            SAMPLE_NAME_KEY,
+            SAMPLE_TYPE_KEY,
+            SAMPLETYPE_SHORTHAND_KEY,
+            "stool_consistency"
+        ]
+        self.assertEqual(expected, result)
+
+    def test_get_reserved_cols_missing_hosttype_shorthand_raises(self):
+        """Test raises ValueError when hosttype_shorthand column is missing."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+        study_config = {}
+
+        with self.assertRaisesRegex(ValueError, HOSTTYPE_SHORTHAND_KEY):
+            get_reserved_cols(input_df, study_config)
+
+    def test_get_reserved_cols_missing_sampletype_shorthand_raises(self):
+        """Test raises ValueError when sampletype_shorthand column is missing."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+        study_config = {}
+
+        with self.assertRaisesRegex(ValueError, SAMPLETYPE_SHORTHAND_KEY):
+            get_reserved_cols(input_df, study_config)
+
+    def test_get_reserved_cols_multiple_host_sample_types(self):
+        """Test returns deduped union of reserved columns for multiple host/sample type combinations."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2", "sample3"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human", "mouse"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "blood", "stool"]
+        })
+        # Both human and mouse define host_common_name and body_site - should appear only once each
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "host_common_name": {
+                                DEFAULT_KEY: "human",
+                                TYPE_KEY: "string"
+                            },
+                            "human_field": {
+                                DEFAULT_KEY: "human_value",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {
+                                    "body_site": {
+                                        DEFAULT_KEY: "gut",
+                                        TYPE_KEY: "string"
+                                    },
+                                    "stool_consistency": {
+                                        DEFAULT_KEY: "normal",
+                                        TYPE_KEY: "string"
+                                    }
+                                }
+                            },
+                            "blood": {
+                                METADATA_FIELDS_KEY: {
+                                    "body_site": {
+                                        DEFAULT_KEY: "blood",
+                                        TYPE_KEY: "string"
+                                    },
+                                    "blood_type": {
+                                        DEFAULT_KEY: "unknown",
+                                        TYPE_KEY: "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "mouse": {
+                        METADATA_FIELDS_KEY: {
+                            "host_common_name": {
+                                DEFAULT_KEY: "mouse",
+                                TYPE_KEY: "string"
+                            },
+                            "mouse_field": {
+                                DEFAULT_KEY: "mouse_value",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {
+                                    "body_site": {
+                                        DEFAULT_KEY: "gut",
+                                        TYPE_KEY: "string"
+                                    },
+                                    "mouse_stool_field": {
+                                        DEFAULT_KEY: "mouse_stool_value",
+                                        TYPE_KEY: "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = get_reserved_cols(input_df, study_config, self.TEST_STDS_FP)
+
+        # Expected columns are union of study_config fields and test_standards.yml fields
+        expected = [
+            "blood_type",
+            "body_site",
+            "host_common_name",
+            HOSTTYPE_SHORTHAND_KEY,
+            "human_field",
+            "mouse_field",
+            "mouse_stool_field",
+            QC_NOTE_KEY,
+            QIITA_SAMPLE_TYPE,
+            SAMPLE_NAME_KEY,
+            SAMPLE_TYPE_KEY,
+            SAMPLETYPE_SHORTHAND_KEY,
+            "stool_consistency"
+        ]
+        self.assertEqual(expected, result)
+
+    # Tests for find_standard_cols
+
+    def test_find_standard_cols_returns_standard_cols_in_df(self):
+        """Test returns standard columns that exist in the input DataFrame, excluding internals."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"],
+            "body_site": ["gut"],
+            "host_common_name": ["human"],
+            "my_custom_column": ["custom_value"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "host_common_name": {
+                                DEFAULT_KEY: "human",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {
+                                    "body_site": {
+                                        DEFAULT_KEY: "gut",
+                                        TYPE_KEY: "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = find_standard_cols(input_df, study_config, self.TEST_STDS_FP)
+
+        # Returns intersection of reserved cols (minus internals) with df columns.
+        # body_site, host_common_name, sample_name are standard and in df
+        # hosttype_shorthand, sampletype_shorthand are internal (excluded)
+        # my_custom_column is nonstandard (excluded)
+        expected = ["body_site", "host_common_name", SAMPLE_NAME_KEY]
+        self.assertEqual(sorted(expected), sorted(result))
+
+    def test_find_standard_cols_missing_hosttype_shorthand_raises(self):
+        """Test raises ValueError when hosttype_shorthand column is missing."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+        study_config = {}
+
+        with self.assertRaisesRegex(ValueError, HOSTTYPE_SHORTHAND_KEY):
+            find_standard_cols(input_df, study_config, self.TEST_STDS_FP)
+
+    def test_find_standard_cols_missing_sampletype_shorthand_raises(self):
+        """Test raises ValueError when sampletype_shorthand column is missing."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+        study_config = {}
+
+        with self.assertRaisesRegex(ValueError, SAMPLETYPE_SHORTHAND_KEY):
+            find_standard_cols(input_df, study_config, self.TEST_STDS_FP)
+
+    def test_find_standard_cols_missing_sample_name_raises(self):
+        """Test raises ValueError when sample_name column is missing."""
+        input_df = pandas.DataFrame({
+            HOSTTYPE_SHORTHAND_KEY: ["human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+        study_config = {}
+
+        with self.assertRaisesRegex(ValueError, SAMPLE_NAME_KEY):
+            find_standard_cols(input_df, study_config, self.TEST_STDS_FP)
+
+    def test_find_standard_cols_suppress_missing_name_err(self):
+        """Test that suppress_missing_name_err=True allows missing sample_name."""
+        input_df = pandas.DataFrame({
+            HOSTTYPE_SHORTHAND_KEY: ["human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"],
+            "body_site": ["gut"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {
+                                    "body_site": {
+                                        DEFAULT_KEY: "gut",
+                                        TYPE_KEY: "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = find_standard_cols(
+            input_df, study_config, self.TEST_STDS_FP,
+            suppress_missing_name_err=True)
+
+        # Only body_site is a standard col in df (sample_name is missing but allowed)
+        expected = ["body_site"]
+        self.assertEqual(expected, sorted(result))
+
+    # Tests for find_nonstandard_cols
+
+    def test_find_nonstandard_cols_returns_nonstandard_cols(self):
+        """Test returns columns in df that are not in the reserved columns list."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"],
+            "body_site": ["gut"],
+            "host_common_name": ["human"],
+            "my_custom_column": ["custom_value"],
+            "another_nonstandard": ["value"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "host_common_name": {
+                                DEFAULT_KEY: "human",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {
+                                    "body_site": {
+                                        DEFAULT_KEY: "gut",
+                                        TYPE_KEY: "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = find_nonstandard_cols(input_df, study_config, self.TEST_STDS_FP)
+
+        # Only my_custom_column and another_nonstandard are not in the reserved list
+        # sample_name, body_site, host_common_name, hosttype_shorthand,
+        # sampletype_shorthand are all reserved
+        expected = ["another_nonstandard", "my_custom_column"]
+        self.assertEqual(sorted(expected), sorted(result))
+
+    def test_find_nonstandard_cols_missing_required_col_raises(self):
+        """Test raises ValueError when a required column is missing."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+            # missing HOSTTYPE_SHORTHAND_KEY
+        })
+        study_config = {}
+
+        with self.assertRaisesRegex(ValueError, HOSTTYPE_SHORTHAND_KEY):
+            find_nonstandard_cols(input_df, study_config, self.TEST_STDS_FP)
+
+    # Tests for write_metadata_results
+
+    def test_write_metadata_results_creates_all_files(self):
+        """Test creates metadata file and validation errors file, includes failed rows."""
+        metadata_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2", "sample3"],
+            "field_a": ["a1", "a2", "a3"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool", "stool"],
+            QC_NOTE_KEY: ["", "invalid host_type", ""]
+        })
+        validation_msgs_df = pandas.DataFrame({
+            "field": ["field_a"],
+            "error": ["some validation error"]
+        })
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            write_metadata_results(
+                metadata_df, validation_msgs_df, tmpdir, "test_output",
+                sep="\t", remove_internals=False)
+
+            # Find the main metadata file
+            metadata_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(metadata_files))
+
+            # Verify metadata file contents - includes failed row when remove_internals=False
+            result_df = pandas.read_csv(
+                metadata_files[0], sep="\t", keep_default_na=False)
+            assert_frame_equal(metadata_df, result_df)
+
+            # Find the validation errors file (uses comma separator)
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+
+            # Verify validation errors file contents
+            result_validation_df = pandas.read_csv(validation_files[0], sep=",")
+            assert_frame_equal(validation_msgs_df, result_validation_df)
+
+            # No fails file should be created when remove_internals=False
+            fails_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(0, len(fails_files))
+
+    def test_write_metadata_results_remove_internals_creates_fails_file(self):
+        """Test with remove_internals=True creates fails file and removes internal cols."""
+        metadata_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2", "sample3"],
+            "field_a": ["a1", "a2", "a3"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool", "stool"],
+            QC_NOTE_KEY: ["", "invalid host_type", ""]
+        })
+        validation_msgs_df = pandas.DataFrame()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            write_metadata_results(
+                metadata_df, validation_msgs_df, tmpdir, "test_output",
+                sep="\t", remove_internals=True)
+
+            # Find the main metadata file
+            metadata_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(metadata_files))
+
+            # Verify metadata has internal cols removed and no failures
+            result_df = pandas.read_csv(metadata_files[0], sep="\t")
+            expected_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample3"],
+                "field_a": ["a1", "a3"]
+            })
+            assert_frame_equal(expected_df, result_df)
+
+            # Find the fails file
+            fails_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(1, len(fails_files))
+
+            # Verify fails file contains the failed row
+            fails_df = pandas.read_csv(fails_files[0], sep=",")
+            expected_fails_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample2"],
+                "field_a": ["a2"],
+                HOSTTYPE_SHORTHAND_KEY: ["human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool"],
+                QC_NOTE_KEY: ["invalid host_type"]
+            })
+            assert_frame_equal(expected_fails_df, fails_df)
+
+            # Validation errors file should be empty (touched)
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+            self.assertEqual(0, os.path.getsize(validation_files[0]))
+
+    def test_write_metadata_results_suppress_empty_fails(self):
+        """Test with suppress_empty_fails=True does not create empty files."""
+        metadata_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "field_a": ["a1", "a2"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            QC_NOTE_KEY: ["", ""]
+        })
+        validation_msgs_df = pandas.DataFrame()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            write_metadata_results(
+                metadata_df, validation_msgs_df, tmpdir, "test_output",
+                sep="\t", remove_internals=True, suppress_empty_fails=True)
+
+            # Main metadata file should exist
+            metadata_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(metadata_files))
+
+            # Fails file should NOT exist (no failures, suppressed)
+            fails_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(0, len(fails_files))
+
+            # Validation errors file should NOT exist (empty, suppressed)
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(0, len(validation_files))
+
+    def test_write_metadata_results_custom_internal_col_names(self):
+        """Test with custom internal_col_names parameter."""
+        metadata_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "field_a": ["a1", "a2"],
+            "custom_internal": ["x", "y"],
+            QC_NOTE_KEY: ["", ""]
+        })
+        validation_msgs_df = pandas.DataFrame()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            write_metadata_results(
+                metadata_df, validation_msgs_df, tmpdir, "test_output",
+                sep="\t", remove_internals=True, suppress_empty_fails=True,
+                internal_col_names=["custom_internal", QC_NOTE_KEY])
+
+            # Find the main metadata file
+            metadata_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(metadata_files))
+
+            # Verify custom internal cols are removed
+            result_df = pandas.read_csv(metadata_files[0], sep="\t")
+            expected_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "field_a": ["a1", "a2"]
+            })
+            assert_frame_equal(expected_df, result_df)
 
     # Tests for get_qc_failures
 
@@ -2608,3 +3124,629 @@ class TestMetadataExtender(TestCase):
             self.assertEqual(1, len(fails_files))
             fails_df = pandas.read_csv(fails_files[0], sep=",")
             self.assertEqual(2, len(fails_df))
+
+    # Tests for get_extended_metadata_from_df_and_yaml
+
+    TEST_STUDY_CONFIG_FP = path.join(TEST_DIR, "data/test_study_config.yml")
+
+    def test_get_extended_metadata_from_df_and_yaml_with_config(self):
+        """Test extending metadata with a study-specific YAML config file."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
+        })
+
+        result_df, validation_msgs_df = get_extended_metadata_from_df_and_yaml(
+            input_df, self.TEST_STUDY_CONFIG_FP, self.TEST_STDS_FP)
+
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_site": ["gut", "gut"],
+            "host_common_name": ["human", "human"],
+            QIITA_SAMPLE_TYPE: ["stool", "stool"],
+            SAMPLE_TYPE_KEY: ["stool", "stool"],
+            "study_custom_field": ["custom_value", "custom_value"],
+            "study_stool_field": ["stool_custom", "stool_custom"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            QC_NOTE_KEY: ["", ""]
+        })
+        assert_frame_equal(expected_df, result_df)
+        self.assertTrue(validation_msgs_df.empty)
+
+    def test_get_extended_metadata_from_df_and_yaml_none_config(self):
+        """Test extending metadata with None for study_specific_config_fp."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
+        })
+
+        result_df, validation_msgs_df = get_extended_metadata_from_df_and_yaml(
+            input_df, None, self.TEST_STDS_FP)
+
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_site": ["gut", "gut"],
+            "host_common_name": ["human", "human"],
+            QIITA_SAMPLE_TYPE: ["stool", "stool"],
+            SAMPLE_TYPE_KEY: ["stool", "stool"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            QC_NOTE_KEY: ["", ""]
+        })
+        assert_frame_equal(expected_df, result_df)
+        self.assertTrue(validation_msgs_df.empty)
+
+    def test_get_extended_metadata_from_df_and_yaml_invalid_host_type(self):
+        """Test that invalid host types are flagged with QC note."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            HOSTTYPE_SHORTHAND_KEY: ["unknown_host", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
+        })
+
+        result_df, validation_msgs_df = get_extended_metadata_from_df_and_yaml(
+            input_df, self.TEST_STUDY_CONFIG_FP, self.TEST_STDS_FP)
+
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_site": ["not provided", "gut"],
+            "host_common_name": ["not provided", "human"],
+            QIITA_SAMPLE_TYPE: ["not provided", "stool"],
+            SAMPLE_TYPE_KEY: ["not provided", "stool"],
+            "study_custom_field": ["not provided", "custom_value"],
+            "study_stool_field": ["not provided", "stool_custom"],
+            HOSTTYPE_SHORTHAND_KEY: ["unknown_host", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            QC_NOTE_KEY: ["invalid host_type", ""]
+        })
+        assert_frame_equal(expected_df, result_df)
+        self.assertTrue(validation_msgs_df.empty)
+
+    # Tests for write_extended_metadata_from_df
+
+    def test_write_extended_metadata_from_df_basic(self):
+        """Test basic writing of extended metadata to files."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "custom_field": {
+                                DEFAULT_KEY: "custom_value",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata_from_df(
+                input_df, study_config, tmpdir, "test_output",
+                stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame
+            expected_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "custom_field": ["custom_value", "custom_value"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_df, result_df)
+
+            # Verify main output file was created (internal cols removed by default)
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep="\t")
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "custom_field": ["custom_value", "custom_value"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+            # Verify empty fails file was created
+            fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(1, len(fails_files))
+            self.assertEqual(0, os.path.getsize(fails_files[0]))
+
+            # Verify validation errors file was created (empty)
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+            self.assertEqual(0, os.path.getsize(validation_files[0]))
+
+    def test_write_extended_metadata_from_df_with_qc_failures(self):
+        """Test writing extended metadata when some rows have QC failures."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2", "sample3"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "unknown_host", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool", "stool"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata_from_df(
+                input_df, study_config, tmpdir, "test_output",
+                stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame includes all rows (including failures)
+            # Note: rows are reordered by host type processing (valid hosts first)
+            expected_result_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample3", "sample2"],
+                "body_site": ["gut", "gut", "not provided"],
+                "host_common_name": ["human", "human", "not provided"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool", "not provided"],
+                SAMPLE_TYPE_KEY: ["stool", "stool", "not provided"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human", "unknown_host"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool", "stool"],
+                QC_NOTE_KEY: ["", "", "invalid host_type"]
+            })
+            assert_frame_equal(expected_result_df, result_df)
+
+            # Verify main output file excludes failure rows
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep="\t")
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample3"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+            # Verify fails file contains the failed row
+            fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(1, len(fails_files))
+            fails_df = pandas.read_csv(fails_files[0], sep=",")
+            expected_fails_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample2"],
+                "body_site": ["not provided"],
+                "host_common_name": ["not provided"],
+                QIITA_SAMPLE_TYPE: ["not provided"],
+                SAMPLE_TYPE_KEY: ["not provided"],
+                HOSTTYPE_SHORTHAND_KEY: ["unknown_host"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool"],
+                QC_NOTE_KEY: ["invalid host_type"]
+            })
+            assert_frame_equal(expected_fails_df, fails_df)
+
+    def test_write_extended_metadata_from_df_with_validation_errors(self):
+        """Test writing extended metadata when validation errors occur."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            "restricted_field": ["invalid_value", "allowed_value"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "restricted_field": {
+                                TYPE_KEY: "string",
+                                ALLOWED_KEY: ["allowed_value"]
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata_from_df(
+                input_df, study_config, tmpdir, "test_output",
+                stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame
+            expected_result_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                "restricted_field": ["invalid_value", "allowed_value"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_result_df, result_df)
+
+            # Verify validation errors file contains the error
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+            validation_df = pandas.read_csv(validation_files[0], sep=",")
+            expected_validation_df = pandas.DataFrame({
+                "sample_name": ["sample1"],
+                "field_name": ["restricted_field"],
+                "error_message": ["['unallowed value invalid_value']"]
+            })
+            assert_frame_equal(expected_validation_df, validation_df)
+
+    def test_write_extended_metadata_from_df_remove_internals_false(self):
+        """Test writing extended metadata with remove_internals=False."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            write_extended_metadata_from_df(
+                input_df, study_config, tmpdir, "test_output",
+                remove_internals=False, stds_fp=self.TEST_STDS_FP)
+
+            # Verify main output file includes internal columns
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep="\t", keep_default_na=False)
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1"],
+                "body_site": ["gut"],
+                "host_common_name": ["human"],
+                QIITA_SAMPLE_TYPE: ["stool"],
+                SAMPLE_TYPE_KEY: ["stool"],
+                HOSTTYPE_SHORTHAND_KEY: ["human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool"],
+                QC_NOTE_KEY: [""]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+            # Verify no fails file was created (since remove_internals=False)
+            fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(0, len(fails_files))
+
+    # Tests for write_extended_metadata
+
+    TEST_METADATA_CSV_FP = path.join(TEST_DIR, "data/test_metadata.csv")
+    TEST_METADATA_TXT_FP = path.join(TEST_DIR, "data/test_metadata.txt")
+    TEST_METADATA_WITH_ERRORS_FP = path.join(
+        TEST_DIR, "data/test_metadata_with_errors.csv")
+    TEST_STUDY_CONFIG_WITH_VALIDATION_FP = path.join(
+        TEST_DIR, "data/test_study_config_with_validation.yml")
+
+    def test_write_extended_metadata_csv_input(self):
+        """Test writing extended metadata from a CSV input file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata(
+                self.TEST_METADATA_CSV_FP, self.TEST_STUDY_CONFIG_FP,
+                tmpdir, "test_output", stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame
+            expected_result_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_result_df, result_df)
+
+            # Verify main output file was created (internal cols removed by default)
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep="\t")
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+            # Verify empty fails file was created
+            fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(1, len(fails_files))
+            self.assertEqual(0, os.path.getsize(fails_files[0]))
+
+            # Verify empty validation errors file was created
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+            self.assertEqual(0, os.path.getsize(validation_files[0]))
+
+    def test_write_extended_metadata_txt_input(self):
+        """Test writing extended metadata from a tab-delimited TXT input file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata(
+                self.TEST_METADATA_TXT_FP, self.TEST_STUDY_CONFIG_FP,
+                tmpdir, "test_output", stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame
+            expected_result_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_result_df, result_df)
+
+            # Verify main output file was created
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep="\t")
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+    def test_write_extended_metadata_with_validation_errors(self):
+        """Test writing extended metadata when validation errors occur."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata(
+                self.TEST_METADATA_WITH_ERRORS_FP,
+                self.TEST_STUDY_CONFIG_WITH_VALIDATION_FP,
+                tmpdir, "test_output", stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame
+            expected_result_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                "restricted_field": ["invalid_value", "allowed_value"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_result_df, result_df)
+
+            # Verify main output file was created
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep="\t")
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                "restricted_field": ["invalid_value", "allowed_value"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+            # Verify validation errors file contains the error
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+            validation_df = pandas.read_csv(validation_files[0], sep=",")
+            expected_validation_df = pandas.DataFrame({
+                "sample_name": ["sample1"],
+                "field_name": ["restricted_field"],
+                "error_message": ["['unallowed value invalid_value']"]
+            })
+            assert_frame_equal(expected_validation_df, validation_df)
+
+    def test_write_extended_metadata_unrecognized_extension_raises(self):
+        """Test that unrecognized file extension raises ValueError."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            fake_fp = path.join(tmpdir, "test.json")
+            # Create a dummy file so the path exists
+            with open(fake_fp, "w") as f:
+                f.write("{}")
+
+            with self.assertRaisesRegex(
+                    ValueError, "Unrecognized input file extension"):
+                write_extended_metadata(
+                    fake_fp, self.TEST_STUDY_CONFIG_FP,
+                    tmpdir, "test_output", stds_fp=self.TEST_STDS_FP)
+
+    def test_write_extended_metadata_csv_separator_output(self):
+        """Test writing extended metadata with CSV separator for output."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata(
+                self.TEST_METADATA_CSV_FP, self.TEST_STUDY_CONFIG_FP,
+                tmpdir, "test_output", sep=",", stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame
+            expected_result_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_result_df, result_df)
+
+            # Verify output file has .csv extension
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.csv"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep=",")
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+    def test_write_extended_metadata_remove_internals_false(self):
+        """Test writing extended metadata with remove_internals=False."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata(
+                self.TEST_METADATA_CSV_FP, self.TEST_STUDY_CONFIG_FP,
+                tmpdir, "test_output", remove_internals=False,
+                stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame
+            expected_result_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_result_df, result_df)
+
+            # Verify main output file includes internal columns
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep="\t", keep_default_na=False)
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+            # Verify no fails file was created (since remove_internals=False)
+            fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(0, len(fails_files))
+
+    def test_write_extended_metadata_suppress_empty_fails(self):
+        """Test writing extended metadata with suppress_empty_fails=True."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata(
+                self.TEST_METADATA_CSV_FP, self.TEST_STUDY_CONFIG_FP,
+                tmpdir, "test_output", suppress_empty_fails=True,
+                stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame
+            expected_result_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_result_df, result_df)
+
+            # Verify main output file was created
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep="\t")
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_site": ["gut", "gut"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+            # Verify no empty fails file was created (since suppress_empty_fails=True)
+            fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(0, len(fails_files))
+
+            # Verify no empty validation errors file was created
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(0, len(validation_files))

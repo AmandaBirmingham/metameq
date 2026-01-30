@@ -1,0 +1,14 @@
+default: "not provided"
+leave_requireds_blank: true
+overwrite_non_nans: false
+study_specific_metadata:
+  host_type_specific_metadata:
+    human:
+      metadata_fields:
+        restricted_field:
+          type: string
+          allowed:
+            - allowed_value
+      sample_type_specific_metadata:
+        stool:
+          metadata_fields: {}
