@@ -5,7 +5,7 @@ from metameq.src.util import \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
     ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
     STUDY_SPECIFIC_METADATA_KEY, LEAVE_REQUIREDS_BLANK_KEY, \
-    OVERWRITE_NON_NANS_KEY
+    OVERWRITE_NON_NANS_KEY, REQUIRED_KEY
 from metameq.src.metadata_configurator import \
     combine_stds_and_study_config, \
     _make_combined_stds_and_study_host_type_dicts, \
@@ -1105,7 +1105,6 @@ class TestMetadataConfigurator(TestCase):
             self.NESTED_STDS_W_STUDY_DICT[HOST_TYPE_SPECIFIC_METADATA_KEY],
             out_nested_dict)
 
-
     def test_flatten_nested_stds_dict(self):
         """Test flattening a nested standards dictionary."""
         out_flattened_dict = flatten_nested_stds_dict(
@@ -1509,7 +1508,7 @@ class TestMetadataConfigurator(TestCase):
                 }
             }
         }
-        
+
         expected = {
             "field1": {
                 "allowed": ["value2"],
@@ -1523,7 +1522,7 @@ class TestMetadataConfigurator(TestCase):
                 "allowed": ["valueX"]
             }
         }
-        
+
         result = _combine_base_and_added_metadata_fields(base_dict, add_dict)
         self.assertDictEqual(expected, result)
 
@@ -1847,7 +1846,7 @@ class TestMetadataConfigurator(TestCase):
                 }
             }
         }
-        
+
         expected = {
             "sample_type1": {
                 "alias": "sample_type2"
@@ -1878,7 +1877,7 @@ class TestMetadataConfigurator(TestCase):
                 }
             }
         }
-        
+
         result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
         self.assertDictEqual(expected, result)
 
@@ -2156,6 +2155,10 @@ class TestMetadataConfigurator(TestCase):
         """Test build_full_flat_config_dict with no arguments uses all defaults."""
         result = build_full_flat_config_dict()
 
+        # These tests are less specific because they depend on the actual contents
+        # of the default standards file, which may change over time, so
+        # we just verify the presence of key structures rather than exact contents.
+
         # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
         self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
         hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
@@ -2181,7 +2184,14 @@ class TestMetadataConfigurator(TestCase):
         self.assertEqual("not applicable", result[DEFAULT_KEY])
 
     def test_build_full_flat_config_dict_with_study_config(self):
-        """Test build_full_flat_config_dict with study config merges correctly."""
+        """Test build_full_flat_config_dict with study config merges correctly.
+
+        test_standards.yml structure: base -> host_associated -> human/mouse
+        This tests that:
+        1. Fields are inherited through the nesting hierarchy
+        2. Study-specific fields are merged into the flattened output
+        3. The original study_specific_metadata is preserved in output
+        """
         software_config = {
             DEFAULT_KEY: "software_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,
@@ -2210,32 +2220,197 @@ class TestMetadataConfigurator(TestCase):
         result = build_full_flat_config_dict(
             study_config, software_config, self.TEST_STDS_FP)
 
-        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
-        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
-        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
-        self.assertIsInstance(hosts_dict, dict)
-
-        # Should have "human" host type with host_common_name defaulting to "human"
-        self.assertIn("human", hosts_dict)
-        human_host = hosts_dict["human"]
-        self.assertIn(METADATA_FIELDS_KEY, human_host)
-        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
-        self.assertEqual(
-            "human",
-            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
-
-        # Should have custom_field from study config
-        self.assertIn("custom_field", human_host[METADATA_FIELDS_KEY])
-        self.assertEqual(
-            "custom_value",
-            human_host[METADATA_FIELDS_KEY]["custom_field"][DEFAULT_KEY])
-
-        # Should have software config default value
-        self.assertIn(DEFAULT_KEY, result)
-        self.assertEqual("software_default", result[DEFAULT_KEY])
+        expected = {
+            # Top-level keys from software_config
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            # Original study_specific_metadata is preserved in output
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "custom_field": {
+                                DEFAULT_KEY: "custom_value",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            },
+            # Flattened host types from standards + study
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                # base: top level in test_standards.yml, no default
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        # sample_name defined at base level
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        # sample_type defined at base level
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                # host_associated: nested under base, inherits sample_name/sample_type
+                "host_associated": {
+                    # default defined at host_associated level
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        # description defined at host_associated level
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        # sample_name inherited from base
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        # sample_type inherited from base
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        # stool defined at host_associated level
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                # human: nested under host_associated
+                "human": {
+                    # default inherited from host_associated
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        # custom_field added from study_specific_metadata
+                        "custom_field": {
+                            DEFAULT_KEY: "custom_value",
+                            TYPE_KEY: "string"
+                        },
+                        # description overrides host_associated value at human level
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        # host_common_name defined at human level
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        # sample_name inherited from base -> host_associated -> human
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        # sample_type inherited from base -> host_associated -> human
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        # blood defined only at human level
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        # stool: body_site inherited from host_associated,
+                        # body_product added at human level
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                # mouse: nested under host_associated (not in study config)
+                "mouse": {
+                    # default inherited from host_associated
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        # description inherited from host_associated (not overridden)
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        # host_common_name defined at mouse level
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        # sample_name inherited from base -> host_associated -> mouse
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        # sample_type inherited from base -> host_associated -> mouse
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        # stool: body_site inherited from host_associated,
+                        # cage_id added at mouse level
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
 
     def test_build_full_flat_config_dict_without_study_config(self):
-        """Test build_full_flat_config_dict with no study config uses standards only."""
+        """Test build_full_flat_config_dict with no study config uses standards only.
+
+        test_standards.yml structure: base -> host_associated -> human/mouse
+        With no study config, output is pure flattened standards.
+        """
         software_config = {
             DEFAULT_KEY: "software_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,
@@ -2245,31 +2420,160 @@ class TestMetadataConfigurator(TestCase):
         result = build_full_flat_config_dict(
             None, software_config, self.TEST_STDS_FP)
 
-        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
-        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
-        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
-        self.assertIsInstance(hosts_dict, dict)
-
-        # Should have "human" host type with host_common_name defaulting to "human"
-        self.assertIn("human", hosts_dict)
-        human_host = hosts_dict["human"]
-        self.assertIn(METADATA_FIELDS_KEY, human_host)
-        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
-        self.assertEqual(
-            "human",
-            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
-
-        # Should preserve software config settings
-        self.assertEqual("software_default", result[DEFAULT_KEY])
+        expected = {
+            # Top-level keys from software_config
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            # No STUDY_SPECIFIC_METADATA_KEY since no study config provided
+            # Flattened host types from standards only
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                # base: top level, no default, just sample_name/sample_type
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                # host_associated: inherits from base, adds default and description
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                # human: inherits from host_associated, overrides description
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                # mouse: inherits from host_associated, keeps parent description
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
 
     def test_build_full_flat_config_dict_merges_software_and_study(self):
-        """Test that study config values override software config values."""
+        """Test that study config values override software config values.
+
+        Tests that top-level config keys (default, leave_requireds_blank, etc.)
+        from study_config override matching keys from software_config.
+        """
         software_config = {
             DEFAULT_KEY: "software_default",
             LEAVE_REQUIREDS_BLANK_KEY: False,
             OVERWRITE_NON_NANS_KEY: True
         }
         study_config = {
+            # These override software_config values
             DEFAULT_KEY: "study_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,
             STUDY_SPECIFIC_METADATA_KEY: {
@@ -2289,14 +2593,163 @@ class TestMetadataConfigurator(TestCase):
         result = build_full_flat_config_dict(
             study_config, software_config, self.TEST_STDS_FP)
 
-        # Study config should override software config
-        self.assertEqual("study_default", result[DEFAULT_KEY])
-        self.assertTrue(result[LEAVE_REQUIREDS_BLANK_KEY])
-        # Software config value should be preserved when not overridden
-        self.assertTrue(result[OVERWRITE_NON_NANS_KEY])
+        expected = {
+            # default from study_config overrides software_config
+            DEFAULT_KEY: "study_default",
+            # leave_requireds_blank from study_config overrides software_config
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            # overwrite_non_nans from software_config (not overridden by study)
+            OVERWRITE_NON_NANS_KEY: True,
+            # Original study_specific_metadata preserved
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            },
+            # Flattened host types
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
 
     def test_build_full_flat_config_dict_none_software_config(self):
-        """Test that None software_config loads defaults from config.yml."""
+        """Test that None software_config loads defaults from config.yml.
+
+        When software_config is None, the function loads defaults from the
+        software's config.yml file (default="not applicable", etc.).
+        """
         study_config = {
             STUDY_SPECIFIC_METADATA_KEY: {
                 HOST_TYPE_SPECIFIC_METADATA_KEY: {
@@ -2315,20 +2768,151 @@ class TestMetadataConfigurator(TestCase):
         result = build_full_flat_config_dict(
             study_config, None, self.TEST_STDS_FP)
 
-        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
-        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
-        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
-        self.assertIsInstance(hosts_dict, dict)
-
-        # Should have "human" host type with host_common_name defaulting to "human"
-        self.assertIn("human", hosts_dict)
-        human_host = hosts_dict["human"]
-        self.assertIn(METADATA_FIELDS_KEY, human_host)
-        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
-        self.assertEqual(
-            "human",
-            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
-
-        # Should have loaded default software config (which includes DEFAULT_KEY)
-        self.assertIn(DEFAULT_KEY, result)
-        self.assertEqual("not applicable", result[DEFAULT_KEY])
+        expected = {
+            # Top-level keys loaded from software's config.yml defaults
+            DEFAULT_KEY: "not applicable",
+            LEAVE_REQUIREDS_BLANK_KEY: False,
+            OVERWRITE_NON_NANS_KEY: False,
+            # Original study_specific_metadata preserved
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            },
+            # Flattened host types
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)

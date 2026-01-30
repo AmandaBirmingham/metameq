@@ -323,7 +323,7 @@ class TestUtil(TestCase):
         update_metadata_df_field(
             working_df, "processed", test_func,
             ["sample_name"], overwrite_non_nans=True)
-        assert_frame_equal(exp_df, working_df)        
+        assert_frame_equal(exp_df, working_df)
 
     def test_update_metadata_df_field_function_overwrite(self):
         """Test overwriting existing field in DataFrame using a function.

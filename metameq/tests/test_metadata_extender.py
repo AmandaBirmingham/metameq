@@ -113,8 +113,12 @@ class TestMetadataExtender(TestCase):
         result = get_reserved_cols(input_df, study_config, self.TEST_STDS_FP)
 
         # Expected columns are union of study_config fields and test_standards.yml fields
+        # From standards: sample_name, sample_type (base), description (human overrides host_associated),
+        # body_site (host_associated stool), body_product (human stool), host_common_name (human)
         expected = [
+            "body_product",  # from human stool in test_standards.yml
             "body_site",
+            "description",  # from human in test_standards.yml (overrides host_associated)
             "host_common_name",
             HOSTTYPE_SHORTHAND_KEY,
             QC_NOTE_KEY,
@@ -233,9 +237,21 @@ class TestMetadataExtender(TestCase):
         result = get_reserved_cols(input_df, study_config, self.TEST_STDS_FP)
 
         # Expected columns are union of study_config fields and test_standards.yml fields
+        # From standards for human/stool: sample_name, sample_type (base), description (human),
+        #   body_site (host_associated stool), body_product (human stool), host_common_name (human)
+        # From standards for human/blood: body_site (human blood), body_product (human blood),
+        #   description (human), host_common_name (human)
+        # From standards for mouse/stool: sample_name, sample_type (base), description (host_associated),
+        #   body_site (host_associated stool), host_common_name (mouse)
+        # TODO: cage_id from mouse stool in test_standards.yml SHOULD be included here
+        # but is currently excluded because it has required: false and no default.
+        # The function under test needs to be changed to include fields even when
+        # they have required: false and no default.
         expected = [
             "blood_type",
+            "body_product",  # from human stool and human blood in test_standards.yml
             "body_site",
+            "description",  # from human (overrides host_associated) and host_associated (mouse inherits)
             "host_common_name",
             HOSTTYPE_SHORTHAND_KEY,
             "human_field",
@@ -2616,8 +2632,15 @@ class TestMetadataExtender(TestCase):
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            # body_product from human stool in test_standards.yml
+            "body_product": ["UBERON:feces", "UBERON:feces"],
+            # body_site inherited from host_associated stool
             "body_site": ["gut", "gut"],
+            # custom_field from study_specific_metadata
             "custom_field": ["custom_value", "custom_value"],
+            # description overridden at human level
+            "description": ["human sample", "human sample"],
+            # host_common_name from human level
             "host_common_name": ["human", "human"],
             QIITA_SAMPLE_TYPE: ["stool", "stool"],
             SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -2667,7 +2690,11 @@ class TestMetadataExtender(TestCase):
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            # body_product from human stool in test_standards.yml
+            "body_product": ["UBERON:feces", "UBERON:feces"],
             "body_site": ["gut", "gut"],
+            # description overridden at human level
+            "description": ["human sample", "human sample"],
             "host_common_name": ["human", "human"],
             "input_sex": ["F", "Male"],
             QIITA_SAMPLE_TYPE: ["stool", "stool"],
@@ -2723,7 +2750,9 @@ class TestMetadataExtender(TestCase):
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["UBERON:feces", "UBERON:feces"],
             "body_site": ["gut", "gut"],
+            "description": ["human sample", "human sample"],
             "host_common_name": ["human", "human"],
             QIITA_SAMPLE_TYPE: ["stool", "stool"],
             SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -2759,7 +2788,9 @@ class TestMetadataExtender(TestCase):
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
+            "body_product": ["UBERON:feces"],
             "body_site": ["gut"],
+            "description": ["human sample"],
             "host_common_name": ["human"],
             QIITA_SAMPLE_TYPE: ["stool"],
             SAMPLE_TYPE_KEY: ["stool"],
@@ -2848,7 +2879,12 @@ class TestMetadataExtender(TestCase):
         # Human samples are processed together, then mouse samples
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample3", "sample2"],
+            # body_product: human stool/blood have it, mouse stool uses default
+            "body_product": ["UBERON:feces", "UBERON:blood", "not provided"],
             "body_site": ["gut", "blood", "gut"],
+            # description: human overrides to "human sample",
+            # mouse inherits "host associated sample"
+            "description": ["human sample", "human sample", "host associated sample"],
             "host_common_name": ["human", "human", "mouse"],
             QIITA_SAMPLE_TYPE: ["stool", "blood", "stool"],
             SAMPLE_TYPE_KEY: ["stool", "blood", "stool"],
@@ -2897,7 +2933,9 @@ class TestMetadataExtender(TestCase):
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["UBERON:feces", "UBERON:feces"],
             "body_site": ["gut", "gut"],
+            "description": ["human sample", "human sample"],
             "host_common_name": ["human", "human"],
             QIITA_SAMPLE_TYPE: ["stool", "stool"],
             SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3142,7 +3180,9 @@ class TestMetadataExtender(TestCase):
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["UBERON:feces", "UBERON:feces"],
             "body_site": ["gut", "gut"],
+            "description": ["human sample", "human sample"],
             "host_common_name": ["human", "human"],
             QIITA_SAMPLE_TYPE: ["stool", "stool"],
             SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3168,7 +3208,9 @@ class TestMetadataExtender(TestCase):
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["UBERON:feces", "UBERON:feces"],
             "body_site": ["gut", "gut"],
+            "description": ["human sample", "human sample"],
             "host_common_name": ["human", "human"],
             QIITA_SAMPLE_TYPE: ["stool", "stool"],
             SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3192,7 +3234,9 @@ class TestMetadataExtender(TestCase):
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["not provided", "UBERON:feces"],
             "body_site": ["not provided", "gut"],
+            "description": ["not provided", "human sample"],
             "host_common_name": ["not provided", "human"],
             QIITA_SAMPLE_TYPE: ["not provided", "stool"],
             SAMPLE_TYPE_KEY: ["not provided", "stool"],
@@ -3245,8 +3289,10 @@ class TestMetadataExtender(TestCase):
             # Verify returned DataFrame
             expected_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "custom_field": ["custom_value", "custom_value"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3262,8 +3308,10 @@ class TestMetadataExtender(TestCase):
             output_df = pandas.read_csv(output_files[0], sep="\t")
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "custom_field": ["custom_value", "custom_value"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"]
@@ -3315,7 +3363,9 @@ class TestMetadataExtender(TestCase):
             # Note: rows are reordered by host type processing (valid hosts first)
             expected_result_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample3", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces", "not provided"],
                 "body_site": ["gut", "gut", "not provided"],
+                "description": ["human sample", "human sample", "not provided"],
                 "host_common_name": ["human", "human", "not provided"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool", "not provided"],
                 SAMPLE_TYPE_KEY: ["stool", "stool", "not provided"],
@@ -3331,7 +3381,9 @@ class TestMetadataExtender(TestCase):
             output_df = pandas.read_csv(output_files[0], sep="\t")
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample3"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"]
@@ -3344,7 +3396,9 @@ class TestMetadataExtender(TestCase):
             fails_df = pandas.read_csv(fails_files[0], sep=",")
             expected_fails_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample2"],
+                "body_product": ["not provided"],
                 "body_site": ["not provided"],
+                "description": ["not provided"],
                 "host_common_name": ["not provided"],
                 QIITA_SAMPLE_TYPE: ["not provided"],
                 SAMPLE_TYPE_KEY: ["not provided"],
@@ -3393,7 +3447,9 @@ class TestMetadataExtender(TestCase):
             # Verify returned DataFrame
             expected_result_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 "restricted_field": ["invalid_value", "allowed_value"],
@@ -3452,7 +3508,9 @@ class TestMetadataExtender(TestCase):
             output_df = pandas.read_csv(output_files[0], sep="\t", keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1"],
+                "body_product": ["UBERON:feces"],
                 "body_site": ["gut"],
+                "description": ["human sample"],
                 "host_common_name": ["human"],
                 QIITA_SAMPLE_TYPE: ["stool"],
                 SAMPLE_TYPE_KEY: ["stool"],
@@ -3485,7 +3543,9 @@ class TestMetadataExtender(TestCase):
             # Verify returned DataFrame
             expected_result_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3503,7 +3563,9 @@ class TestMetadataExtender(TestCase):
             output_df = pandas.read_csv(output_files[0], sep="\t")
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3533,7 +3595,9 @@ class TestMetadataExtender(TestCase):
             # Verify returned DataFrame
             expected_result_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3551,7 +3615,9 @@ class TestMetadataExtender(TestCase):
             output_df = pandas.read_csv(output_files[0], sep="\t")
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3571,7 +3637,9 @@ class TestMetadataExtender(TestCase):
             # Verify returned DataFrame
             expected_result_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 "restricted_field": ["invalid_value", "allowed_value"],
@@ -3588,7 +3656,9 @@ class TestMetadataExtender(TestCase):
             output_df = pandas.read_csv(output_files[0], sep="\t")
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 "restricted_field": ["invalid_value", "allowed_value"],
@@ -3632,7 +3702,9 @@ class TestMetadataExtender(TestCase):
             # Verify returned DataFrame
             expected_result_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3650,7 +3722,9 @@ class TestMetadataExtender(TestCase):
             output_df = pandas.read_csv(output_files[0], sep=",")
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3670,7 +3744,9 @@ class TestMetadataExtender(TestCase):
             # Verify returned DataFrame
             expected_result_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3688,7 +3764,9 @@ class TestMetadataExtender(TestCase):
             output_df = pandas.read_csv(output_files[0], sep="\t", keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3715,7 +3793,9 @@ class TestMetadataExtender(TestCase):
             # Verify returned DataFrame
             expected_result_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3733,7 +3813,9 @@ class TestMetadataExtender(TestCase):
             output_df = pandas.read_csv(output_files[0], sep="\t")
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],

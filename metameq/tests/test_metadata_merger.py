@@ -11,7 +11,7 @@ from metameq.src.metadata_merger import _check_for_nans, \
 
 class TestMetadataMerger(TestCase):
     """Test suite for metadata merging functions in metameq.src.metadata_merger module."""
-    
+
     # Tests for _check_for_nans
     def test__check_for_nans_wo_nans(self):
         """Test checking for NaNs when no NaNs are present in the selected column.
