@@ -2190,7 +2190,6 @@ class TestMetadataConfigurator(TestCase):
         This tests that:
         1. Fields are inherited through the nesting hierarchy
         2. Study-specific fields are merged into the flattened output
-        3. The original study_specific_metadata is preserved in output
         """
         software_config = {
             DEFAULT_KEY: "software_default",
@@ -2225,24 +2224,6 @@ class TestMetadataConfigurator(TestCase):
             DEFAULT_KEY: "software_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,
             OVERWRITE_NON_NANS_KEY: False,
-            # Original study_specific_metadata is preserved in output
-            STUDY_SPECIFIC_METADATA_KEY: {
-                HOST_TYPE_SPECIFIC_METADATA_KEY: {
-                    "human": {
-                        METADATA_FIELDS_KEY: {
-                            "custom_field": {
-                                DEFAULT_KEY: "custom_value",
-                                TYPE_KEY: "string"
-                            }
-                        },
-                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
-                            "stool": {
-                                METADATA_FIELDS_KEY: {}
-                            }
-                        }
-                    }
-                }
-            },
             # Flattened host types from standards + study
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 # base: top level in test_standards.yml, no default
@@ -2600,19 +2581,6 @@ class TestMetadataConfigurator(TestCase):
             LEAVE_REQUIREDS_BLANK_KEY: True,
             # overwrite_non_nans from software_config (not overridden by study)
             OVERWRITE_NON_NANS_KEY: True,
-            # Original study_specific_metadata preserved
-            STUDY_SPECIFIC_METADATA_KEY: {
-                HOST_TYPE_SPECIFIC_METADATA_KEY: {
-                    "human": {
-                        METADATA_FIELDS_KEY: {},
-                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
-                            "stool": {
-                                METADATA_FIELDS_KEY: {}
-                            }
-                        }
-                    }
-                }
-            },
             # Flattened host types
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {
@@ -2773,19 +2741,6 @@ class TestMetadataConfigurator(TestCase):
             DEFAULT_KEY: "not applicable",
             LEAVE_REQUIREDS_BLANK_KEY: False,
             OVERWRITE_NON_NANS_KEY: False,
-            # Original study_specific_metadata preserved
-            STUDY_SPECIFIC_METADATA_KEY: {
-                HOST_TYPE_SPECIFIC_METADATA_KEY: {
-                    "human": {
-                        METADATA_FIELDS_KEY: {},
-                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
-                            "stool": {
-                                METADATA_FIELDS_KEY: {}
-                            }
-                        }
-                    }
-                }
-            },
             # Flattened host types
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {

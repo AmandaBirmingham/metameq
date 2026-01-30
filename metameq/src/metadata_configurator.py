@@ -503,6 +503,14 @@ def build_full_flat_config_dict(
         full_nested_hosts_dict, None)
     software_plus_study_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
         full_flat_hosts_dict
+    
+    # drop the STUDY_SPECIFIC_METADATA_KEY from the final output dict (because
+    # its contents have already been incorporated into the
+    # HOST_TYPE_SPECIFIC_METADATA_KEY section); note we keep all the other
+    # top-level keys from the study-specific config dict
+    if STUDY_SPECIFIC_METADATA_KEY in software_plus_study_flat_config_dict:
+        del software_plus_study_flat_config_dict[STUDY_SPECIFIC_METADATA_KEY]
+
     # this is just a renaming to indicate that, having overwritten any original
     # HOST_TYPE_SPECIFIC_METADATA_KEY in the software_plus_study_flat_config_dict
     # with the complete and flattened combination of software+study+standards, it is now
