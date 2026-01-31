@@ -5,7 +5,7 @@ from metameq.src.util import \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
     ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
     STUDY_SPECIFIC_METADATA_KEY, LEAVE_REQUIREDS_BLANK_KEY, \
-    OVERWRITE_NON_NANS_KEY
+    OVERWRITE_NON_NANS_KEY, REQUIRED_KEY, SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE
 from metameq.src.metadata_configurator import \
     combine_stds_and_study_config, \
     _make_combined_stds_and_study_host_type_dicts, \
@@ -15,7 +15,8 @@ from metameq.src.metadata_configurator import \
     _combine_base_and_added_host_type, \
     _id_sample_type_definition, \
     update_wip_metadata_dict, \
-    build_full_flat_config_dict
+    build_full_flat_config_dict, \
+    _resolve_sample_type_aliases_and_bases
 
 
 class TestMetadataConfigurator(TestCase):
@@ -581,18 +582,64 @@ class TestMetadataConfigurator(TestCase):
                 },
                 SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "fe": {
-                        "alias": "stool"
-                    },
-                    "stool": {
+                        # Resolved alias to stool - gets stool's resolved fields
                         METADATA_FIELDS_KEY: {
-                            # from stds same level host + sample type
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
                             "description": {
                                 "allowed": ["host associated stool"],
                                 DEFAULT_KEY: "host associated stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
                                 "type": "string"
                             },
-                            # from stds same level host + sample type
-                            # (NB: comes from study)
+                            "dna_extracted": {
+                                "allowed": ["true", "false"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["human", "non-human"],
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
                             "physical_specimen_location": {
                                 "allowed": ["UCSDST"],
                                 DEFAULT_KEY: "UCSDST",
@@ -601,14 +648,112 @@ class TestMetadataConfigurator(TestCase):
                                 "required": True,
                                 "type": "string"
                             },
-                            # from stds same level host + sample type
-                            # (NB: comes from study)
                             "physical_specimen_remaining": {
                                 "allowed": ["true", "false"],
                                 DEFAULT_KEY: "true",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "stool": {
+                        METADATA_FIELDS_KEY: {
+                            # Host fields merged in
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type
+                            "description": {
+                                "allowed": ["host associated stool"],
+                                DEFAULT_KEY: "host associated stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true", "false"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["human", "non-human"],
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type (NB: comes from study)
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                DEFAULT_KEY: "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type (NB: comes from study)
+                            "physical_specimen_remaining": {
+                                "allowed": ["true", "false"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
                                 "type": "string"
                             }
                         }
@@ -684,18 +829,65 @@ class TestMetadataConfigurator(TestCase):
                 },
                 SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "fe": {
-                        "alias": "stool"
-                    },
-                    "stool": {
+                        # Resolved alias to stool - gets stool's resolved fields
                         METADATA_FIELDS_KEY: {
-                            # from stds same level host + sample type
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
                             "description": {
                                 "allowed": ["host associated stool"],
                                 DEFAULT_KEY: "host associated stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
                                 "type": "string"
                             },
-                            # from stds same level host + sample type
-                            # (NB: comes from study)
+                            "dna_extracted": {
+                                "allowed": ["true", "false"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["control"],
+                                DEFAULT_KEY: "control",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
                             "physical_specimen_location": {
                                 "allowed": ["UCSDST"],
                                 DEFAULT_KEY: "UCSDST",
@@ -704,14 +896,113 @@ class TestMetadataConfigurator(TestCase):
                                 "required": True,
                                 "type": "string"
                             },
-                            # from stds same level host + sample type
-                            # (NB: comes from study)
                             "physical_specimen_remaining": {
                                 "allowed": ["true", "false"],
                                 DEFAULT_KEY: "true",
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "stool": {
+                        METADATA_FIELDS_KEY: {
+                            # Host fields merged in
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type
+                            "description": {
+                                "allowed": ["host associated stool"],
+                                DEFAULT_KEY: "host associated stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true", "false"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["control"],
+                                DEFAULT_KEY: "control",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type (NB: comes from study)
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                DEFAULT_KEY: "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            # from stds same level host + sample type (NB: comes from study)
+                            "physical_specimen_remaining": {
+                                "allowed": ["true", "false"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
                                 "type": "string"
                             }
                         }
@@ -788,43 +1079,430 @@ class TestMetadataConfigurator(TestCase):
                 },
                 SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "dung": {
-                        "base_type": "stool",
+                        # Resolved base_type=stool - has stool's fields + dung's overrides
                         METADATA_FIELDS_KEY: {
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
                             # overrides stds parent host + sample type
                             "description": {
                                 "allowed": ["human dung"],
                                 DEFAULT_KEY: "human dung",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["human"],
+                                DEFAULT_KEY: "human",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
                                 "type": "string"
                             },
                             # overrides stds parent host + sample type
                             "physical_specimen_location": {
                                 "allowed": ["FIELD"],
                                 DEFAULT_KEY: "FIELD",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_remaining": {
+                                "allowed": ["false"],
+                                DEFAULT_KEY: "false",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["dung"],
+                                DEFAULT_KEY: "dung",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["dung"],
+                                DEFAULT_KEY: "dung",
                                 "type": "string"
                             }
                         }
                     },
                     "f": {
-                        "base_type": "stool"
+                        # Resolved base_type=stool - has stool's fields
+                        METADATA_FIELDS_KEY: {
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "description": {
+                                "allowed": ["human stool"],
+                                DEFAULT_KEY: "human stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["human"],
+                                DEFAULT_KEY: "human",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                DEFAULT_KEY: "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_remaining": {
+                                "allowed": ["false"],
+                                DEFAULT_KEY: "false",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["f"],
+                                DEFAULT_KEY: "f",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["f"],
+                                DEFAULT_KEY: "f",
+                                "type": "string"
+                            }
+                        }
                     },
                     "fe": {
-                        "alias": "stool"
+                        # Resolved alias to stool - gets stool's resolved fields
+                        METADATA_FIELDS_KEY: {
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "description": {
+                                "allowed": ["human stool"],
+                                DEFAULT_KEY: "human stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["human"],
+                                DEFAULT_KEY: "human",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                DEFAULT_KEY: "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_remaining": {
+                                "allowed": ["false"],
+                                DEFAULT_KEY: "false",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            }
+                        }
                     },
                     "feces": {
-                        "alias": "stool"
+                        # Resolved alias to stool - gets stool's resolved fields
+                        METADATA_FIELDS_KEY: {
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "description": {
+                                "allowed": ["human stool"],
+                                DEFAULT_KEY: "human stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["human"],
+                                DEFAULT_KEY: "human",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                DEFAULT_KEY: "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_remaining": {
+                                "allowed": ["false"],
+                                DEFAULT_KEY: "false",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            }
+                        }
                     },
                     "stool": {
                         METADATA_FIELDS_KEY: {
+                            # Host fields merged in
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
                             # from stds same level host + sample type
                             "description": {
                                 "allowed": ["human stool"],
                                 DEFAULT_KEY: "human stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
                                 "type": "string"
                             },
                             # from stds same level host + sample type
                             "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
                                 DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
                                 "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["human"],
+                                DEFAULT_KEY: "human",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
                             },
                             # from stds parent level host + sample type
                             "physical_specimen_location": {
@@ -842,6 +1520,16 @@ class TestMetadataConfigurator(TestCase):
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
                                 "type": "string"
                             }
                         }
@@ -918,43 +1606,430 @@ class TestMetadataConfigurator(TestCase):
                 },
                 SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "dung": {
-                        "base_type": "stool",
+                        # Resolved base_type=stool - has stool's fields + dung's overrides
                         METADATA_FIELDS_KEY: {
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
                             # overrides stds parent host + sample type
                             "description": {
                                 "allowed": ["human dung"],
                                 DEFAULT_KEY: "human dung",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["dude"],
+                                DEFAULT_KEY: "dude",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
                                 "type": "string"
                             },
                             # overrides stds parent host + sample type
                             "physical_specimen_location": {
                                 "allowed": ["FIELD"],
                                 DEFAULT_KEY: "FIELD",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_remaining": {
+                                "allowed": ["false"],
+                                DEFAULT_KEY: "false",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["dung"],
+                                DEFAULT_KEY: "dung",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["dung"],
+                                DEFAULT_KEY: "dung",
                                 "type": "string"
                             }
                         }
                     },
                     "f": {
-                        "base_type": "stool"
+                        # Resolved base_type=stool - has stool's fields
+                        METADATA_FIELDS_KEY: {
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "description": {
+                                "allowed": ["human stool"],
+                                DEFAULT_KEY: "human stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["dude"],
+                                DEFAULT_KEY: "dude",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                DEFAULT_KEY: "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_remaining": {
+                                "allowed": ["false"],
+                                DEFAULT_KEY: "false",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["f"],
+                                DEFAULT_KEY: "f",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["f"],
+                                DEFAULT_KEY: "f",
+                                "type": "string"
+                            }
+                        }
                     },
                     "fe": {
-                        "alias": "stool"
+                        # Resolved alias to stool - gets stool's resolved fields
+                        METADATA_FIELDS_KEY: {
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "description": {
+                                "allowed": ["human stool"],
+                                DEFAULT_KEY: "human stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["dude"],
+                                DEFAULT_KEY: "dude",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                DEFAULT_KEY: "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_remaining": {
+                                "allowed": ["false"],
+                                DEFAULT_KEY: "false",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            }
+                        }
                     },
                     "feces": {
-                        "alias": "stool"
+                        # Resolved alias to stool - gets stool's resolved fields
+                        METADATA_FIELDS_KEY: {
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "description": {
+                                "allowed": ["human stool"],
+                                DEFAULT_KEY: "human stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
+                                DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["dude"],
+                                DEFAULT_KEY: "dude",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_location": {
+                                "allowed": ["UCSDST"],
+                                DEFAULT_KEY: "UCSDST",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "physical_specimen_remaining": {
+                                "allowed": ["false"],
+                                DEFAULT_KEY: "false",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            }
+                        }
                     },
                     "stool": {
                         METADATA_FIELDS_KEY: {
+                            # Host fields merged in
+                            "country": {
+                                "allowed": ["USA"],
+                                DEFAULT_KEY: "USA",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
                             # from stds same level host + sample type
                             "description": {
                                 "allowed": ["human stool"],
                                 DEFAULT_KEY: "human stool",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "dna_extracted": {
+                                "allowed": ["true"],
+                                DEFAULT_KEY: "true",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
                                 "type": "string"
                             },
                             # from stds same level host + sample type
                             "elevation": {
+                                "anyof": [
+                                    {
+                                        "allowed": [
+                                            "not collected",
+                                            "not provided",
+                                            "restricted access"],
+                                        "type": "string"
+                                    },
+                                    {
+                                        "min": -413.0,
+                                        "type": "number"
+                                    }],
                                 DEFAULT_KEY: 14,
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
                                 "type": "number"
+                            },
+                            "geo_loc_name": {
+                                "allowed": ["USA:CA:San Diego"],
+                                DEFAULT_KEY: "USA:CA:San Diego",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
+                            },
+                            "host_type": {
+                                "allowed": ["dude"],
+                                DEFAULT_KEY: "dude",
+                                "empty": False,
+                                "is_phi": False,
+                                "required": True,
+                                "type": "string"
                             },
                             # from stds parent level host + sample type
                             "physical_specimen_location": {
@@ -972,6 +2047,16 @@ class TestMetadataConfigurator(TestCase):
                                 "empty": False,
                                 "is_phi": False,
                                 "required": True,
+                                "type": "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
+                                "type": "string"
+                            },
+                            SAMPLE_TYPE_KEY: {
+                                "allowed": ["stool"],
+                                DEFAULT_KEY: "stool",
                                 "type": "string"
                             }
                         }
@@ -1105,7 +2190,6 @@ class TestMetadataConfigurator(TestCase):
             self.NESTED_STDS_W_STUDY_DICT[HOST_TYPE_SPECIFIC_METADATA_KEY],
             out_nested_dict)
 
-
     def test_flatten_nested_stds_dict(self):
         """Test flattening a nested standards dictionary."""
         out_flattened_dict = flatten_nested_stds_dict(
@@ -1167,7 +2251,48 @@ class TestMetadataConfigurator(TestCase):
             }
         }
 
-        expected = input_dict[HOST_TYPE_SPECIFIC_METADATA_KEY]
+        # After resolution, sample types have host metadata merged in
+        # plus sample_type and qiita_sample_type fields
+        expected = {
+            "host_a": {
+                DEFAULT_KEY: "not provided",
+                METADATA_FIELDS_KEY: {
+                    "field1": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "value1"
+                    }
+                },
+                SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                    "sample1": {
+                        METADATA_FIELDS_KEY: {
+                            "field1": {
+                                TYPE_KEY: "string",
+                                DEFAULT_KEY: "value1"
+                            },
+                            "sample_field": {TYPE_KEY: "string"},
+                            SAMPLE_TYPE_KEY: {
+                                ALLOWED_KEY: ["sample1"],
+                                DEFAULT_KEY: "sample1",
+                                TYPE_KEY: "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                ALLOWED_KEY: ["sample1"],
+                                DEFAULT_KEY: "sample1",
+                                TYPE_KEY: "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "host_b": {
+                DEFAULT_KEY: "not collected",
+                METADATA_FIELDS_KEY: {
+                    "field2": {
+                        TYPE_KEY: "integer"
+                    }
+                }
+            }
+        }
 
         result = flatten_nested_stds_dict(input_dict, None)
 
@@ -1261,8 +2386,8 @@ class TestMetadataConfigurator(TestCase):
                                 "parent_field": {TYPE_KEY: "string", DEFAULT_KEY: "parent"}
                             }
                         },
-                        "saliva": {
-                            ALIAS_KEY: "oral"
+                        "fe": {
+                            ALIAS_KEY: "stool"
                         }
                     },
                     HOST_TYPE_SPECIFIC_METADATA_KEY: {
@@ -1285,17 +2410,41 @@ class TestMetadataConfigurator(TestCase):
             }
         }
 
+        # After resolution, each sample type has resolved metadata_fields
+        # with host metadata merged in plus sample_type and qiita_sample_type
         expected = {
             "parent_host": {
                 DEFAULT_KEY: "not provided",
                 SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                     "stool": {
                         METADATA_FIELDS_KEY: {
-                            "parent_field": {TYPE_KEY: "string", DEFAULT_KEY: "parent"}
+                            "parent_field": {TYPE_KEY: "string", DEFAULT_KEY: "parent"},
+                            SAMPLE_TYPE_KEY: {
+                                ALLOWED_KEY: ["stool"],
+                                DEFAULT_KEY: "stool",
+                                TYPE_KEY: "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                ALLOWED_KEY: ["stool"],
+                                DEFAULT_KEY: "stool",
+                                TYPE_KEY: "string"
+                            }
                         }
                     },
-                    "saliva": {
-                        ALIAS_KEY: "oral"
+                    "fe": {
+                        METADATA_FIELDS_KEY: {
+                            "parent_field": {TYPE_KEY: "string", DEFAULT_KEY: "parent"},
+                            SAMPLE_TYPE_KEY: {
+                                ALLOWED_KEY: ["stool"],
+                                DEFAULT_KEY: "stool",
+                                TYPE_KEY: "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                ALLOWED_KEY: ["stool"],
+                                DEFAULT_KEY: "stool",
+                                TYPE_KEY: "string"
+                            }
+                        }
                     }
                 }
             },
@@ -1305,15 +2454,48 @@ class TestMetadataConfigurator(TestCase):
                     "stool": {
                         METADATA_FIELDS_KEY: {
                             "parent_field": {TYPE_KEY: "string", DEFAULT_KEY: "parent"},
-                            "child_field": {TYPE_KEY: "string", DEFAULT_KEY: "child"}
+                            "child_field": {TYPE_KEY: "string", DEFAULT_KEY: "child"},
+                            SAMPLE_TYPE_KEY: {
+                                ALLOWED_KEY: ["stool"],
+                                DEFAULT_KEY: "stool",
+                                TYPE_KEY: "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                ALLOWED_KEY: ["stool"],
+                                DEFAULT_KEY: "stool",
+                                TYPE_KEY: "string"
+                            }
                         }
                     },
-                    "saliva": {
-                        ALIAS_KEY: "oral"
+                    "fe": {
+                        METADATA_FIELDS_KEY: {
+                            "parent_field": {TYPE_KEY: "string", DEFAULT_KEY: "parent"},
+                            "child_field": {TYPE_KEY: "string", DEFAULT_KEY: "child"},
+                            SAMPLE_TYPE_KEY: {
+                                ALLOWED_KEY: ["stool"],
+                                DEFAULT_KEY: "stool",
+                                TYPE_KEY: "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                ALLOWED_KEY: ["stool"],
+                                DEFAULT_KEY: "stool",
+                                TYPE_KEY: "string"
+                            }
+                        }
                     },
                     "blood": {
                         METADATA_FIELDS_KEY: {
-                            "blood_field": {TYPE_KEY: "string"}
+                            "blood_field": {TYPE_KEY: "string"},
+                            SAMPLE_TYPE_KEY: {
+                                ALLOWED_KEY: ["blood"],
+                                DEFAULT_KEY: "blood",
+                                TYPE_KEY: "string"
+                            },
+                            QIITA_SAMPLE_TYPE: {
+                                ALLOWED_KEY: ["blood"],
+                                DEFAULT_KEY: "blood",
+                                TYPE_KEY: "string"
+                            }
                         }
                     }
                 }
@@ -1509,7 +2691,7 @@ class TestMetadataConfigurator(TestCase):
                 }
             }
         }
-        
+
         expected = {
             "field1": {
                 "allowed": ["value2"],
@@ -1523,7 +2705,7 @@ class TestMetadataConfigurator(TestCase):
                 "allowed": ["valueX"]
             }
         }
-        
+
         result = _combine_base_and_added_metadata_fields(base_dict, add_dict)
         self.assertDictEqual(expected, result)
 
@@ -1676,8 +2858,8 @@ class TestMetadataConfigurator(TestCase):
                         "location": {TYPE_KEY: "string", DEFAULT_KEY: "UCSD"}
                     }
                 },
-                "saliva": {
-                    ALIAS_KEY: "oral"
+                "fe": {
+                    ALIAS_KEY: "stool"
                 }
             }
         }
@@ -1737,8 +2919,8 @@ class TestMetadataConfigurator(TestCase):
                     }
                 },
                 # Preserved from base
-                "saliva": {
-                    ALIAS_KEY: "oral"
+                "fe": {
+                    ALIAS_KEY: "stool"
                 },
                 # New from add
                 "blood": {
@@ -1847,7 +3029,7 @@ class TestMetadataConfigurator(TestCase):
                 }
             }
         }
-        
+
         expected = {
             "sample_type1": {
                 "alias": "sample_type2"
@@ -1878,7 +3060,7 @@ class TestMetadataConfigurator(TestCase):
                 }
             }
         }
-        
+
         result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
         self.assertDictEqual(expected, result)
 
@@ -2150,11 +3332,450 @@ class TestMetadataConfigurator(TestCase):
         with self.assertRaisesRegex(ValueError, "Sample type 'test_sample' has neither 'alias' nor 'metadata_fields' keys"):
             _id_sample_type_definition("test_sample", sample_dict)
 
+    # Tests for _resolve_sample_type_aliases_and_bases
+
+    def test__resolve_sample_type_aliases_and_bases_simple(self):
+        """Test basic resolution with no aliases or bases.
+
+        Input: Single sample type with metadata fields, empty host metadata.
+        Expected: Sample type has its metadata fields plus sample_type and qiita_sample_type added.
+        """
+        sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "body_site": {
+                        DEFAULT_KEY: "gut",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        host_metadata_fields_dict = {}
+
+        result = _resolve_sample_type_aliases_and_bases(
+            sample_types_dict, host_metadata_fields_dict)
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "body_site": {
+                        DEFAULT_KEY: "gut",
+                        TYPE_KEY: "string"
+                    },
+                    # sample_type field added by resolution
+                    SAMPLE_TYPE_KEY: {
+                        ALLOWED_KEY: ["stool"],
+                        DEFAULT_KEY: "stool",
+                        TYPE_KEY: "string"
+                    },
+                    # qiita_sample_type field added by resolution (same as sample_type)
+                    QIITA_SAMPLE_TYPE: {
+                        ALLOWED_KEY: ["stool"],
+                        DEFAULT_KEY: "stool",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__resolve_sample_type_aliases_and_bases_with_alias(self):
+        """Test that alias is resolved to target sample type's metadata.
+
+        Input: 'feces' is alias to 'stool', 'stool' has metadata.
+        Expected: Both 'feces' and 'stool' are resolved with same metadata,
+                  but sample_type field uses the alias target name ('stool').
+        """
+        sample_types_dict = {
+            "feces": {
+                ALIAS_KEY: "stool"
+            },
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "stool_field": {
+                        DEFAULT_KEY: "stool_value",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        host_metadata_fields_dict = {}
+
+        result = _resolve_sample_type_aliases_and_bases(
+            sample_types_dict, host_metadata_fields_dict)
+
+        # Both entries resolve to same metadata, sample_type uses alias target name
+        stool_resolved_metadata = {
+            "stool_field": {
+                DEFAULT_KEY: "stool_value",
+                TYPE_KEY: "string"
+            },
+            SAMPLE_TYPE_KEY: {
+                ALLOWED_KEY: ["stool"],
+                DEFAULT_KEY: "stool",
+                TYPE_KEY: "string"
+            },
+            QIITA_SAMPLE_TYPE: {
+                ALLOWED_KEY: ["stool"],
+                DEFAULT_KEY: "stool",
+                TYPE_KEY: "string"
+            }
+        }
+        expected = {
+            # Alias entry resolves to same metadata as target (sample_type="stool")
+            "feces": {
+                METADATA_FIELDS_KEY: stool_resolved_metadata
+            },
+            # Target sample type is fully resolved
+            "stool": {
+                METADATA_FIELDS_KEY: stool_resolved_metadata
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__resolve_sample_type_aliases_and_bases_chained_alias_raises(self):
+        """Test that chained aliases raise ValueError.
+
+        Input: 'feces' aliases to 'stool', 'stool' aliases to 'poop'.
+        Expected: ValueError because chained aliases are not allowed.
+        """
+        sample_types_dict = {
+            "feces": {
+                ALIAS_KEY: "stool"
+            },
+            "stool": {
+                ALIAS_KEY: "poop"
+            },
+            "poop": {
+                METADATA_FIELDS_KEY: {}
+            }
+        }
+        host_metadata_fields_dict = {}
+
+        with self.assertRaisesRegex(ValueError, "May not chain aliases"):
+            _resolve_sample_type_aliases_and_bases(
+                sample_types_dict, host_metadata_fields_dict)
+
+    def test__resolve_sample_type_aliases_and_bases_with_base_type(self):
+        """Test that base type fields are inherited and overlaid.
+
+        Input: 'derived_sample' has base_type 'base_sample'.
+        Expected: 'derived_sample' inherits base fields, adds own, base_type key removed.
+        """
+        sample_types_dict = {
+            "base_sample": {
+                METADATA_FIELDS_KEY: {
+                    "base_field": {
+                        DEFAULT_KEY: "base_value",
+                        TYPE_KEY: "string"
+                    }
+                }
+            },
+            "derived_sample": {
+                BASE_TYPE_KEY: "base_sample",
+                METADATA_FIELDS_KEY: {
+                    "derived_field": {
+                        DEFAULT_KEY: "derived_value",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        host_metadata_fields_dict = {}
+
+        result = _resolve_sample_type_aliases_and_bases(
+            sample_types_dict, host_metadata_fields_dict)
+
+        expected = {
+            # Base sample type is fully resolved
+            "base_sample": {
+                METADATA_FIELDS_KEY: {
+                    "base_field": {
+                        DEFAULT_KEY: "base_value",
+                        TYPE_KEY: "string"
+                    },
+                    SAMPLE_TYPE_KEY: {
+                        ALLOWED_KEY: ["base_sample"],
+                        DEFAULT_KEY: "base_sample",
+                        TYPE_KEY: "string"
+                    },
+                    QIITA_SAMPLE_TYPE: {
+                        ALLOWED_KEY: ["base_sample"],
+                        DEFAULT_KEY: "base_sample",
+                        TYPE_KEY: "string"
+                    }
+                }
+            },
+            # Derived sample type inherits base fields, base_type key removed
+            "derived_sample": {
+                METADATA_FIELDS_KEY: {
+                    # Inherited from base
+                    "base_field": {
+                        DEFAULT_KEY: "base_value",
+                        TYPE_KEY: "string"
+                    },
+                    # Own field
+                    "derived_field": {
+                        DEFAULT_KEY: "derived_value",
+                        TYPE_KEY: "string"
+                    },
+                    SAMPLE_TYPE_KEY: {
+                        ALLOWED_KEY: ["derived_sample"],
+                        DEFAULT_KEY: "derived_sample",
+                        TYPE_KEY: "string"
+                    },
+                    QIITA_SAMPLE_TYPE: {
+                        ALLOWED_KEY: ["derived_sample"],
+                        DEFAULT_KEY: "derived_sample",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__resolve_sample_type_aliases_and_bases_base_type_invalid_raises(self):
+        """Test that base type with non-metadata-fields keys raises ValueError.
+
+        Input: Base sample type has extra keys beyond metadata_fields.
+        Expected: ValueError because base must only have metadata_fields.
+        """
+        sample_types_dict = {
+            "base_sample": {
+                METADATA_FIELDS_KEY: {
+                    "base_field": {DEFAULT_KEY: "value", TYPE_KEY: "string"}
+                },
+                "extra_key": "not_allowed"
+            },
+            "derived_sample": {
+                BASE_TYPE_KEY: "base_sample",
+                METADATA_FIELDS_KEY: {}
+            }
+        }
+        host_metadata_fields_dict = {}
+
+        with self.assertRaisesRegex(ValueError, "must only have metadata fields"):
+            _resolve_sample_type_aliases_and_bases(
+                sample_types_dict, host_metadata_fields_dict)
+
+    def test__resolve_sample_type_aliases_and_bases_sets_sample_type(self):
+        """Test that sample_type field is added with correct allowed/default.
+
+        Input: Sample type without sample_type field.
+        Expected: sample_type field added with allowed=[sample_type_name], default=sample_type_name.
+        """
+        sample_types_dict = {
+            "blood": {
+                METADATA_FIELDS_KEY: {
+                    "body_site": {
+                        DEFAULT_KEY: "blood",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        host_metadata_fields_dict = {}
+
+        result = _resolve_sample_type_aliases_and_bases(
+            sample_types_dict, host_metadata_fields_dict)
+
+        expected = {
+            "blood": {
+                METADATA_FIELDS_KEY: {
+                    "body_site": {
+                        DEFAULT_KEY: "blood",
+                        TYPE_KEY: "string"
+                    },
+                    SAMPLE_TYPE_KEY: {
+                        ALLOWED_KEY: ["blood"],
+                        DEFAULT_KEY: "blood",
+                        TYPE_KEY: "string"
+                    },
+                    QIITA_SAMPLE_TYPE: {
+                        ALLOWED_KEY: ["blood"],
+                        DEFAULT_KEY: "blood",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__resolve_sample_type_aliases_and_bases_preserves_existing_qiita_sample_type(self):
+        """Test that existing qiita_sample_type is not overwritten.
+
+        Input: Sample type already has qiita_sample_type defined with very different value.
+        Expected: Existing qiita_sample_type preserved exactly, sample_type still added.
+        """
+        sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "body_site": {
+                        DEFAULT_KEY: "gut",
+                        TYPE_KEY: "string"
+                    },
+                    # Pre-existing qiita_sample_type with VERY different value
+                    # to make it clear it's preserved, not overwritten
+                    QIITA_SAMPLE_TYPE: {
+                        ALLOWED_KEY: ["CUSTOM_QIITA_VALUE_12345"],
+                        DEFAULT_KEY: "CUSTOM_QIITA_VALUE_12345",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        host_metadata_fields_dict = {}
+
+        result = _resolve_sample_type_aliases_and_bases(
+            sample_types_dict, host_metadata_fields_dict)
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "body_site": {
+                        DEFAULT_KEY: "gut",
+                        TYPE_KEY: "string"
+                    },
+                    # sample_type added (would be "stool")
+                    SAMPLE_TYPE_KEY: {
+                        ALLOWED_KEY: ["stool"],
+                        DEFAULT_KEY: "stool",
+                        TYPE_KEY: "string"
+                    },
+                    # Pre-existing qiita_sample_type preserved exactly (NOT "stool")
+                    QIITA_SAMPLE_TYPE: {
+                        ALLOWED_KEY: ["CUSTOM_QIITA_VALUE_12345"],
+                        DEFAULT_KEY: "CUSTOM_QIITA_VALUE_12345",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__resolve_sample_type_aliases_and_bases_merges_with_host_metadata(self):
+        """Test that host-level metadata fields are merged with sample-type fields.
+
+        Input: Host has host_common_name field, sample type has body_site field.
+        Expected: Resolved sample type has both fields merged.
+        """
+        sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "body_site": {
+                        DEFAULT_KEY: "gut",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        host_metadata_fields_dict = {
+            "host_common_name": {
+                DEFAULT_KEY: "human",
+                TYPE_KEY: "string"
+            }
+        }
+
+        result = _resolve_sample_type_aliases_and_bases(
+            sample_types_dict, host_metadata_fields_dict)
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    # Host-level field merged in
+                    "host_common_name": {
+                        DEFAULT_KEY: "human",
+                        TYPE_KEY: "string"
+                    },
+                    # Sample-type field
+                    "body_site": {
+                        DEFAULT_KEY: "gut",
+                        TYPE_KEY: "string"
+                    },
+                    SAMPLE_TYPE_KEY: {
+                        ALLOWED_KEY: ["stool"],
+                        DEFAULT_KEY: "stool",
+                        TYPE_KEY: "string"
+                    },
+                    QIITA_SAMPLE_TYPE: {
+                        ALLOWED_KEY: ["stool"],
+                        DEFAULT_KEY: "stool",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__resolve_sample_type_aliases_and_bases_sample_overrides_host(self):
+        """Test that sample-level field overrides host-level field with same name.
+
+        Input: Host has description="host description", sample type also has description="sample description".
+        Expected: Sample-level description value wins.
+        """
+        sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    # Sample-level description should override host-level
+                    "description": {
+                        DEFAULT_KEY: "sample-level description value",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        host_metadata_fields_dict = {
+            # Host-level description should be overridden
+            "description": {
+                DEFAULT_KEY: "host-level description value",
+                TYPE_KEY: "string"
+            },
+            "host_common_name": {
+                DEFAULT_KEY: "human",
+                TYPE_KEY: "string"
+            }
+        }
+
+        result = _resolve_sample_type_aliases_and_bases(
+            sample_types_dict, host_metadata_fields_dict)
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    # Host-level field that wasn't overridden
+                    "host_common_name": {
+                        DEFAULT_KEY: "human",
+                        TYPE_KEY: "string"
+                    },
+                    # Description: sample-level value wins over host-level
+                    "description": {
+                        DEFAULT_KEY: "sample-level description value",
+                        TYPE_KEY: "string"
+                    },
+                    SAMPLE_TYPE_KEY: {
+                        ALLOWED_KEY: ["stool"],
+                        DEFAULT_KEY: "stool",
+                        TYPE_KEY: "string"
+                    },
+                    QIITA_SAMPLE_TYPE: {
+                        ALLOWED_KEY: ["stool"],
+                        DEFAULT_KEY: "stool",
+                        TYPE_KEY: "string"
+                    }
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
     # Tests for build_full_flat_config_dict
 
     def test_build_full_flat_config_dict_no_inputs(self):
         """Test build_full_flat_config_dict with no arguments uses all defaults."""
         result = build_full_flat_config_dict()
+
+        # These tests are less specific because they depend on the actual contents
+        # of the default standards file, which may change over time, so
+        # we just verify the presence of key structures rather than exact contents.
 
         # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
         self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
@@ -2181,7 +3802,13 @@ class TestMetadataConfigurator(TestCase):
         self.assertEqual("not applicable", result[DEFAULT_KEY])
 
     def test_build_full_flat_config_dict_with_study_config(self):
-        """Test build_full_flat_config_dict with study config merges correctly."""
+        """Test build_full_flat_config_dict with study config merges correctly.
+
+        test_standards.yml structure: base -> host_associated -> human/mouse
+        This tests that:
+        1. Fields are inherited through the nesting hierarchy
+        2. Study-specific fields are merged into the flattened output
+        """
         software_config = {
             DEFAULT_KEY: "software_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,
@@ -2210,32 +3837,279 @@ class TestMetadataConfigurator(TestCase):
         result = build_full_flat_config_dict(
             study_config, software_config, self.TEST_STDS_FP)
 
-        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
-        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
-        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
-        self.assertIsInstance(hosts_dict, dict)
-
-        # Should have "human" host type with host_common_name defaulting to "human"
-        self.assertIn("human", hosts_dict)
-        human_host = hosts_dict["human"]
-        self.assertIn(METADATA_FIELDS_KEY, human_host)
-        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
-        self.assertEqual(
-            "human",
-            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
-
-        # Should have custom_field from study config
-        self.assertIn("custom_field", human_host[METADATA_FIELDS_KEY])
-        self.assertEqual(
-            "custom_value",
-            human_host[METADATA_FIELDS_KEY]["custom_field"][DEFAULT_KEY])
-
-        # Should have software config default value
-        self.assertIn(DEFAULT_KEY, result)
-        self.assertEqual("software_default", result[DEFAULT_KEY])
+        expected = {
+            # Top-level keys from software_config
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            # Flattened host types from standards + study
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                # base: top level in test_standards.yml, no default
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        # sample_name defined at base level
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        # sample_type defined at base level
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                # host_associated: nested under base, inherits sample_name/sample_type
+                "host_associated": {
+                    # default defined at host_associated level
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        # description defined at host_associated level
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        # sample_name inherited from base
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        # sample_type inherited from base
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        # stool defined at host_associated level
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                # human: nested under host_associated
+                "human": {
+                    # default inherited from host_associated
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        # custom_field added from study_specific_metadata
+                        "custom_field": {
+                            DEFAULT_KEY: "custom_value",
+                            TYPE_KEY: "string"
+                        },
+                        # description overrides host_associated value at human level
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        # host_common_name defined at human level
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        # sample_name inherited from base -> host_associated -> human
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        # sample_type inherited from base -> host_associated -> human
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        # blood defined only at human level
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "custom_field": {
+                                    DEFAULT_KEY: "custom_value",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        # stool: body_site inherited from host_associated,
+                        # body_product added at human level
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "custom_field": {
+                                    DEFAULT_KEY: "custom_value",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                # mouse: nested under host_associated (not in study config)
+                "mouse": {
+                    # default inherited from host_associated
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        # description inherited from host_associated (not overridden)
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        # host_common_name defined at mouse level
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        # sample_name inherited from base -> host_associated -> mouse
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        # sample_type inherited from base -> host_associated -> mouse
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        # stool: body_site inherited from host_associated,
+                        # cage_id added at mouse level
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "mouse",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
 
     def test_build_full_flat_config_dict_without_study_config(self):
-        """Test build_full_flat_config_dict with no study config uses standards only."""
+        """Test build_full_flat_config_dict with no study config uses standards only.
+
+        test_standards.yml structure: base -> host_associated -> human/mouse
+        With no study config, output is pure flattened standards.
+        """
         software_config = {
             DEFAULT_KEY: "software_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,
@@ -2245,31 +4119,252 @@ class TestMetadataConfigurator(TestCase):
         result = build_full_flat_config_dict(
             None, software_config, self.TEST_STDS_FP)
 
-        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
-        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
-        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
-        self.assertIsInstance(hosts_dict, dict)
-
-        # Should have "human" host type with host_common_name defaulting to "human"
-        self.assertIn("human", hosts_dict)
-        human_host = hosts_dict["human"]
-        self.assertIn(METADATA_FIELDS_KEY, human_host)
-        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
-        self.assertEqual(
-            "human",
-            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
-
-        # Should preserve software config settings
-        self.assertEqual("software_default", result[DEFAULT_KEY])
+        expected = {
+            # Top-level keys from software_config
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            # No STUDY_SPECIFIC_METADATA_KEY since no study config provided
+            # Flattened host types from standards only
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                # base: top level, no default, just sample_name/sample_type
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                # host_associated: inherits from base, adds default and description
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                # human: inherits from host_associated, overrides description
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                # mouse: inherits from host_associated, keeps parent description
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "mouse",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
 
     def test_build_full_flat_config_dict_merges_software_and_study(self):
-        """Test that study config values override software config values."""
+        """Test that study config values override software config values.
+
+        Tests that top-level config keys (default, leave_requireds_blank, etc.)
+        from study_config override matching keys from software_config.
+        """
         software_config = {
             DEFAULT_KEY: "software_default",
             LEAVE_REQUIREDS_BLANK_KEY: False,
             OVERWRITE_NON_NANS_KEY: True
         }
         study_config = {
+            # These override software_config values
             DEFAULT_KEY: "study_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,
             STUDY_SPECIFIC_METADATA_KEY: {
@@ -2289,14 +4384,242 @@ class TestMetadataConfigurator(TestCase):
         result = build_full_flat_config_dict(
             study_config, software_config, self.TEST_STDS_FP)
 
-        # Study config should override software config
-        self.assertEqual("study_default", result[DEFAULT_KEY])
-        self.assertTrue(result[LEAVE_REQUIREDS_BLANK_KEY])
-        # Software config value should be preserved when not overridden
-        self.assertTrue(result[OVERWRITE_NON_NANS_KEY])
+        expected = {
+            # default from study_config overrides software_config
+            DEFAULT_KEY: "study_default",
+            # leave_requireds_blank from study_config overrides software_config
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            # overwrite_non_nans from software_config (not overridden by study)
+            OVERWRITE_NON_NANS_KEY: True,
+            # Flattened host types
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "mouse",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
 
     def test_build_full_flat_config_dict_none_software_config(self):
-        """Test that None software_config loads defaults from config.yml."""
+        """Test that None software_config loads defaults from config.yml.
+
+        When software_config is None, the function loads defaults from the
+        software's config.yml file (default="not applicable", etc.).
+        """
         study_config = {
             STUDY_SPECIFIC_METADATA_KEY: {
                 HOST_TYPE_SPECIFIC_METADATA_KEY: {
@@ -2315,20 +4638,230 @@ class TestMetadataConfigurator(TestCase):
         result = build_full_flat_config_dict(
             study_config, None, self.TEST_STDS_FP)
 
-        # Should have HOST_TYPE_SPECIFIC_METADATA_KEY
-        self.assertIn(HOST_TYPE_SPECIFIC_METADATA_KEY, result)
-        hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
-        self.assertIsInstance(hosts_dict, dict)
-
-        # Should have "human" host type with host_common_name defaulting to "human"
-        self.assertIn("human", hosts_dict)
-        human_host = hosts_dict["human"]
-        self.assertIn(METADATA_FIELDS_KEY, human_host)
-        self.assertIn("host_common_name", human_host[METADATA_FIELDS_KEY])
-        self.assertEqual(
-            "human",
-            human_host[METADATA_FIELDS_KEY]["host_common_name"][DEFAULT_KEY])
-
-        # Should have loaded default software config (which includes DEFAULT_KEY)
-        self.assertIn(DEFAULT_KEY, result)
-        self.assertEqual("not applicable", result[DEFAULT_KEY])
+        expected = {
+            # Top-level keys loaded from software's config.yml defaults
+            DEFAULT_KEY: "not applicable",
+            LEAVE_REQUIREDS_BLANK_KEY: False,
+            OVERWRITE_NON_NANS_KEY: False,
+            # Flattened host types
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "mouse",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)

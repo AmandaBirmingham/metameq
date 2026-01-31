@@ -1,0 +1,97 @@
+plate_row_id,plate_sample_id,plate_col_id,plating_notes,plating_date,plate_id,sample_name,original_collection_timestamp,subject_shorthand,sampletype_shorthand,hosttype_shorthand,host_subject_id,host_height,host_nation,life_stage,sex,description,collection_timestamp,notes,qc_note,collection_date,ordinal_timestamp,is_collection_timestamp_valid,days_since_first_day,host_age,m03_age_years,elevation,geo_loc_name,latitude,longitude
+A,,1,,2/21/25,282,donotuse282.1A,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+B,,1,,2/21/25,282,donotuse282.1B,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+C,,1,,2/21/25,282,donotuse282.1C,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+D,,1,,2/21/25,282,donotuse282.1D,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+E,,1,,2/21/25,282,donotuse282.1E,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+F,,1,,2/21/25,282,donotuse282.1F,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+G,,1,,2/21/25,282,donotuse282.1G,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+H,,1,,2/21/25,282,donotuse282.1H,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+A,,2,,2/21/25,282,donotuse282.2A,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+B,,2,,2/21/25,282,donotuse282.2B,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+C,,2,,2/21/25,282,donotuse282.2C,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+D,,2,,2/21/25,282,donotuse282.2D,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+E,,2,,2/21/25,282,donotuse282.2E,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+F,,2,,2/21/25,282,donotuse282.2F,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+G,,2,,2/21/25,282,donotuse282.2G,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+H,,2,,2/21/25,282,donotuse282.2H,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+A,,11,,2/21/25,282,donotuse282.11A,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+B,,11,,2/21/25,282,donotuse282.11B,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+C,,11,,2/21/25,282,donotuse282.11C,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+D,,11,,2/21/25,282,donotuse282.11D,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+E,,11,,2/21/25,282,donotuse282.11E,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+F,,11,,2/21/25,282,donotuse282.11F,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+G,,11,,2/21/25,282,donotuse282.11G,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+H,,11,,2/21/25,282,donotuse282.11H,,donotuse,,,,,,,,,,,invalid subject shorthand,,,,,,,,,,
+A,2.19.25.Test1.RH,3,,2/21/25,282,2.19.25.Test1.RH,2.19.25,test,rh,human,M03,165,New Zealand,adult,male,,2025-02-19 00:00:00,,,2025-02-19,20250219,True,5965.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+B,2.19.25.Test1.LH,3,,2/21/25,282,2.19.25.Test1.LH,2.19.25,test,lh,human,M03,165,New Zealand,adult,male,,2025-02-19 00:00:00,,,2025-02-19,20250219,True,5965.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+C,2.5.25.Test1.FH,3,,2/21/25,282,2.5.25.Test1.FH,2.5.25,test,fh,human,M03,165,New Zealand,adult,male,,2025-02-05 00:00:00,,,2025-02-05,20250205,True,5951.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+D,2.5.25.Test1.RH,3,,2/21/25,282,2.5.25.Test1.RH,2.5.25,test,rh,human,M03,165,New Zealand,adult,male,,2025-02-05 00:00:00,,,2025-02-05,20250205,True,5951.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+E,2.5.25.Test1.LH,3,,2/21/25,282,2.5.25.Test1.LH,2.5.25,test,lh,human,M03,165,New Zealand,adult,male,,2025-02-05 00:00:00,,,2025-02-05,20250205,True,5951.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+F,2.7.25.Test1.FH,3,,2/21/25,282,2.7.25.Test1.FH,2.7.25,test,fh,human,M03,165,New Zealand,adult,male,,2025-02-07 00:00:00,,,2025-02-07,20250207,True,5953.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+G,2.7.25.Test1.RH,3,,2/21/25,282,2.7.25.Test1.RH,2.7.25,test,rh,human,M03,165,New Zealand,adult,male,,2025-02-07 00:00:00,,,2025-02-07,20250207,True,5953.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+H,2.7.25.Test1.LH,3,,2/21/25,282,2.7.25.Test1.LH,2.7.25,test,lh,human,M03,165,New Zealand,adult,male,,2025-02-07 00:00:00,,,2025-02-07,20250207,True,5953.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+A,1.14.25.Test1.LH,4,,2/21/25,282,1.14.25.Test1.LH,1.14.25,test,lh,human,M03,165,New Zealand,adult,male,,2025-01-14 00:00:00,,,2025-01-14,20250114,True,5929.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+B,1.15.25.Test1.FH,4,,2/21/25,282,1.15.25.Test1.FH,1.15.25,test,fh,human,M03,165,New Zealand,adult,male,,2025-01-15 00:00:00,,,2025-01-15,20250115,True,5930.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+C,1.15.25.Test1.RH,4,,2/21/25,282,1.15.25.Test1.RH,1.15.25,test,rh,human,M03,165,New Zealand,adult,male,,2025-01-15 00:00:00,,,2025-01-15,20250115,True,5930.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+D,1.15.25.Test1.LH,4,,2/21/25,282,1.15.25.Test1.LH,1.15.25,test,lh,human,M03,165,New Zealand,adult,male,,2025-01-15 00:00:00,,,2025-01-15,20250115,True,5930.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+E,1.20.25.Test1.FH,4,,2/21/25,282,1.20.25.Test1.FH,1.20.25,test,fh,human,M03,165,New Zealand,adult,male,,2025-01-20 00:00:00,,,2025-01-20,20250120,True,5935.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+F,1.20.25.Test1.RH,4,,2/21/25,282,1.20.25.Test1.RH,1.20.25,test,rh,human,M03,165,New Zealand,adult,male,,2025-01-20 00:00:00,,,2025-01-20,20250120,True,5935.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+G,1.20.25.Test1.LH,4,,2/21/25,282,1.20.25.Test1.LH,1.20.25,test,lh,human,M03,165,New Zealand,adult,male,,2025-01-20 00:00:00,,,2025-01-20,20250120,True,5935.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+H,1.24.25.Test1.FH,4,,2/21/25,282,1.24.25.Test1.FH,1.24.25,test,fh,human,M03,165,New Zealand,adult,male,,2025-01-24 00:00:00,,,2025-01-24,20250124,True,5939.0,22.0,22.0,193.0,USA:CA:San Diego,32.84,-117.25
+A,4.30.24.Test1.RH,5,,2/21/25,282,4.30.24.Test1.RH,4.30.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-04-30 00:00:00,,,2024-04-30,20240430,True,5670.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+B,4.30.24.Test1.LH,5,,2/21/25,282,4.30.24.Test1.LH,4.30.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-04-30 00:00:00,,,2024-04-30,20240430,True,5670.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+C,4.29.24.Test1.FH,5,,2/21/25,282,4.29.24.Test1.FH,4.29.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-04-29 00:00:00,,,2024-04-29,20240429,True,5669.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+D,4.29.24.Test1.RH,5,,2/21/25,282,4.29.24.Test1.RH,4.29.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-04-29 00:00:00,,,2024-04-29,20240429,True,5669.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+E,4.29.24.Test1.LH,5,,2/21/25,282,4.29.24.Test1.LH,4.29.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-04-29 00:00:00,,,2024-04-29,20240429,True,5669.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+F,4.2.24.Test1.FH,5,,2/21/25,282,4.2.24.Test1.FH,4.2.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-04-02 00:00:00,,,2024-04-02,20240402,True,5642.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+G,4.2.24.Test1.RH,5,,2/21/25,282,4.2.24.Test1.RH,4.2.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-04-02 00:00:00,,,2024-04-02,20240402,True,5642.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+H,4.2.24.Test1.LH,5,,2/21/25,282,4.2.24.Test1.LH,4.2.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-04-02 00:00:00,,,2024-04-02,20240402,True,5642.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+A,9.1.24.Test1.FH,6,,2/21/25,282,9.1.24.Test1.FH,9.1.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-09-01 00:00:00,,,2024-09-01,20240901,True,5794.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+B,9.1.24.Test1.RH,6,,2/21/25,282,9.1.24.Test1.RH,9.1.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-09-01 00:00:00,,,2024-09-01,20240901,True,5794.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+C,9.1.24.Test1.LH,6,,2/21/25,282,9.1.24.Test1.LH,9.1.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-09-01 00:00:00,,,2024-09-01,20240901,True,5794.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+D,9.10.24.Test1.FH,6,,2/21/25,282,9.10.24.Test1.FH,9.10.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-09-10 00:00:00,,,2024-09-10,20240910,True,5803.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+E,9.10.24.Test1.RH,6,,2/21/25,282,9.10.24.Test1.RH,9.10.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-09-10 00:00:00,,,2024-09-10,20240910,True,5803.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+F,9.10.24.Test1.LH,6,,2/21/25,282,9.10.24.Test1.LH,9.10.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-09-10 00:00:00,,,2024-09-10,20240910,True,5803.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+G,9.19.24.Test1.FH,6,,2/21/25,282,9.19.24.Test1.FH,9.19.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-09-19 00:00:00,,,2024-09-19,20240919,True,5812.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+H,9.19.24.Test1.RH,6,,2/21/25,282,9.19.24.Test1.RH,9.19.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-09-19 00:00:00,,,2024-09-19,20240919,True,5812.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+A,6.7.24.Test1.RH,7,,2/21/25,282,6.7.24.Test1.RH,6.7.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-07 00:00:00,,,2024-06-07,20240607,True,5708.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+B,6.7.24.Test1.LH,7,,2/21/25,282,6.7.24.Test1.LH,6.7.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-07 00:00:00,,,2024-06-07,20240607,True,5708.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+C,6.11.24.Test1.FH,7,"IN SAME PARACHUTE, SAME SAMPLE? BUT SEPARATE TUBES",2/21/25,282,6.11.24.Test1.FH.A,6.11.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-11 00:00:00,"IN SAME PARACHUTE, SAME SAMPLE? BUT SEPARATE TUBES",,2024-06-11,20240611,True,5712.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+D,6.11.24.Test1.FH,7,"IN SAME PARACHUTE, SAME SAMPLE? BUT SEPARATE TUBES",2/21/25,282,6.11.24.Test1.FH.B,6.11.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-11 00:00:00,"IN SAME PARACHUTE, SAME SAMPLE? BUT SEPARATE TUBES",,2024-06-11,20240611,True,5712.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+E,6.11.24.Test1.RH,7,,2/21/25,282,6.11.24.Test1.RH,6.11.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-11 00:00:00,,,2024-06-11,20240611,True,5712.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+F,6.11.24.Test1.LH,7,,2/21/25,282,6.11.24.Test1.LH,6.11.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-11 00:00:00,,,2024-06-11,20240611,True,5712.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+G,6.13.24.Test1.FH,7,,2/21/25,282,6.13.24.Test1.FH,6.13.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-13 00:00:00,,,2024-06-13,20240613,True,5714.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+H,6.13.24.Test1.RH,7,,2/21/25,282,6.13.24.Test1.RH,6.13.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-13 00:00:00,,,2024-06-13,20240613,True,5714.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+A,6.13.24.Test1.LH,8,,2/21/25,282,6.13.24.Test1.LH,6.13.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-13 00:00:00,,,2024-06-13,20240613,True,5714.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+B,6.12.24.Test1.FH,8,,2/21/25,282,6.12.24.Test1.FH,6.12.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-12 00:00:00,,,2024-06-12,20240612,True,5713.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+C,6.12.24.Test1.RH,8,,2/21/25,282,6.12.24.Test1.RH,6.12.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-12 00:00:00,,,2024-06-12,20240612,True,5713.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+D,6.12.24.Test1.LH,8,,2/21/25,282,6.12.24.Test1.LH,6.12.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-12 00:00:00,,,2024-06-12,20240612,True,5713.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+E,6.14.24.Test1.FH,8,,2/21/25,282,6.14.24.Test1.FH,6.14.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-14 00:00:00,,,2024-06-14,20240614,True,5715.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+F,6.14.24.Test1.RH,8,,2/21/25,282,6.14.24.Test1.RH,6.14.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-14 00:00:00,,,2024-06-14,20240614,True,5715.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+G,6.14.24.Test1.LH,8,,2/21/25,282,6.14.24.Test1.LH,6.14.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-14 00:00:00,,,2024-06-14,20240614,True,5715.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+H,6.16.24.Test1.FH,8,,2/21/25,282,6.16.24.Test1.FH,6.16.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-16 00:00:00,,,2024-06-16,20240616,True,5717.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+A,6.16.24.Test1.RH,9,,2/21/25,282,6.16.24.Test1.RH,6.16.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-16 00:00:00,,,2024-06-16,20240616,True,5717.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+B,6.16.24.Test1.LH,9,,2/21/25,282,6.16.24.Test1.LH,6.16.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-16 00:00:00,,,2024-06-16,20240616,True,5717.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+C,6.8.24.Test1.FH,9,,2/21/25,282,6.8.24.Test1.FH,6.8.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-08 00:00:00,,,2024-06-08,20240608,True,5709.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+D,6.8.24.Test1.RH,9,,2/21/25,282,6.8.24.Test1.RH,6.8.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-08 00:00:00,,,2024-06-08,20240608,True,5709.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+E,6.8.24.Test1.LH,9,,2/21/25,282,6.8.24.Test1.LH,6.8.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-08 00:00:00,,,2024-06-08,20240608,True,5709.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+F,6.15.24.Test1.FH,9,,2/21/25,282,6.15.24.Test1.FH,6.15.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-15 00:00:00,,,2024-06-15,20240615,True,5716.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+G,6.15.24.Test1.RH,9,,2/21/25,282,6.15.24.Test1.RH,6.15.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-15 00:00:00,,,2024-06-15,20240615,True,5716.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+H,6.15.24.Test1.LH,9,,2/21/25,282,6.15.24.Test1.LH,6.15.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-15 00:00:00,,,2024-06-15,20240615,True,5716.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+A,6.6.24.Test1.FH,10,,2/21/25,282,6.6.24.Test1.FH,6.6.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-06 00:00:00,,,2024-06-06,20240606,True,5707.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+B,6.6.24.Test1.RH,10,,2/21/25,282,6.6.24.Test1.RH,6.6.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-06 00:00:00,,,2024-06-06,20240606,True,5707.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+C,6.6.24.Test1.LH,10,,2/21/25,282,6.6.24.Test1.LH,6.6.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-06 00:00:00,,,2024-06-06,20240606,True,5707.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+D,6.9.24.Test1.FH,10,,2/21/25,282,6.9.24.Test1.FH,6.9.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-09 00:00:00,,,2024-06-09,20240609,True,5710.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+E,6.9.24.Test1.RH,10,,2/21/25,282,6.9.24.Test1.RH,6.9.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-09 00:00:00,,,2024-06-09,20240609,True,5710.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+F,6.9.24.Test1.LH,10,,2/21/25,282,6.9.24.Test1.LH,6.9.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-09 00:00:00,,,2024-06-09,20240609,True,5710.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+G,6.3.24.Test1.FH,10,,2/21/25,282,6.3.24.Test1.FH,6.3.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-03 00:00:00,,,2024-06-03,20240603,True,5704.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+H,6.3.24.Test1.RH,10,,2/21/25,282,6.3.24.Test1.RH,6.3.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-03 00:00:00,,,2024-06-03,20240603,True,5704.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+A,6.3.24.Test1.LH,12,,2/21/25,282,6.3.24.Test1.LH,6.3.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-03 00:00:00,,,2024-06-03,20240603,True,5704.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+B,6.4.24.Test1.FH,12,,2/21/25,282,6.4.24.Test1.FH,6.4.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-04 00:00:00,,,2024-06-04,20240604,True,5705.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+C,6.4.24.Test1.RH,12,,2/21/25,282,6.4.24.Test1.RH,6.4.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-04 00:00:00,,,2024-06-04,20240604,True,5705.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+D,6.4.24.Test1.LH,12,,2/21/25,282,6.4.24.Test1.LH,6.4.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-04 00:00:00,,,2024-06-04,20240604,True,5705.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+E,6.10.24.Test1.FH,12,,2/21/25,282,6.10.24.Test1.FH,6.10.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-10 00:00:00,,,2024-06-10,20240610,True,5711.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+F,6.10.24.Test1.RH,12,,2/21/25,282,6.10.24.Test1.RH,6.10.24,test,rh,human,M03,165,New Zealand,adult,male,,2024-06-10 00:00:00,,,2024-06-10,20240610,True,5711.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+G,6.10.24.Test1.LH,12,,2/21/25,282,6.10.24.Test1.LH,6.10.24,test,lh,human,M03,165,New Zealand,adult,male,,2024-06-10 00:00:00,,,2024-06-10,20240610,True,5711.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25
+H,6.5.24.Test1.FH,12,,2/21/25,282,6.5.24.Test1.FH,6.5.24,test,fh,human,M03,165,New Zealand,adult,male,,2024-06-05 00:00:00,,,2024-06-05,20240605,True,5706.0,23.0,23.0,193.0,USA:CA:San Diego,32.84,-117.25

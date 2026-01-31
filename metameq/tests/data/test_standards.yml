@@ -1,6 +1,8 @@
+# Test standards file with proper nested structure for testing flattening
+# Structure: base -> host_associated -> human/mouse
 host_type_specific_metadata:
-  human:
-    default: "not provided"
+  base:
+    # Fields defined at base level are inherited by all host types
     metadata_fields:
       sample_name:
         type: string
@@ -9,36 +11,61 @@ host_type_specific_metadata:
       sample_type:
         type: string
         required: true
-      host_common_name:
-        type: string
-        default: "human"
-    sample_type_specific_metadata:
-      stool:
+    host_type_specific_metadata:
+      host_associated:
+        # default at this level is inherited by human and mouse
+        default: "not provided"
         metadata_fields:
-          body_site:
+          # description is defined here and can be overridden by child hosts
+          description:
             type: string
-            default: "gut"
-      blood:
-        metadata_fields:
-          body_site:
-            type: string
-            default: "blood"
-  mouse:
-    default: "not provided"
-    metadata_fields:
-      sample_name:
-        type: string
-        unique: true
-        required: true
-      sample_type:
-        type: string
-        required: true
-      host_common_name:
-        type: string
-        default: "mouse"
-    sample_type_specific_metadata:
-      stool:
-        metadata_fields:
-          body_site:
-            type: string
-            default: "gut"
+            default: "host associated sample"
+        sample_type_specific_metadata:
+          # stool defined at host_associated level, inherited by human/mouse
+          stool:
+            metadata_fields:
+              body_site:
+                type: string
+                default: "gut"
+        host_type_specific_metadata:
+          human:
+            metadata_fields:
+              # host_common_name is defined only at human level
+              host_common_name:
+                type: string
+                default: "human"
+              # description overrides the parent host_associated value
+              description:
+                type: string
+                default: "human sample"
+            sample_type_specific_metadata:
+              # stool at human level adds body_product, inherits body_site from parent
+              stool:
+                metadata_fields:
+                  body_product:
+                    type: string
+                    default: "UBERON:feces"
+              # blood is only defined for human, not at host_associated level
+              blood:
+                metadata_fields:
+                  body_site:
+                    type: string
+                    default: "blood"
+                  body_product:
+                    type: string
+                    default: "UBERON:blood"
+          mouse:
+            metadata_fields:
+              # host_common_name is defined only at mouse level
+              host_common_name:
+                type: string
+                default: "mouse"
+              # mouse inherits description from host_associated (doesn't override)
+            sample_type_specific_metadata:
+              # mouse stool inherits from host_associated stool
+              # but adds cage_id field specific to mouse
+              stool:
+                metadata_fields:
+                  cage_id:
+                    type: string
+                    required: false

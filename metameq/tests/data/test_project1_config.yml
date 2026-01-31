@@ -1,0 +1,167 @@
+"default": "not applicable"
+"overwrite_non_nans": true
+"study_specific_metadata":
+  "host_type_specific_metadata":
+    ebi_submittable:
+      metadata_fields:
+        country:
+          allowed:
+            - "USA"
+          default: "USA"
+          type: string
+        dna_extracted:
+          allowed:
+            - 'TRUE'
+          default: 'TRUE'
+          type: string
+        physical_specimen_location:
+          allowed:
+            - 'UCSDMI'
+          default: "UCSDMI"
+          type: string
+        physical_specimen_remaining:
+          allowed:
+            - 'FALSE'
+          default: 'FALSE'
+          type: string
+        public:
+          allowed:
+            - 'TRUE'
+          default: 'TRUE'
+          type: string
+        qiita_study_id:
+          allowed:
+            - '11052'
+          default: '11052'
+          type: string
+        single_double_swab_test:
+          allowed:
+            - "leaveblank"
+          default: "leaveblank"
+          type: string
+        title:
+          allowed:
+            - "Project1"
+          default: "Project1"
+          type: string
+    human:
+      default: "not provided"
+      sample_type_specific_metadata:
+        skin of breast:
+          metadata_fields:
+            description:
+              allowed:
+                - "breast"
+              default: "breast"
+              type: string
+        br:
+          alias: skin of breast
+        feces:
+          metadata_fields:
+            description:
+              allowed:
+                - stool
+              default: stool
+              type: string
+        fe:
+          alias: feces
+        st:
+          alias: feces
+        saliva:
+          metadata_fields:
+            description:
+              allowed:
+                - saliva
+              default: saliva
+              type: string
+        t:
+          alias: saliva
+        ta:
+          alias: saliva
+        tb:
+          alias: saliva
+        "skin of forehead":
+          metadata_fields:
+            description:
+              allowed:
+                - "skin of forehead"
+              default: "skin of forehead"
+              type: string
+        "fh":
+          alias: skin of forehead
+        "fha":
+          alias: skin of forehead
+        "fhb":
+          alias: skin of forehead
+        "frh":
+          alias: skin of forehead
+        # unlike others, below type is specific to this study
+        # and not defined in the standards, so it must have
+        # its base dependence on skin defined here
+        skin of left hand:
+          base_type: "skin"
+          metadata_fields:
+            description:
+              allowed:
+                - "skin of left hand"
+              default: "skin of left hand"
+              type: string
+            host_body_site:
+              allowed:
+                - UBERON:skin of hand
+              default: UBERON:skin of hand
+              type: string
+            qiita_sample_type:
+              allowed:
+                - "skin"
+              default: "skin"
+              type: string
+        "lh":
+          alias: skin of left hand
+        "lha":
+          alias: skin of left hand
+        "lhb":
+          alias: skin of left hand
+        "lp":
+          alias: skin of left hand
+        "lpalm":
+          alias: skin of left hand
+        # unlike others, below type is specific to this study
+        # and not defined in the standards, so it must have
+        # its base dependence on skin defined here
+        skin of right hand:
+          base_type: skin
+          metadata_fields:
+            description:
+              allowed:
+                - "skin of right hand"
+              default: "skin of right hand"
+              type: string
+            host_body_site:
+              allowed:
+                - UBERON:skin of hand
+              default: UBERON:skin of hand
+              type: string
+            qiita_sample_type:
+              allowed:
+                - "skin"
+              default: "skin"
+              type: string
+        "rh":
+          alias: skin of right hand
+        "rha":
+          alias: skin of right hand
+        "rhb":
+          alias: skin of right hand
+        "rp":
+          alias: skin of right hand
+    "sterile_water_blank":
+      "sample_type_specific_metadata":
+        "blank":
+          "alias": "control blank"
+"metadata_transformers":
+  "pre_transformers":
+    collection_date:
+      sources:
+        - "collection_timestamp"
+      function: "transform_date_to_formatted_date"

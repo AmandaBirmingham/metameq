@@ -10,5 +10,6 @@ dependencies:
   - pyyaml
   - flake8
   - pep8
+  - pytest
   - pip:
     - cerberus
