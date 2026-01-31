@@ -4,7 +4,8 @@ from metameq.src.util import extract_config_dict, extract_stds_config, \
     METADATA_FIELDS_KEY, STUDY_SPECIFIC_METADATA_KEY, \
     HOST_TYPE_SPECIFIC_METADATA_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
-    DEFAULT_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY
+    DEFAULT_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
+    SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE
 
 
 def combine_stds_and_study_config(
@@ -88,6 +89,15 @@ def flatten_nested_stds_dict(
             curr_host_type_stds_nested_dict, curr_host_type_wip_flat_dict)
         if curr_host_type_sub_host_dict:
             wip_host_types_dict.update(curr_host_type_sub_host_dict)
+
+        # resolve aliases and base types for this host's sample types
+        # This happens AFTER recursion so children inherit unresolved aliases,
+        # ensuring correct bottom-up resolution order
+        if SAMPLE_TYPE_SPECIFIC_METADATA_KEY in curr_host_type_wip_flat_dict:
+            curr_host_type_wip_flat_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY] = \
+                _resolve_sample_type_aliases_and_bases(
+                    curr_host_type_wip_flat_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY],
+                    curr_host_type_wip_flat_dict.get(METADATA_FIELDS_KEY, {}))
 
         # assign the flattened wip dict for the current host type to the result
         # (which now contains flat records for the hosts lower down than
@@ -270,8 +280,11 @@ def _combine_base_and_added_host_type(
         _combine_base_and_added_sample_type_specific_metadata(
             host_type_wip_nested_dict,
             host_type_add_dict)
+
     # if we got back a non-empty dictionary of sample types,
     # add it to the wip for this host type dict
+    # Note: resolution of aliases/base types happens in flatten_nested_stds_dict
+    # AFTER recursion, to ensure correct bottom-up resolution order
     if curr_host_wip_sample_types_dict:
         host_type_wip_nested_dict[
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY] = \
@@ -450,6 +463,130 @@ def _id_sample_type_definition(sample_type_name: str, sample_type_dict: Dict[str
                          "the same sample type dict")
 
 
+def _construct_sample_type_metadata_fields_dict(
+        sample_type: str,
+        host_sample_types_config_dict: Dict[str, Any],
+        a_host_type_metadata_fields_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Construct metadata fields dictionary for a specific host+sample type, resolving aliases and base types.
+
+    Parameters
+    ----------
+    sample_type : str
+        The sample type to process.
+    host_sample_types_config_dict : Dict[str, Any]
+        Dictionary containing config for *all* sample types in
+        the host type in question.
+    a_host_type_metadata_fields_dict : Dict[str, Any]
+        Dictionary containing metadata fields for the host type in question.
+
+    Returns
+    -------
+    Dict[str, Any]
+        The constructed metadata fields dictionary for this host-and-sample-type combination.
+
+    Raises
+    ------
+    ValueError
+        If there are invalid alias chains or base type configurations.
+    """
+    sample_type_for_metadata = sample_type
+
+    # get dict associated with the naive sample type
+    sample_type_specific_dict = \
+        host_sample_types_config_dict[sample_type]
+
+    # if naive sample type contains an alias
+    sample_type_alias = sample_type_specific_dict.get(ALIAS_KEY)
+    if sample_type_alias:
+        # change the sample type to the alias sample type
+        # and use the alias's sample type dict
+        sample_type_for_metadata = sample_type_alias
+        sample_type_specific_dict = \
+            host_sample_types_config_dict[sample_type_alias]
+        if METADATA_FIELDS_KEY not in sample_type_specific_dict:
+            raise ValueError(f"May not chain aliases "
+                             f"('{sample_type}' to '{sample_type_alias}')")
+    # endif sample type is an alias
+
+    # if the sample type has a base type
+    sample_type_base = sample_type_specific_dict.get(BASE_TYPE_KEY)
+    if sample_type_base:
+        # get the base's sample type dict and add this sample type's
+        # info on top of it
+        base_sample_dict = host_sample_types_config_dict[sample_type_base]
+        if list(base_sample_dict.keys()) != [METADATA_FIELDS_KEY]:
+            raise ValueError(f"Base sample type '{sample_type_base}' "
+                             f"must only have metadata fields")
+        sample_type_specific_dict_metadata = update_wip_metadata_dict(
+            deepcopy_dict(base_sample_dict[METADATA_FIELDS_KEY]),
+            sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}))
+        sample_type_specific_dict = deepcopy_dict(sample_type_specific_dict)
+        sample_type_specific_dict[METADATA_FIELDS_KEY] = \
+            sample_type_specific_dict_metadata
+    # endif sample type has a base type
+
+    # add the sample-type-specific info generated above on top of the host info
+    sample_type_metadata_dict = update_wip_metadata_dict(
+        deepcopy_dict(a_host_type_metadata_fields_dict),
+        sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}))
+
+    # set sample_type, and qiita_sample_type if it is not already set
+    sample_type_definition = {
+        ALLOWED_KEY: [sample_type_for_metadata],
+        DEFAULT_KEY: sample_type_for_metadata,
+        TYPE_KEY: "string"
+    }
+    sample_type_metadata_dict = update_wip_metadata_dict(
+        sample_type_metadata_dict, {SAMPLE_TYPE_KEY: sample_type_definition})
+    if QIITA_SAMPLE_TYPE not in sample_type_metadata_dict:
+        sample_type_metadata_dict = update_wip_metadata_dict(
+            sample_type_metadata_dict, {QIITA_SAMPLE_TYPE: sample_type_definition})
+    # end if qiita_sample_type not already set
+
+    return sample_type_metadata_dict
+
+
+def _resolve_sample_type_aliases_and_bases(
+        sample_types_dict: Dict[str, Any],
+        host_metadata_fields_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Resolve aliases and base types in sample type definitions.
+
+    For each sample type in the input dictionary:
+    1. If it's an alias, follow the alias and resolve the target's metadata
+    2. If it has a base_type, inherit metadata fields from the base
+    3. Merge sample-type metadata fields with host-level metadata fields
+    4. Add sample_type and qiita_sample_type fields
+
+    Parameters
+    ----------
+    sample_types_dict : Dict[str, Any]
+        Dictionary of sample type configurations (from sample_type_specific_metadata).
+    host_metadata_fields_dict : Dict[str, Any]
+        Host-level metadata fields to merge into each sample type.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary with all sample types resolved.
+
+    Raises
+    ------
+    ValueError
+        If chained aliases are detected or base type has invalid structure.
+    """
+    result = {}
+
+    for sample_type_name in sample_types_dict.keys():
+        resolved_metadata = _construct_sample_type_metadata_fields_dict(
+            sample_type_name, sample_types_dict, host_metadata_fields_dict)
+
+        result[sample_type_name] = {
+            METADATA_FIELDS_KEY: resolved_metadata
+        }
+
+    return result
+
+
 def build_full_flat_config_dict(
         study_specific_config_dict: Optional[Dict[str, Any]] = None,
         software_config_dict: Optional[Dict[str, Any]] = None,
@@ -503,7 +640,7 @@ def build_full_flat_config_dict(
         full_nested_hosts_dict, None)
     software_plus_study_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
         full_flat_hosts_dict
-    
+
     # drop the STUDY_SPECIFIC_METADATA_KEY from the final output dict (because
     # its contents have already been incorporated into the
     # HOST_TYPE_SPECIFIC_METADATA_KEY section); note we keep all the other

@@ -1277,6 +1277,8 @@ class TestMetadataExtender(TestCase):
             LEAVE_REQUIREDS_BLANK_KEY: False,
             DEFAULT_KEY: "not provided"
         }
+        # Config is pre-resolved: sample type's metadata_fields already includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         host_type_config_dict = {
             METADATA_FIELDS_KEY: {
                 "host_field": {
@@ -1287,8 +1289,22 @@ class TestMetadataExtender(TestCase):
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                 "stool": {
                     METADATA_FIELDS_KEY: {
+                        "host_field": {
+                            DEFAULT_KEY: "host_default",
+                            TYPE_KEY: "string"
+                        },
                         "stool_field": {
                             DEFAULT_KEY: "stool_default",
+                            TYPE_KEY: "string"
+                        },
+                        SAMPLE_TYPE_KEY: {
+                            ALLOWED_KEY: ["stool"],
+                            DEFAULT_KEY: "stool",
+                            TYPE_KEY: "string"
+                        },
+                        QIITA_SAMPLE_TYPE: {
+                            ALLOWED_KEY: ["stool"],
+                            DEFAULT_KEY: "stool",
                             TYPE_KEY: "string"
                         }
                     }
@@ -1528,16 +1544,43 @@ class TestMetadataExtender(TestCase):
             LEAVE_REQUIREDS_BLANK_KEY: False,
             DEFAULT_KEY: "not provided"
         }
+        # Config is pre-resolved: alias "feces" has its own metadata_fields
+        # that is a copy of "stool"'s resolved fields with sample_type="stool"
         host_type_config_dict = {
             METADATA_FIELDS_KEY: {},
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                 "feces": {
-                    ALIAS_KEY: "stool"
+                    METADATA_FIELDS_KEY: {
+                        "stool_field": {
+                            DEFAULT_KEY: "stool_value",
+                            TYPE_KEY: "string"
+                        },
+                        SAMPLE_TYPE_KEY: {
+                            ALLOWED_KEY: ["stool"],
+                            DEFAULT_KEY: "stool",
+                            TYPE_KEY: "string"
+                        },
+                        QIITA_SAMPLE_TYPE: {
+                            ALLOWED_KEY: ["stool"],
+                            DEFAULT_KEY: "stool",
+                            TYPE_KEY: "string"
+                        }
+                    }
                 },
                 "stool": {
                     METADATA_FIELDS_KEY: {
                         "stool_field": {
                             DEFAULT_KEY: "stool_value",
+                            TYPE_KEY: "string"
+                        },
+                        SAMPLE_TYPE_KEY: {
+                            ALLOWED_KEY: ["stool"],
+                            DEFAULT_KEY: "stool",
+                            TYPE_KEY: "string"
+                        },
+                        QIITA_SAMPLE_TYPE: {
+                            ALLOWED_KEY: ["stool"],
+                            DEFAULT_KEY: "stool",
                             TYPE_KEY: "string"
                         }
                     }
@@ -1567,6 +1610,8 @@ class TestMetadataExtender(TestCase):
             LEAVE_REQUIREDS_BLANK_KEY: False,
             DEFAULT_KEY: "global_default"
         }
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
@@ -1580,8 +1625,22 @@ class TestMetadataExtender(TestCase):
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
                             METADATA_FIELDS_KEY: {
+                                "host_field": {
+                                    DEFAULT_KEY: "host_value",
+                                    TYPE_KEY: "string"
+                                },
                                 "stool_field": {
                                     DEFAULT_KEY: "stool_value",
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
                                     TYPE_KEY: "string"
                                 }
                             }
@@ -1692,6 +1751,8 @@ class TestMetadataExtender(TestCase):
             LEAVE_REQUIREDS_BLANK_KEY: False,
             DEFAULT_KEY: "global_default"
         }
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
@@ -1703,7 +1764,22 @@ class TestMetadataExtender(TestCase):
                     },
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
-                            METADATA_FIELDS_KEY: {}
+                            METADATA_FIELDS_KEY: {
+                                "human_field": {
+                                    DEFAULT_KEY: "human_value",
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                }
+                            }
                         }
                     }
                 },
@@ -1741,6 +1817,8 @@ class TestMetadataExtender(TestCase):
             LEAVE_REQUIREDS_BLANK_KEY: False,
             DEFAULT_KEY: "global_default"
         }
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
@@ -1751,6 +1829,16 @@ class TestMetadataExtender(TestCase):
                             METADATA_FIELDS_KEY: {
                                 "required_field": {
                                     REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
                                     TYPE_KEY: "string"
                                 }
                             }
@@ -1787,6 +1875,8 @@ class TestMetadataExtender(TestCase):
             LEAVE_REQUIREDS_BLANK_KEY: False,
             DEFAULT_KEY: "global_default"
         }
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
@@ -1797,6 +1887,16 @@ class TestMetadataExtender(TestCase):
                             METADATA_FIELDS_KEY: {
                                 "required_field": {
                                     REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
                                     TYPE_KEY: "string"
                                 }
                             }
@@ -1830,6 +1930,8 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
             QC_NOTE_KEY: ["", ""]
         })
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             DEFAULT_KEY: "global_default",
             LEAVE_REQUIREDS_BLANK_KEY: False,
@@ -1845,8 +1947,22 @@ class TestMetadataExtender(TestCase):
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
                             METADATA_FIELDS_KEY: {
+                                "host_field": {
+                                    DEFAULT_KEY: "host_value",
+                                    TYPE_KEY: "string"
+                                },
                                 "stool_field": {
                                     DEFAULT_KEY: "stool_value",
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
                                     TYPE_KEY: "string"
                                 }
                             }
@@ -1880,6 +1996,8 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool", "blood"],
             QC_NOTE_KEY: ["", "", ""]
         })
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             DEFAULT_KEY: "global_default",
             LEAVE_REQUIREDS_BLANK_KEY: False,
@@ -1894,10 +2012,40 @@ class TestMetadataExtender(TestCase):
                     },
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
-                            METADATA_FIELDS_KEY: {}
+                            METADATA_FIELDS_KEY: {
+                                "human_field": {
+                                    DEFAULT_KEY: "human_value",
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                }
+                            }
                         },
                         "blood": {
-                            METADATA_FIELDS_KEY: {}
+                            METADATA_FIELDS_KEY: {
+                                "human_field": {
+                                    DEFAULT_KEY: "human_value",
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                }
+                            }
                         }
                     }
                 },
@@ -1910,7 +2058,22 @@ class TestMetadataExtender(TestCase):
                     },
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
-                            METADATA_FIELDS_KEY: {}
+                            METADATA_FIELDS_KEY: {
+                                "mouse_field": {
+                                    DEFAULT_KEY: "mouse_value",
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                }
+                            }
                         }
                     }
                 }
@@ -2010,6 +2173,8 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool"],
             QC_NOTE_KEY: [""]
         })
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             DEFAULT_KEY: "global_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,  # This causes required fields to get LEAVE_BLANK_VAL
@@ -2022,6 +2187,16 @@ class TestMetadataExtender(TestCase):
                             METADATA_FIELDS_KEY: {
                                 "required_field": {
                                     REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
                                     TYPE_KEY: "string"
                                 }
                             }
@@ -2322,6 +2497,8 @@ class TestMetadataExtender(TestCase):
             HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
         })
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             DEFAULT_KEY: "not provided",
             LEAVE_REQUIREDS_BLANK_KEY: False,
@@ -2337,8 +2514,22 @@ class TestMetadataExtender(TestCase):
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
                             METADATA_FIELDS_KEY: {
+                                "host_field": {
+                                    DEFAULT_KEY: "host_value",
+                                    TYPE_KEY: "string"
+                                },
                                 "stool_field": {
                                     DEFAULT_KEY: "stool_value",
+                                    TYPE_KEY: "string"
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
                                     TYPE_KEY: "string"
                                 }
                             }
@@ -2372,6 +2563,8 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
             "input_sex": ["F", "Male"]
         })
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             DEFAULT_KEY: "not provided",
             LEAVE_REQUIREDS_BLANK_KEY: False,
@@ -2389,7 +2582,18 @@ class TestMetadataExtender(TestCase):
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
-                            METADATA_FIELDS_KEY: {}
+                            METADATA_FIELDS_KEY: {
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                }
+                            }
                         }
                     }
                 }
@@ -2418,6 +2622,8 @@ class TestMetadataExtender(TestCase):
             HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
         })
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             DEFAULT_KEY: "not provided",
             LEAVE_REQUIREDS_BLANK_KEY: False,
@@ -2435,7 +2641,18 @@ class TestMetadataExtender(TestCase):
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
-                            METADATA_FIELDS_KEY: {}
+                            METADATA_FIELDS_KEY: {
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                }
+                            }
                         }
                     }
                 }
@@ -2495,6 +2712,8 @@ class TestMetadataExtender(TestCase):
             HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
         })
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             DEFAULT_KEY: "not provided",
             LEAVE_REQUIREDS_BLANK_KEY: False,
@@ -2504,7 +2723,18 @@ class TestMetadataExtender(TestCase):
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
-                            METADATA_FIELDS_KEY: {}
+                            METADATA_FIELDS_KEY: {
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                }
+                            }
                         }
                     }
                 }
@@ -2534,6 +2764,8 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
             "source_field": ["hello", "world"]
         })
+        # Config is pre-resolved: sample type's metadata_fields includes
+        # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             DEFAULT_KEY: "not provided",
             LEAVE_REQUIREDS_BLANK_KEY: False,
@@ -2551,7 +2783,18 @@ class TestMetadataExtender(TestCase):
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
-                            METADATA_FIELDS_KEY: {}
+                            METADATA_FIELDS_KEY: {
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                }
+                            }
                         }
                     }
                 }
