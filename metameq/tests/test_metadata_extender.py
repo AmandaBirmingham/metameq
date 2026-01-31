@@ -4075,3 +4075,73 @@ class TestMetadataExtender(TestCase):
             validation_files = glob.glob(
                 os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
             self.assertEqual(0, len(validation_files))
+
+    # Integration tests
+
+    TEST_PROJECT1_METADATA_FP = path.join(TEST_DIR, "data/test_project1_input_metadata.csv")
+    TEST_PROJECT1_CONFIG_FP = path.join(TEST_DIR, "data/test_project1_config.yml")
+    TEST_PROJECT1_EXPECTED_OUTPUT_FP = path.join(
+        TEST_DIR, "data/test_project1_output_metadata.txt")
+    TEST_PROJECT1_EXPECTED_FAILS_FP = path.join(
+        TEST_DIR, "data/test_project1_output_fails.csv")
+    def test_write_extended_metadata_from_df_project1_integration(self):
+        """Integration test using project1 test data files."""
+
+        def write_mismatched_debug_files(expected_content, actual_content, file_name):
+            """Write debug files to Desktop for unmatched content."""
+            debug_dir = path.join(path.expanduser("~"), "Desktop")
+            with open(path.join(debug_dir, f"UNMATCHED_1_{file_name}"), 'w') as debug_expected_file:
+                debug_expected_file.write(expected_content)
+            with open(path.join(debug_dir, f"UNMATCHED_2_{file_name}"), 'w') as debug_actual_file:
+                debug_actual_file.write(actual_content)
+
+
+        # Load input metadata CSV
+        input_df = pandas.read_csv(self.TEST_PROJECT1_METADATA_FP, dtype=str)
+        # for the columns "plating_notes" and "notes", fill NaN with empty string
+        input_df["plating_notes"] = input_df["plating_notes"].fillna("")
+        input_df["notes"] = input_df["notes"].fillna("")
+
+        # Load study config
+        study_config = _get_study_specific_config(self.TEST_PROJECT1_CONFIG_FP)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            write_extended_metadata_from_df(
+                input_df, study_config, tmpdir, "test_output",
+                remove_internals=True)
+
+            # Compare main output file directly to expected file
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            with open(output_files[0], 'r') as actual_file:
+                actual_content = actual_file.read()
+            with open(self.TEST_PROJECT1_EXPECTED_OUTPUT_FP, 'r') as expected_file:
+                expected_content = expected_file.read()
+            try:
+                self.assertEqual(expected_content, actual_content)
+            except AssertionError:
+                write_mismatched_debug_files(
+                    expected_content, actual_content,
+                    "project1_output.txt")
+                raise
+
+            # Compare fails file directly to expected file
+            fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(1, len(fails_files))
+            with open(fails_files[0], 'r') as actual_file:
+                actual_fails_content = actual_file.read()
+            with open(self.TEST_PROJECT1_EXPECTED_FAILS_FP, 'r') as expected_file:
+                expected_fails_content = expected_file.read()
+            try:
+                self.assertEqual(expected_fails_content, actual_fails_content)
+            except AssertionError:
+                write_mismatched_debug_files(
+                    expected_fails_content, actual_fails_content,
+                    "project1_fails.csv")
+                raise
+
+            # Verify validation errors file is empty
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+            self.assertEqual(0, os.path.getsize(validation_files[0]))
