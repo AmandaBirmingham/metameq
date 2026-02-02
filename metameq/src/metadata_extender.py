@@ -450,7 +450,7 @@ def extend_metadata_df(
     """
     full_flat_config_dict = build_full_flat_config_dict(
         study_specific_config_dict, software_config_dict, stds_fp)
-    
+
     needed_cols = [(HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY), 
                    (SAMPLETYPE_SHORTHAND_KEY, SAMPLETYPE_COL_OPTIONS_KEY)]
     for curr_key, curr_options_key in needed_cols:
@@ -474,8 +474,9 @@ def extend_metadata_df(
 def _get_specified_column_name(
         col_options_key: str,
         raw_metadata_df: pandas.DataFrame,
-        config_dict: Dict[str, Any] = None) -> Tuple[Optional[str], Optional[str]]:
+        config_dict: Dict[str, Any] = None) -> Optional[str]:
     """Get the specified type of column name from the metadata DataFrame based on possible options.
+
     Parameters
     ----------
     col_options_key : str
@@ -488,7 +489,7 @@ def _get_specified_column_name(
         If None, defaults to values from the main config.yml file.
     Returns
     -------
-    Optional[str]]
+    Optional[str]
         The specified column name found in the DataFrame, or None if not found.
     """
     found_name = None
@@ -502,7 +503,7 @@ def _get_specified_column_name(
                 found_name = col_name
                 break
 
-    return found_name     
+    return found_name 
 
 def write_metadata_results(
         metadata_df: pandas.DataFrame,
