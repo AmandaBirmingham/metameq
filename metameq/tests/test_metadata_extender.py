@@ -14,7 +14,8 @@ from metameq.src.util import \
     OVERWRITE_NON_NANS_KEY, LEAVE_REQUIREDS_BLANK_KEY, LEAVE_BLANK_VAL, \
     HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_TRANSFORMERS_KEY, \
     SOURCES_KEY, FUNCTION_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
-    STUDY_SPECIFIC_METADATA_KEY
+    STUDY_SPECIFIC_METADATA_KEY, HOSTTYPE_COL_OPTIONS_KEY, \
+    SAMPLETYPE_COL_OPTIONS_KEY
 from metameq.src.metadata_extender import \
     id_missing_cols, get_qc_failures, get_reserved_cols, find_standard_cols, \
     find_nonstandard_cols, write_metadata_results, \
@@ -26,7 +27,7 @@ from metameq.src.metadata_extender import \
     _generate_metadata_for_a_host_type, _generate_metadata_for_host_types, \
     _transform_metadata, _populate_metadata_df, extend_metadata_df, \
     _get_study_specific_config, _output_metadata_df_to_files, \
-    INTERNAL_COL_KEYS, REQ_PLACEHOLDER
+    _get_specified_column_name, INTERNAL_COL_KEYS, REQ_PLACEHOLDER
 
 
 class TestMetadataExtender(TestCase):
@@ -3189,6 +3190,63 @@ class TestMetadataExtender(TestCase):
         })
         assert_frame_equal(expected_df, result_df)
 
+    def test_extend_metadata_df_with_alternate_column_names(self):
+        """Test metadata extension with alternate hosttype and sampletype column names."""
+        # Use alternate column names instead of hosttype_shorthand and sampletype_shorthand
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "host_type": ["human", "human"],
+            "sample": ["stool", "stool"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        # Software config specifies alternate column names
+        software_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            HOSTTYPE_COL_OPTIONS_KEY: ["host_type"],
+            SAMPLETYPE_COL_OPTIONS_KEY: ["sample"]
+        }
+
+        result_df, validation_msgs_df = extend_metadata_df(
+            input_df, study_config, None, software_config, self.TEST_STDS_FP)
+
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["UBERON:feces", "UBERON:feces"],
+            "body_site": ["gut", "gut"],
+            "description": ["human sample", "human sample"],
+            "host_common_name": ["human", "human"],
+            # Alternate column names from input are preserved
+            "host_type": ["human", "human"],
+            QIITA_SAMPLE_TYPE: ["stool", "stool"],
+            # Alternate column names from input are preserved
+            "sample": ["stool", "stool"],
+            SAMPLE_TYPE_KEY: ["stool", "stool"],
+            # Standard internal columns added at end (in order of INTERNAL_COL_KEYS)
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            QC_NOTE_KEY: ["", ""]
+        })
+        assert_frame_equal(expected_df, result_df)
+        self.assertTrue(validation_msgs_df.empty)
+
     # Tests for _get_study_specific_config
 
     def test__get_study_specific_config_with_valid_file(self):
@@ -4145,3 +4203,83 @@ class TestMetadataExtender(TestCase):
                 os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
             self.assertEqual(1, len(validation_files))
             self.assertEqual(0, os.path.getsize(validation_files[0]))
+
+    # Tests for _get_specified_column_name
+
+    def test__get_specified_column_name_finds_column(self):
+        """Test that _get_specified_column_name finds a column that exists."""
+        input_df = pandas.DataFrame({
+            "sample_name": ["s1"],
+            "host_type": ["human"]
+        })
+        config_dict = {
+            HOSTTYPE_COL_OPTIONS_KEY: ["host_type", "host_common_name"]
+        }
+        result = _get_specified_column_name(
+            HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
+        self.assertEqual("host_type", result)
+
+    def test__get_specified_column_name_returns_first_match(self):
+        """Test that _get_specified_column_name returns the first match when multiple options exist."""
+        input_df = pandas.DataFrame({
+            "sample_name": ["s1"],
+            "host_type": ["human"],
+            "host_common_name": ["human"]
+        })
+        config_dict = {
+            HOSTTYPE_COL_OPTIONS_KEY: ["host_type", "host_common_name"]
+        }
+        result = _get_specified_column_name(
+            HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
+        self.assertEqual("host_type", result)
+
+    def test__get_specified_column_name_returns_none_when_no_match(self):
+        """Test that _get_specified_column_name returns None when no options match."""
+        input_df = pandas.DataFrame({
+            "sample_name": ["s1"],
+            "other_column": ["value"]
+        })
+        config_dict = {
+            HOSTTYPE_COL_OPTIONS_KEY: ["host_type", "host_common_name"]
+        }
+        result = _get_specified_column_name(
+            HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
+        self.assertIsNone(result)
+
+    def test__get_specified_column_name_returns_none_when_key_missing(self):
+        """Test that _get_specified_column_name returns None when col_options_key is not in config."""
+        input_df = pandas.DataFrame({
+            "sample_name": ["s1"],
+            "host_type": ["human"]
+        })
+        config_dict = {}
+        result = _get_specified_column_name(
+            HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
+        self.assertIsNone(result)
+
+    def test__get_specified_column_name_returns_none_when_options_empty(self):
+        """Test that _get_specified_column_name returns None when col_options is empty list."""
+        input_df = pandas.DataFrame({
+            "sample_name": ["s1"],
+            "host_type": ["human"]
+        })
+        config_dict = {
+            HOSTTYPE_COL_OPTIONS_KEY: []
+        }
+        result = _get_specified_column_name(
+            HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
+        self.assertIsNone(result)
+
+    def test__get_specified_column_name_with_sampletype_key(self):
+        """Test that _get_specified_column_name works with sampletype column options."""
+        input_df = pandas.DataFrame({
+            "sample_name": ["s1"],
+            "sample_type": ["stool"]
+        })
+        config_dict = {
+            SAMPLETYPE_COL_OPTIONS_KEY: ["sample_type", "sampletype"]
+        }
+        result = _get_specified_column_name(
+            SAMPLETYPE_COL_OPTIONS_KEY, input_df, config_dict)
+        self.assertEqual("sample_type", result)
+    # endregion _get_specified_column_name tests

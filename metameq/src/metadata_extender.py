@@ -15,7 +15,8 @@ from metameq.src.util import extract_config_dict, \
     LEAVE_BLANK_VAL, SAMPLE_NAME_KEY, \
     ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY, OVERWRITE_NON_NANS_KEY, \
     METADATA_TRANSFORMERS_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
-    SOURCES_KEY, FUNCTION_KEY, REQUIRED_RAW_METADATA_FIELDS
+    SOURCES_KEY, FUNCTION_KEY, REQUIRED_RAW_METADATA_FIELDS, \
+    HOSTTYPE_COL_OPTIONS_KEY, SAMPLETYPE_COL_OPTIONS_KEY
 from metameq.src.metadata_configurator import update_wip_metadata_dict, \
     build_full_flat_config_dict
 from metameq.src.metadata_validator import validate_metadata_df, \
@@ -447,12 +448,21 @@ def extend_metadata_df(
     ValueError
         If required columns are missing from the metadata.
     """
+    full_flat_config_dict = build_full_flat_config_dict(
+        study_specific_config_dict, software_config_dict, stds_fp)
+
+    needed_cols = [(HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY), 
+                   (SAMPLETYPE_SHORTHAND_KEY, SAMPLETYPE_COL_OPTIONS_KEY)]
+    for curr_key, curr_options_key in needed_cols:
+        if curr_key not in raw_metadata_df.columns:
+            specified_name = _get_specified_column_name(
+                curr_options_key, raw_metadata_df, full_flat_config_dict)
+            if specified_name:
+                raw_metadata_df[curr_key] = raw_metadata_df[specified_name]
+
     validate_required_columns_exist(
         raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
         "metadata missing required columns")
-
-    full_flat_config_dict = build_full_flat_config_dict(
-        study_specific_config_dict, software_config_dict, stds_fp)
 
     metadata_df, validation_msgs_df = _populate_metadata_df(
         raw_metadata_df, full_flat_config_dict,
@@ -460,6 +470,40 @@ def extend_metadata_df(
 
     return metadata_df, validation_msgs_df
 
+
+def _get_specified_column_name(
+        col_options_key: str,
+        raw_metadata_df: pandas.DataFrame,
+        config_dict: Dict[str, Any] = None) -> Optional[str]:
+    """Get the specified type of column name from the metadata DataFrame based on possible options.
+
+    Parameters
+    ----------
+    col_options_key : str
+        Key in the config dict that holds the list of possible column names to check.
+    raw_metadata_df : pandas.DataFrame
+        The metadata DataFrame to check.
+    config_dict : Dict[str, Any], default=None
+        Configuration dictionary. If provided, may contain a list of possible
+        column names under the key specified by col_options_key. 
+        If None, defaults to values from the main config.yml file.
+    Returns
+    -------
+    Optional[str]
+        The specified column name found in the DataFrame, or None if not found.
+    """
+    found_name = None
+
+    if not config_dict:
+        config_dict = extract_config_dict(None)
+    col_options = config_dict.get(col_options_key)
+    if col_options:
+        for col_name in col_options:
+            if col_name in raw_metadata_df.columns:
+                found_name = col_name
+                break
+
+    return found_name 
 
 def write_metadata_results(
         metadata_df: pandas.DataFrame,
