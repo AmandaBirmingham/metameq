@@ -5,7 +5,9 @@ from metameq.src.util import \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
     ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
     STUDY_SPECIFIC_METADATA_KEY, LEAVE_REQUIREDS_BLANK_KEY, \
-    OVERWRITE_NON_NANS_KEY, REQUIRED_KEY, SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE
+    OVERWRITE_NON_NANS_KEY, REQUIRED_KEY, SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, \
+    HOST_COL_OPTIONS_KEY, SAMPLE_COL_OPTIONS_KEY, HOSTTYPE_SHORTHAND_KEY, \
+    SAMPLETYPE_SHORTHAND_KEY
 from metameq.src.metadata_configurator import \
     combine_stds_and_study_config, \
     _make_combined_stds_and_study_host_type_dicts, \
@@ -4643,6 +4645,8 @@ class TestMetadataConfigurator(TestCase):
             DEFAULT_KEY: "not applicable",
             LEAVE_REQUIREDS_BLANK_KEY: False,
             OVERWRITE_NON_NANS_KEY: False,
+            HOST_COL_OPTIONS_KEY: ["host_common_name", HOSTTYPE_SHORTHAND_KEY],
+            SAMPLE_COL_OPTIONS_KEY: ["sample_type", SAMPLETYPE_SHORTHAND_KEY],
             # Flattened host types
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {

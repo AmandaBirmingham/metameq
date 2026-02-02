@@ -1,3 +1,9 @@
 "default": "not applicable"
 "leave_requireds_blank": false
 "overwrite_non_nans": false
+"host_column_options":
+  - "host_common_name"
+  - "hosttype_shorthand"
+"sample_column_options":
+  - "sample_type"
+  - "sampletype_shorthand"

@@ -159,7 +159,7 @@ METAMEQ exports several utility functions for data handling:
 - **Metadata merging**: `merge_sample_and_subject_metadata`, `merge_many_to_one_metadata`, `merge_one_to_one_metadata`
 - **File loading**: `load_df_with_best_fit_encoding`
 - **Data transformers**: `transform_input_sex_to_std_sex`, `transform_age_to_life_stage`, `format_a_datetime`
-- **Validation**: `get_qc_failures`, `id_missing_cols`, `find_standard_cols`, `find_nonstandard_cols`
+- **Validation**: `get_qc_failures`, `find_standard_cols`, `find_nonstandard_cols`
 
 ### Key Constants
 

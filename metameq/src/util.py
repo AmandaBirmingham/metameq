@@ -27,6 +27,8 @@ SOURCES_KEY = "sources"
 FUNCTION_KEY = "function"
 LEAVE_REQUIREDS_BLANK_KEY = "leave_requireds_blank"
 OVERWRITE_NON_NANS_KEY = "overwrite_non_nans"
+HOST_COL_OPTIONS_KEY = "host_column_options"
+SAMPLE_COL_OPTIONS_KEY = "sample_column_options"
 
 # internal code keys
 HOSTTYPE_SHORTHAND_KEY = "hosttype_shorthand"
@@ -42,11 +44,6 @@ HOST_SUBJECT_ID_KEY = "host_subject_id"
 NOT_PROVIDED_VAL = "not provided"
 LEAVE_BLANK_VAL = "leaveblank"
 DO_NOT_USE_VAL = "donotuse"
-
-# required raw metadata fields
-REQUIRED_RAW_METADATA_FIELDS = [SAMPLE_NAME_KEY,
-                                HOSTTYPE_SHORTHAND_KEY,
-                                SAMPLETYPE_SHORTHAND_KEY]
 
 
 def extract_config_dict(

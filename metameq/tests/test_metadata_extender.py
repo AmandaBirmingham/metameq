@@ -8,15 +8,15 @@ from pandas.testing import assert_frame_equal
 from unittest import TestCase
 from metameq.src.util import \
     SAMPLE_NAME_KEY, HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
-    QC_NOTE_KEY, DEFAULT_KEY, REQUIRED_RAW_METADATA_FIELDS, REQUIRED_KEY, \
+    QC_NOTE_KEY, DEFAULT_KEY, REQUIRED_KEY, \
     METADATA_FIELDS_KEY, ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, TYPE_KEY, \
     SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, SAMPLE_TYPE_SPECIFIC_METADATA_KEY, \
     OVERWRITE_NON_NANS_KEY, LEAVE_REQUIREDS_BLANK_KEY, LEAVE_BLANK_VAL, \
     HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_TRANSFORMERS_KEY, \
     SOURCES_KEY, FUNCTION_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
-    STUDY_SPECIFIC_METADATA_KEY
+    STUDY_SPECIFIC_METADATA_KEY, HOST_COL_OPTIONS_KEY, SAMPLE_COL_OPTIONS_KEY
 from metameq.src.metadata_extender import \
-    id_missing_cols, get_qc_failures, get_reserved_cols, find_standard_cols, \
+    get_qc_failures, get_reserved_cols, find_standard_cols, \
     find_nonstandard_cols, write_metadata_results, \
     get_extended_metadata_from_df_and_yaml, write_extended_metadata_from_df, \
     write_extended_metadata, _reorder_df, _catch_nan_required_fields, \
@@ -26,48 +26,212 @@ from metameq.src.metadata_extender import \
     _generate_metadata_for_a_host_type, _generate_metadata_for_host_types, \
     _transform_metadata, _populate_metadata_df, extend_metadata_df, \
     _get_study_specific_config, _output_metadata_df_to_files, \
+    get_host_column_name, get_sample_column_name, _get_specified_column_name, \
+    _validate_metadata_required_cols_exist, \
     INTERNAL_COL_KEYS, REQ_PLACEHOLDER
 
 
 class TestMetadataExtender(TestCase):
     """Test suite for metadata_extender module."""
 
-    # Tests for id_missing_cols
+    # Tests for _get_specified_column_name
 
-    def test_id_missing_cols_all_present(self):
-        """Test returns empty list when all required columns exist."""
+    def test__get_specified_column_name_found(self):
+        """Test returns column name when found in DataFrame."""
+        input_df = pandas.DataFrame({
+            HOSTTYPE_SHORTHAND_KEY: ["human"],
+            "other_col": ["value"]
+        })
+        config_dict = {
+            HOST_COL_OPTIONS_KEY: ["host_type", HOSTTYPE_SHORTHAND_KEY]
+        }
+
+        result_name, result_msg = _get_specified_column_name(
+            HOST_COL_OPTIONS_KEY, input_df, config_dict)
+
+        self.assertEqual(HOSTTYPE_SHORTHAND_KEY, result_name)
+        self.assertIsNone(result_msg)
+
+    def test__get_specified_column_name_not_found(self):
+        """Test returns None and error message when column not found."""
+        input_df = pandas.DataFrame({
+            "other_col": ["value"]
+        })
+        config_dict = {
+            HOST_COL_OPTIONS_KEY: ["host_type", HOSTTYPE_SHORTHAND_KEY]
+        }
+
+        result_name, result_msg = _get_specified_column_name(
+            HOST_COL_OPTIONS_KEY, input_df, config_dict)
+
+        expected_msg = (f"None of the following {HOST_COL_OPTIONS_KEY} were "
+                        f"found in the metadata columns: "
+                        f"['host_type', '{HOSTTYPE_SHORTHAND_KEY}']")
+        self.assertIsNone(result_name)
+        self.assertEqual(expected_msg, result_msg)
+
+    def test__get_specified_column_name_first_match_returned(self):
+        """Test returns first matching column when multiple options match."""
+        input_df = pandas.DataFrame({
+            "host_type": ["human"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+        config_dict = {
+            HOST_COL_OPTIONS_KEY: ["host_type", HOSTTYPE_SHORTHAND_KEY]
+        }
+
+        result_name, result_msg = _get_specified_column_name(
+            HOST_COL_OPTIONS_KEY, input_df, config_dict)
+
+        self.assertEqual("host_type", result_name)
+        self.assertIsNone(result_msg)
+
+    # Tests for get_host_column_name
+
+    def test_get_host_column_name_found(self):
+        """Test returns host column name when found."""
+        input_df = pandas.DataFrame({
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+        config_dict = {
+            HOST_COL_OPTIONS_KEY: ["host_type", HOSTTYPE_SHORTHAND_KEY, "host"]
+        }
+
+        result_name, result_msg = get_host_column_name(input_df, config_dict)
+
+        self.assertEqual(HOSTTYPE_SHORTHAND_KEY, result_name)
+        self.assertIsNone(result_msg)
+
+    def test_get_host_column_name_not_found(self):
+        """Test returns None and error message when host column not found."""
+        input_df = pandas.DataFrame({
+            "other_col": ["value"]
+        })
+        config_dict = {
+            HOST_COL_OPTIONS_KEY: ["host_type", HOSTTYPE_SHORTHAND_KEY, "host"]
+        }
+
+        result_name, result_msg = get_host_column_name(input_df, config_dict)
+
+        expected_msg = (f"None of the following {HOST_COL_OPTIONS_KEY} were "
+                        f"found in the metadata columns: "
+                        f"['host_type', '{HOSTTYPE_SHORTHAND_KEY}', 'host']")
+        self.assertIsNone(result_name)
+        self.assertEqual(expected_msg, result_msg)
+
+    # Tests for get_sample_column_name
+
+    def test_get_sample_column_name_found(self):
+        """Test returns sample column name when found."""
+        input_df = pandas.DataFrame({
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+        config_dict = {
+            SAMPLE_COL_OPTIONS_KEY: ["sample_type", SAMPLETYPE_SHORTHAND_KEY,
+                                     "sample"]
+        }
+
+        result_name, result_msg = get_sample_column_name(input_df, config_dict)
+
+        self.assertEqual(SAMPLETYPE_SHORTHAND_KEY, result_name)
+        self.assertIsNone(result_msg)
+
+    def test_get_sample_column_name_not_found(self):
+        """Test returns None and error message when sample column not found."""
+        input_df = pandas.DataFrame({
+            "other_col": ["value"]
+        })
+        config_dict = {
+            SAMPLE_COL_OPTIONS_KEY: ["sample_type", SAMPLETYPE_SHORTHAND_KEY,
+                                     "sample"]
+        }
+
+        result_name, result_msg = get_sample_column_name(input_df, config_dict)
+
+        expected_msg = (f"None of the following {SAMPLE_COL_OPTIONS_KEY} were "
+                        f"found in the metadata columns: "
+                        f"['sample_type', '{SAMPLETYPE_SHORTHAND_KEY}', "
+                        f"'sample']")
+        self.assertIsNone(result_name)
+        self.assertEqual(expected_msg, result_msg)
+
+    # Tests for _validate_metadata_required_cols_exist
+
+    def test__validate_metadata_required_cols_exist_all_present(self):
+        """Test returns required columns list when all columns exist."""
         input_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
+            "host_common_name": ["human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+
+        result = _validate_metadata_required_cols_exist(input_df)
+
+        expected = ["host_common_name", SAMPLETYPE_SHORTHAND_KEY,
+                    SAMPLE_NAME_KEY]
+        self.assertEqual(expected, result)
+
+    def test__validate_metadata_required_cols_exist_missing_host_raises(self):
+        """Test raises ValueError when host column is missing."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+
+        with self.assertRaisesRegex(
+                ValueError,
+                f"None of the following {HOST_COL_OPTIONS_KEY} were found"):
+            _validate_metadata_required_cols_exist(input_df)
+
+    def test__validate_metadata_required_cols_exist_missing_sample_raises(self):
+        """Test raises ValueError when sample column is missing."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+
+        with self.assertRaisesRegex(
+                ValueError,
+                f"None of the following {SAMPLE_COL_OPTIONS_KEY} were found"):
+            _validate_metadata_required_cols_exist(input_df)
+
+    def test__validate_metadata_required_cols_exist_missing_sample_name_raises(self):
+        """Test raises ValueError when sample_name column is missing."""
+        input_df = pandas.DataFrame({
             HOSTTYPE_SHORTHAND_KEY: ["human"],
             SAMPLETYPE_SHORTHAND_KEY: ["stool"]
         })
 
-        result = id_missing_cols(input_df)
+        with self.assertRaisesRegex(
+                ValueError,
+                f"{SAMPLE_NAME_KEY} column is missing from metadata"):
+            _validate_metadata_required_cols_exist(input_df)
 
-        expected = []
-        self.assertEqual(expected, result)
-
-    def test_id_missing_cols_some_missing(self):
-        """Test returns sorted list of missing required columns."""
+    def test__validate_metadata_required_cols_exist_leave_out_sample_name(self):
+        """Test returns columns without sample_name when leave_out_sample_name is True."""
         input_df = pandas.DataFrame({
-            SAMPLE_NAME_KEY: ["sample1"]
+            HOSTTYPE_SHORTHAND_KEY: ["human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
         })
 
-        result = id_missing_cols(input_df)
+        result = _validate_metadata_required_cols_exist(
+            input_df, leave_out_sample_name=True)
 
-        expected = sorted([HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY])
+        expected = [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY]
         self.assertEqual(expected, result)
 
-    def test_id_missing_cols_all_missing(self):
-        """Test returns all required columns when df has none of them."""
+    def test__validate_metadata_required_cols_exist_multiple_missing_raises(self):
+        """Test raises ValueError with all missing columns when multiple are missing."""
         input_df = pandas.DataFrame({
-            "other_col": ["value1"]
+            "other_col": ["value"]
         })
 
-        result = id_missing_cols(input_df)
-
-        expected = sorted(REQUIRED_RAW_METADATA_FIELDS)
-        self.assertEqual(expected, result)
+        with self.assertRaisesRegex(
+                ValueError,
+                f"None of the following {HOST_COL_OPTIONS_KEY}.*"
+                f"None of the following {SAMPLE_COL_OPTIONS_KEY}.*"
+                f"{SAMPLE_NAME_KEY} column is missing"):
+            _validate_metadata_required_cols_exist(input_df)
 
     # Tests for get_reserved_cols
 
@@ -392,7 +556,6 @@ class TestMetadataExtender(TestCase):
         """Test returns columns in df that are not in the reserved columns list."""
         input_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
-            HOSTTYPE_SHORTHAND_KEY: ["human"],
             SAMPLETYPE_SHORTHAND_KEY: ["stool"],
             "body_site": ["gut"],
             "host_common_name": ["human"],
@@ -703,6 +866,24 @@ class TestMetadataExtender(TestCase):
         expected_order = [SAMPLE_NAME_KEY, "apple", "banana", "zebra"] + INTERNAL_COL_KEYS
         self.assertEqual(expected_order, list(result.columns))
 
+    def test__reorder_df_missing_internal_col(self):
+        """Test that missing internal columns are skipped without error."""
+        input_df = pandas.DataFrame({
+            "zebra": ["z"],
+            SAMPLE_NAME_KEY: ["sample1"],
+            "apple": ["a"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+        # Include internal columns that don't exist in the DataFrame
+        internal_cols = [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY,
+                         QC_NOTE_KEY, "nonexistent_col"]
+
+        result = _reorder_df(input_df, internal_cols)
+
+        expected_order = [SAMPLE_NAME_KEY, "apple", "zebra",
+                          HOSTTYPE_SHORTHAND_KEY]
+        self.assertEqual(expected_order, list(result.columns))
+
     # Tests for _catch_nan_required_fields
 
     def test__catch_nan_required_fields_no_nans(self):
@@ -713,8 +894,19 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "blank"]
         })
 
-        result = _catch_nan_required_fields(input_df)
+        result = _catch_nan_required_fields(input_df, (HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY))
 
+        assert_frame_equal(input_df, result)
+
+    def test__catch_nan_required_fields_no_nans_custom_fields(self):
+        """Test returns unchanged df when no NaNs in required fields."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "myhost": ["human", "control"],
+            "mysample": ["stool", "blank"]
+        })
+
+        result = _catch_nan_required_fields(input_df, ("myhost", "mysample"))
         assert_frame_equal(input_df, result)
 
     def test__catch_nan_required_fields_nan_sample_name_raises(self):
@@ -726,7 +918,7 @@ class TestMetadataExtender(TestCase):
         })
 
         with self.assertRaisesRegex(ValueError, "Metadata contains NaN sample names"):
-            _catch_nan_required_fields(input_df)
+            _catch_nan_required_fields(input_df, [HOSTTYPE_SHORTHAND_KEY])
 
     def test__catch_nan_required_fields_nan_shorthand_fields_become_empty(self):
         """Test that NaN hosttype_shorthand and sampletype_shorthand values are set to 'empty'."""
@@ -736,7 +928,7 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: [np.nan, "blank"]
         })
 
-        result = _catch_nan_required_fields(input_df)
+        result = _catch_nan_required_fields(input_df, [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY])
 
         expected = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
@@ -3015,7 +3207,9 @@ class TestMetadataExtender(TestCase):
         })
         study_config = {}
 
-        with self.assertRaisesRegex(ValueError, "metadata missing required columns"):
+        with self.assertRaisesRegex(
+            ValueError, 
+            "None of the following host_column_options were found in the metadata columns:"):
             extend_metadata_df(input_df, study_config, None, None, self.TEST_STDS_FP)
 
     def test_extend_metadata_df_none_study_config(self):

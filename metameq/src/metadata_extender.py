@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any
 from metameq.src.util import extract_config_dict, \
-    deepcopy_dict, validate_required_columns_exist, get_extension, \
+    deepcopy_dict, get_extension, \
     load_df_with_best_fit_encoding, update_metadata_df_field, \
     HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
     QC_NOTE_KEY, METADATA_FIELDS_KEY, HOST_TYPE_SPECIFIC_METADATA_KEY, \
@@ -15,7 +15,7 @@ from metameq.src.util import extract_config_dict, \
     LEAVE_BLANK_VAL, SAMPLE_NAME_KEY, \
     ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY, OVERWRITE_NON_NANS_KEY, \
     METADATA_TRANSFORMERS_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
-    SOURCES_KEY, FUNCTION_KEY, REQUIRED_RAW_METADATA_FIELDS
+    SOURCES_KEY, FUNCTION_KEY, HOST_COL_OPTIONS_KEY, SAMPLE_COL_OPTIONS_KEY
 from metameq.src.metadata_configurator import update_wip_metadata_dict, \
     build_full_flat_config_dict
 from metameq.src.metadata_validator import validate_metadata_df, \
@@ -37,6 +37,144 @@ pandas.set_option("future.no_silent_downcasting", True)
 # TODO: find a way to inform user that they *are not allowed* to have a 'sample_id' column
 #  (Per Antonio 10/28/24, this is a reserved name for Qiita and may not be
 #  in the metadata).
+
+
+def get_host_column_name(
+        raw_metadata_df: pandas.DataFrame,
+        config_dict: Dict[str, Any] = None) -> Tuple[Optional[str], Optional[str]]:
+    """Get the host column name from the metadata DataFrame based on possible options.
+
+    Parameters
+    ----------
+    raw_metadata_df : pandas.DataFrame
+        The metadata DataFrame to check.
+    config_dict : Dict[str, Any], default=None
+        Configuration dictionary. If provided, may contain a list of possible
+        host column names under the key HOST_COL_OPTIONS_KEY. 
+        If None, defaults to values from the main config.yml file.
+
+    Returns
+    -------
+    Tuple[Optional[str], Optional[str]]
+        The host column name found in the DataFrame, or None if not found,
+        and an optional error message if not found (None if found).
+    """
+    return _get_specified_column_name(
+        HOST_COL_OPTIONS_KEY, raw_metadata_df, config_dict)
+
+
+def get_sample_column_name(
+        raw_metadata_df: pandas.DataFrame,
+        config_dict: Dict[str, Any] = None) -> Tuple[Optional[str], Optional[str]]:
+    """Get the sample column name from the metadata DataFrame based on possible options.
+
+    Parameters
+    ----------
+    raw_metadata_df : pandas.DataFrame
+        The metadata DataFrame to check.
+    config_dict : Dict[str, Any], default=None
+        Configuration dictionary. If provided, may contain a list of possible
+        sample column names under the key SAMPLE_COL_OPTIONS_KEY.
+        If None, defaults to values from the main config.yml file.
+
+    Returns
+    -------
+    Tuple[Optional[str], Optional[str]]
+        The sample column name found in the DataFrame, or None if not found,
+        and an optional error message if not found (None if found).
+    """
+    return _get_specified_column_name(
+        SAMPLE_COL_OPTIONS_KEY, raw_metadata_df, config_dict)
+
+
+def _get_specified_column_name(
+        col_options_key: str,
+        raw_metadata_df: pandas.DataFrame,
+        config_dict: Dict[str, Any] = None) -> Tuple[Optional[str], Optional[str]]:
+    """Get the specified type of column name from the metadata DataFrame based on possible options.
+
+    Parameters
+    ----------
+    col_options_key : str
+        Key in the config dict that holds the list of possible column names to check.
+    raw_metadata_df : pandas.DataFrame
+        The metadata DataFrame to check.
+    config_dict : Dict[str, Any], default=None
+        Configuration dictionary. If provided, may contain a list of possible
+        column names under the key specified by col_options_key. 
+        If None, defaults to values from the main config.yml file.
+
+    Returns
+    -------
+    Tuple[Optional[str], Optional[str]]
+        The specified type of column name found in the DataFrame, or None if not found,
+        and an optional error message if not found (None if found).
+
+
+    """
+    found_name = None
+    msg = None
+
+    if config_dict and col_options_key in config_dict:
+        col_options = config_dict[col_options_key]
+    else:
+        config_dict = extract_config_dict(None)
+        col_options = config_dict.get(col_options_key)
+        
+    for col_name in col_options:
+        if col_name in raw_metadata_df.columns:
+            found_name = col_name
+            break
+    # end for
+
+    if not found_name:
+        msg = f"None of the following {col_options_key} were found in the metadata columns: {col_options}"
+    
+    return found_name, msg
+
+
+def _validate_metadata_required_cols_exist(
+        raw_metadata_df: pandas.DataFrame,
+        leave_out_sample_name: bool = False) -> List[str]:
+    """Validate that required columns exist in the metadata DataFrame.
+
+    Parameters
+    ----------
+    raw_metadata_df : pandas.DataFrame
+        The metadata DataFrame to check.
+    leave_out_sample_name : bool, default=False
+        Whether to leave out SAMPLE_NAME_KEY from the required columns check.
+
+    Returns
+    -------
+    List[str]
+        List of required column names.
+
+    Raises
+    ------
+    ValueError
+        If any required columns are missing from the DataFrame.
+    """
+    required_cols = []
+    err_msgs = []
+    for curr_col in [HOST_COL_OPTIONS_KEY, SAMPLE_COL_OPTIONS_KEY]:
+        col_name, err_msg = _get_specified_column_name(
+            curr_col, raw_metadata_df, None)
+        if err_msg:
+            err_msgs.append(err_msg)
+        else:
+            required_cols.append(col_name)
+    # end for
+
+    if not leave_out_sample_name:
+        required_cols.append(SAMPLE_NAME_KEY)
+        if SAMPLE_NAME_KEY not in raw_metadata_df.columns:
+            err_msgs.append(f"{SAMPLE_NAME_KEY} column is missing from metadata")
+
+    if err_msgs:
+        raise ValueError("; ".join(err_msgs))
+    
+    return required_cols
 
 
 def get_reserved_cols(
@@ -70,24 +208,22 @@ def get_reserved_cols(
     ValueError
         If required columns are missing from the metadata.
     """
-    validate_required_columns_exist(
-        raw_metadata_df, [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY],
-        "metadata missing required columns")
+    hosttype_and_sampletype_col_keys = \
+        _validate_metadata_required_cols_exist(raw_metadata_df, leave_out_sample_name=True)
 
     # Essentially, mock a minimal metadata valid metadata dataframe and then
     # use extend_metadata_df to add all the required columns to it (either empty
     # or with default values but we don't care about the actual values), then
     # return the list of column names from that extended df.
 
-    # get unique HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY combinations
-    temp_df = raw_metadata_df[
-        [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY]].copy()
+    # get unique hosttype and sampletype combinations
+    temp_df = raw_metadata_df[hosttype_and_sampletype_col_keys].copy()
     temp_df.drop_duplicates(inplace=True)
 
     # add a bogus SAMPLE_NAME_KEY column to the df that just holds sequential integers
     temp_df[SAMPLE_NAME_KEY] = range(1, len(temp_df) + 1)
 
-    temp_df = _catch_nan_required_fields(temp_df)
+    temp_df = _catch_nan_required_fields(temp_df, hosttype_and_sampletype_col_keys)
 
     # extend the metadata_df to get all the required columns for all host+sample type combinations;
     # we don't really care about the contents of these columns, just their names.
@@ -97,24 +233,6 @@ def get_reserved_cols(
         temp_df, study_specific_config_dict, None, None, stds_fp)
 
     return sorted(metadata_df.columns.to_list())
-
-
-def id_missing_cols(a_df: pandas.DataFrame) -> List[str]:
-    """Identify required columns that are missing from the DataFrame.
-
-    Parameters
-    ----------
-    a_df : pandas.DataFrame
-        The metadata DataFrame to check for missing columns.
-
-    Returns
-    -------
-    List[str]
-        Sorted list of required column names that are missing from the DataFrame.
-        Empty if there are no missing columns.
-    """
-    missing_cols = set(REQUIRED_RAW_METADATA_FIELDS) - set(a_df.columns)
-    return sorted(list(missing_cols))
 
 
 def find_standard_cols(
@@ -147,13 +265,8 @@ def find_standard_cols(
     ValueError
         If required columns are missing from the metadata.
     """
-    err_msg = "metadata missing required columns"
-    required_cols = REQUIRED_RAW_METADATA_FIELDS.copy()
-    if suppress_missing_name_err:
-        # remove the sample name from the required columns list
-        required_cols.remove(SAMPLE_NAME_KEY)
-    # endif
-    validate_required_columns_exist(a_df, required_cols, err_msg)
+    _validate_metadata_required_cols_exist(
+        a_df, leave_out_sample_name=suppress_missing_name_err)
 
     # get the intersection of the reserved standard columns and
     # the columns in the input dataframe
@@ -192,8 +305,7 @@ def find_nonstandard_cols(
     ValueError
         If required columns are missing from the metadata.
     """
-    validate_required_columns_exist(a_df, REQUIRED_RAW_METADATA_FIELDS,
-                                    "metadata missing required columns")
+    _validate_metadata_required_cols_exist(a_df)
 
     # get the columns in
     standard_cols = get_reserved_cols(
@@ -447,9 +559,6 @@ def extend_metadata_df(
     ValueError
         If required columns are missing from the metadata.
     """
-    validate_required_columns_exist(
-        raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
-        "metadata missing required columns")
 
     full_flat_config_dict = build_full_flat_config_dict(
         study_specific_config_dict, software_config_dict, stds_fp)
@@ -513,7 +622,8 @@ def _populate_metadata_df(
     ----------
     raw_metadata_df : pandas.DataFrame
         The raw metadata DataFrame to populate, which must contain at least
-        the columns in REQUIRED_RAW_METADATA_FIELDS.
+        the SAMPLE_NAME_KEY column, one for the kind of host, and one for the
+        kind of sample.
     full_flat_config_dict : Dict[str, Any]
         Fully combined flat-host-type config dictionary.
     transformer_funcs_dict : Optional[Dict[str, Any]]
@@ -529,12 +639,16 @@ def _populate_metadata_df(
             - The populated metadata DataFrame
             - A DataFrame containing validation messages
     """
+    hosttype_and_sampletype_col_keys = \
+        _validate_metadata_required_cols_exist(raw_metadata_df)
+
+
     metadata_df = raw_metadata_df.copy()
     # Don't try to populate the QC_NOTE_KEY field, since it is an internal field
     update_metadata_df_field(metadata_df, QC_NOTE_KEY, LEAVE_BLANK_VAL)
 
     # Error for NaNs in sample name, warn for NaNs in host- and sample-type- shorthand fields.
-    metadata_df = _catch_nan_required_fields(metadata_df)
+    metadata_df = _catch_nan_required_fields(metadata_df, hosttype_and_sampletype_col_keys)
 
     # Apply pre-transformers to the metadata. Pre-transformers run BEFORE host- and sample-type
     # specific generation (which also includes validation), so they can transform raw input fields
@@ -565,13 +679,18 @@ def _populate_metadata_df(
     return metadata_df, validation_msgs_df
 
 
-def _catch_nan_required_fields(metadata_df: pandas.DataFrame) -> pandas.DataFrame:
+def _catch_nan_required_fields(
+        metadata_df: pandas.DataFrame, 
+        hosttype_and_sampletype_col_keys: Tuple[str, str]) -> pandas.DataFrame:
     """Error for NaNs in sample name, warn for NaNs in host- and sample-type- shorthand fields.
 
     Parameters
     ----------
     metadata_df : pandas.DataFrame
         The metadata DataFrame to process.
+    hosttype_and_sampletype_col_keys : Tuple[str, str]
+        Tuple containing the column names for the columns holding the
+        kind of host and the kind of sample.
 
     Returns
     -------
@@ -590,7 +709,7 @@ def _catch_nan_required_fields(metadata_df: pandas.DataFrame) -> pandas.DataFram
 
     # if there are any hosttype_shorthand or sampletype_shorthand fields
     # that are NaN, set them to "empty" and raise a warning
-    for curr_key in [HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY]:
+    for curr_key in hosttype_and_sampletype_col_keys:
         nan_mask = metadata_df[curr_key].isna()
         if nan_mask.any():
             metadata_df.loc[nan_mask, curr_key] = "empty"
@@ -612,7 +731,8 @@ def _transform_metadata(
     ----------
     metadata_df : pandas.DataFrame
         The metadata DataFrame to transform, which must contain at least
-        the columns in REQUIRED_RAW_METADATA_FIELDS.
+        the SAMPLE_NAME_KEY column, one for the kind of host, and one for the
+        kind of sample.
     full_flat_config_dict : Dict[str, Any]
         Fully combined flat-host-type config dictionary.
     stage_key : str
@@ -683,7 +803,8 @@ def _generate_metadata_for_host_types(
     ----------
     metadata_df : pandas.DataFrame
         The metadata DataFrame to process, which must contain at least
-        the columns in REQUIRED_RAW_METADATA_FIELDS.
+        the SAMPLE_NAME_KEY column, one for the kind of host, and one for the
+        kind of sample.
     full_flat_config_dict : Dict[str, Any]
         Fully combined flat-host-type config dictionary.
 
@@ -703,8 +824,10 @@ def _generate_metadata_for_host_types(
 
     validation_msgs = []
     host_type_dfs = []
+
     # For all the host types present in the metadata, generate the specific metadata
-    host_type_shorthands = pandas.unique(metadata_df[HOSTTYPE_SHORTHAND_KEY])
+    host_type_col_name, _ = get_host_column_name(metadata_df, full_flat_config_dict)
+    host_type_shorthands = pandas.unique(metadata_df[host_type_col_name])
     for curr_host_type_shorthand in host_type_shorthands:
         concatted_dfs, curr_validation_msgs = _generate_metadata_for_a_host_type(
                 metadata_df, curr_host_type_shorthand, settings_dict, full_flat_config_dict)
@@ -743,7 +866,8 @@ def _generate_metadata_for_a_host_type(
     ----------
     metadata_df : pandas.DataFrame
         The metadata DataFrame to process, which must contain at least
-        the columns in REQUIRED_RAW_METADATA_FIELDS.
+        the SAMPLE_NAME_KEY column, one for the kind of host, and one for the
+        kind of sample.
     a_host_type : str
         The specific host type for which to process samples.
     settings_dict : Dict[str, Any]
@@ -759,8 +883,9 @@ def _generate_metadata_for_a_host_type(
             - A list of validation messages
     """
     # get the subset of the metadata DataFrame that contains samples of the input host type
+    hosttype_col_name, _ = get_host_column_name(metadata_df, full_flat_config_dict)
     host_type_mask = \
-        metadata_df[HOSTTYPE_SHORTHAND_KEY] == a_host_type
+        metadata_df[hosttype_col_name] == a_host_type
     host_type_df = metadata_df.loc[host_type_mask, :].copy()
 
     validation_msgs = []
@@ -1164,7 +1289,8 @@ def _reorder_df(a_df: pandas.DataFrame, internal_col_names: List[str]) -> pandas
     # move the internal columns to the end of the list of cols to output
     col_names = list(working_df)
     for curr_internal_col_name in internal_col_names:
-        # TODO: throw an error if the internal col name is not present
+        if curr_internal_col_name not in col_names:
+            continue
         col_names.pop(col_names.index(curr_internal_col_name))
         col_names.append(curr_internal_col_name)
 
