@@ -9,7 +9,7 @@ from metameq.src.metadata_extender import \
     write_extended_metadata, write_extended_metadata_from_df, \
     get_reserved_cols, get_extended_metadata_from_df_and_yaml, \
     write_metadata_results, id_missing_cols, find_standard_cols, \
-    find_nonstandard_cols, get_qc_failures
+    find_nonstandard_cols, get_qc_failures, extend_metadata_df
 from metameq.src.metadata_merger import merge_sample_and_subject_metadata, \
     merge_many_to_one_metadata, merge_one_to_one_metadata, \
     find_common_col_names, find_common_df_cols
@@ -36,7 +36,8 @@ __all__ = ["HOSTTYPE_SHORTHAND_KEY", "SAMPLETYPE_SHORTHAND_KEY",
            "find_nonstandard_cols", "get_qc_failures",
            "format_a_datetime", "standardize_input_sex",
            "set_life_stage_from_age_yrs", "transform_input_sex_to_std_sex",
-           "transform_age_to_life_stage", "transform_date_to_formatted_date"]
+           "transform_age_to_life_stage", "transform_date_to_formatted_date",
+           "extend_metadata_df"]
 
 from . import _version
 __version__ = _version.get_versions()['version']

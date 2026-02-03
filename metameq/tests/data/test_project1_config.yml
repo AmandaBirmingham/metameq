@@ -14,6 +14,11 @@
             - 'TRUE'
           default: 'TRUE'
           type: string
+        is_included:
+          allowed:
+            - 'TRUE'
+            - 'FALSE'
+          type: string
         physical_specimen_location:
           allowed:
             - 'UCSDMI'

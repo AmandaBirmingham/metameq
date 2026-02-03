@@ -106,7 +106,7 @@ from metameq import (
 )
 
 # Load your raw metadata into a DataFrame
-raw_metadata_df = pd.read_csv("my_samples.csv")
+raw_metadata_df = pd.read_csv("my_samples.csv", dtype=str)
 
 # Ensure required columns exist
 raw_metadata_df[HOSTTYPE_SHORTHAND_KEY] = "human"

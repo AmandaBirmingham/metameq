@@ -547,7 +547,7 @@ class TestOutputValidationMsgs(TestCase):
             output_files = glob.glob(os.path.join(tmp_dir, "*_test_validation_errors.txt"))
             self.assertEqual(1, len(output_files))
 
-            result_df = pd.read_csv(output_files[0], sep="\t")
+            result_df = pd.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             pd.testing.assert_frame_equal(validation_msgs_df, result_df)
 
     def test_output_validation_msgs_non_empty_df_comma_separator(self):
@@ -564,7 +564,7 @@ class TestOutputValidationMsgs(TestCase):
             output_files = glob.glob(os.path.join(tmp_dir, "*_test_validation_errors.csv"))
             self.assertEqual(1, len(output_files))
 
-            result_df = pd.read_csv(output_files[0], sep=",")
+            result_df = pd.read_csv(output_files[0], sep=",", dtype=str, keep_default_na=False)
             pd.testing.assert_frame_equal(validation_msgs_df, result_df)
 
     def test_output_validation_msgs_empty_df_creates_empty_file(self):
