@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Any
 from metameq.src.util import extract_config_dict, \
-    deepcopy_dict, validate_required_columns_exist, get_extension, \
+    validate_required_columns_exist, get_extension, \
     load_df_with_best_fit_encoding, update_metadata_df_field, \
     HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
     QC_NOTE_KEY, METADATA_FIELDS_KEY, HOST_TYPE_SPECIFIC_METADATA_KEY, \
@@ -451,7 +451,7 @@ def extend_metadata_df(
     full_flat_config_dict = build_full_flat_config_dict(
         study_specific_config_dict, software_config_dict, stds_fp)
 
-    needed_cols = [(HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY), 
+    needed_cols = [(HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY),
                    (SAMPLETYPE_SHORTHAND_KEY, SAMPLETYPE_COL_OPTIONS_KEY)]
     for curr_key, curr_options_key in needed_cols:
         if curr_key not in raw_metadata_df.columns:
@@ -485,7 +485,7 @@ def _get_specified_column_name(
         The metadata DataFrame to check.
     config_dict : Dict[str, Any], default=None
         Configuration dictionary. If provided, may contain a list of possible
-        column names under the key specified by col_options_key. 
+        column names under the key specified by col_options_key.
         If None, defaults to values from the main config.yml file.
     Returns
     -------
@@ -503,7 +503,8 @@ def _get_specified_column_name(
                 found_name = col_name
                 break
 
-    return found_name 
+    return found_name
+
 
 def write_metadata_results(
         metadata_df: pandas.DataFrame,
@@ -738,12 +739,6 @@ def _generate_metadata_for_host_types(
             - The processed DataFrame with specific metadata added to each sample of each host type
             - A list of validation messages
     """
-    # gather global settings
-    settings_dict = {DEFAULT_KEY: full_flat_config_dict.get(DEFAULT_KEY),
-                     LEAVE_REQUIREDS_BLANK_KEY:
-                         full_flat_config_dict.get(LEAVE_REQUIREDS_BLANK_KEY),
-                     OVERWRITE_NON_NANS_KEY:
-                         full_flat_config_dict.get(OVERWRITE_NON_NANS_KEY)}
 
     validation_msgs = []
     host_type_dfs = []
@@ -751,7 +746,7 @@ def _generate_metadata_for_host_types(
     host_type_shorthands = pandas.unique(metadata_df[HOSTTYPE_SHORTHAND_KEY])
     for curr_host_type_shorthand in host_type_shorthands:
         concatted_dfs, curr_validation_msgs = _generate_metadata_for_a_host_type(
-                metadata_df, curr_host_type_shorthand, settings_dict, full_flat_config_dict)
+                metadata_df, curr_host_type_shorthand, full_flat_config_dict)
 
         host_type_dfs.append(concatted_dfs)
         validation_msgs.extend(curr_validation_msgs)
@@ -767,7 +762,7 @@ def _generate_metadata_for_host_types(
     # NB: passing in the same dict twice here is not a mistake, just a
     # convenience since we don't have a more specific dict at this point.
     output_df = _fill_na_if_default(
-        output_df, settings_dict, settings_dict)
+        output_df, full_flat_config_dict)
 
     # TODO: this is setting a value in the output; should it be centralized
     #  so it is easy to find?
@@ -779,7 +774,6 @@ def _generate_metadata_for_host_types(
 def _generate_metadata_for_a_host_type(
         metadata_df: pandas.DataFrame,
         a_host_type: str,
-        settings_dict: Dict[str, Any],
         full_flat_config_dict: Dict[str, Any]) -> Tuple[pandas.DataFrame, List[str]]:
     """Generate metadata df for samples with a specific host type.
 
@@ -790,8 +784,6 @@ def _generate_metadata_for_a_host_type(
         the columns in REQUIRED_RAW_METADATA_FIELDS.
     a_host_type : str
         The specific host type for which to process samples.
-    settings_dict : Dict[str, Any]
-        Dictionary containing global settings for default/nan/etc.
     full_flat_config_dict : Dict[str, Any]
         Fully combined flat-host-type config dictionary.
 
@@ -814,16 +806,11 @@ def _generate_metadata_for_a_host_type(
         # for these samples but do not error out; move on to the next host type
         update_metadata_df_field(
             host_type_df, QC_NOTE_KEY, "invalid host_type")
-        # host_type_df[QC_NOTE_KEY] = "invalid host_type"
         concatted_df = host_type_df
     else:
         # gather host-type-specific settings and overwrite the global settings with them, if any
         a_host_type_config_dict = \
             full_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY][a_host_type]
-        global_plus_host_settings_dict = deepcopy_dict(settings_dict)
-        # if this host type has a default value for empty fields, use it; otherwise, use the global default
-        global_plus_host_settings_dict[DEFAULT_KEY] = a_host_type_config_dict.get(
-            DEFAULT_KEY, global_plus_host_settings_dict[DEFAULT_KEY])
 
         dfs_to_concat = []
         # loop through each sample type in the metadata for this host type
@@ -833,8 +820,7 @@ def _generate_metadata_for_a_host_type(
             # generate the specific metadata for this sample type *in this host type*
             curr_sample_type_df, curr_validation_msgs = \
                 _generate_metadata_for_a_sample_type_in_a_host_type(
-                    host_type_df, curr_sample_type, global_plus_host_settings_dict,
-                    a_host_type_config_dict)
+                    host_type_df, curr_sample_type, a_host_type_config_dict)
 
             dfs_to_concat.append(curr_sample_type_df)
             validation_msgs.extend(curr_validation_msgs)
@@ -851,7 +837,6 @@ def _generate_metadata_for_a_host_type(
 def _generate_metadata_for_a_sample_type_in_a_host_type(
         host_type_metadata_df: pandas.DataFrame,
         a_sample_type: str,
-        global_plus_host_settings_dict: Dict[str, Any],
         a_host_type_config_dict: Dict[str, Any]) -> Tuple[pandas.DataFrame, List[str]]:
     """Generate metadata df for samples with a specific sample type within a specific host type.
 
@@ -861,8 +846,6 @@ def _generate_metadata_for_a_sample_type_in_a_host_type(
         DataFrame containing metadata samples for a specific host type.
     a_sample_type : str
         The sample type to process.
-    global_plus_host_settings_dict : Dict[str, Any]
-        Dictionary containing default/nan/etc settings for current context.
     a_host_type_config_dict : Dict[str, Any]
         Dictionary containing config for this host type.
 
@@ -901,19 +884,19 @@ def _generate_metadata_for_a_sample_type_in_a_host_type(
         sample_type_df = _update_metadata_from_dict(
             sample_type_df, full_sample_type_metadata_fields_dict,
             dict_is_metadata_fields=True,
-            overwrite_non_nans=global_plus_host_settings_dict[OVERWRITE_NON_NANS_KEY])
+            overwrite_non_nans=a_host_type_config_dict[OVERWRITE_NON_NANS_KEY])
 
         # for fields that are required but not yet filled, replace the placeholder with
         # either an indicator that it should be blank or else
         # fill with NA (replaced with default just below), based on config setting
-        leave_reqs_blank = global_plus_host_settings_dict[LEAVE_REQUIREDS_BLANK_KEY]
+        leave_reqs_blank = a_host_type_config_dict[LEAVE_REQUIREDS_BLANK_KEY]
         reqs_val = LEAVE_BLANK_VAL if leave_reqs_blank else np.nan
         sample_type_df.replace(
             to_replace=REQ_PLACEHOLDER, value=reqs_val, inplace=True)
 
         # fill NAs with appropriate default value if any is set
         sample_type_df = _fill_na_if_default(
-            sample_type_df, full_sample_type_metadata_fields_dict, global_plus_host_settings_dict)
+            sample_type_df, a_host_type_config_dict)
 
         # validate the metadata df based on the specific requirements
         # for this host+sample type
@@ -1095,7 +1078,6 @@ def _update_metadata_from_metadata_fields_dict(
 # fill NAs with default value if any is set
 def _fill_na_if_default(
         metadata_df: pandas.DataFrame,
-        specific_dict: Dict[str, Any],
         settings_dict: Dict[str, Any]) -> pandas.DataFrame:
     """Fill NaN values in metadata df with default values if available.
 
@@ -1103,18 +1085,15 @@ def _fill_na_if_default(
     ----------
     metadata_df : pandas.DataFrame
         The metadata DataFrame to process.
-    specific_dict : Dict[str, Any]
-        Dictionary containing context-specific settings. Will be used first as a source of default values.
-    settings_dict : Dict[str, Any]
-        Dictionary containing global settings. Will be used as a
-          source of default values if specific_dict does not contain a DEFAULT_KEY.
+     settings_dict : Dict[str, Any]
+        Dictionary containing settings.
 
     Returns
     -------
     pandas.DataFrame
         The updated DataFrame with NaN values filled. Unchanged if no default values are set.
     """
-    default_val = specific_dict.get(DEFAULT_KEY, settings_dict[DEFAULT_KEY])
+    default_val = settings_dict.get(DEFAULT_KEY)
     if default_val:
         # TODO: this is setting a value in the output; should it be
         #  centralized so it is easy to find?
