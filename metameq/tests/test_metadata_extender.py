@@ -748,19 +748,35 @@ class TestMetadataExtender(TestCase):
 
     # Tests for _fill_na_if_default
 
-    def test__fill_na_if_default_specific_overrides_settings(self):
+    def test__fill_na_if_default_has_default_in_settings(self):
         """Test that specific_dict default takes precedence over settings_dict."""
         input_df = pandas.DataFrame({
             "field1": ["value1", np.nan, "value3"],
             "field2": [np.nan, "value2", np.nan]
         })
-        specific_dict = {DEFAULT_KEY: "filled"}
+        settings_dict = {DEFAULT_KEY: "filled"}
 
-        result = _fill_na_if_default(input_df, specific_dict)
+        result = _fill_na_if_default(input_df, settings_dict)
 
         expected = pandas.DataFrame({
             "field1": ["value1", "filled", "value3"],
             "field2": ["filled", "value2", "filled"]
+        })
+        assert_frame_equal(expected, result)
+
+    def test__fill_na_if_default_no_default_in_settings(self):
+        """Test that NaN values are unchanged when no default is in settings."""
+        input_df = pandas.DataFrame({
+            "field1": ["value1", np.nan, "value3"],
+            "field2": [np.nan, "value2", np.nan]
+        })
+        settings_dict = {}
+
+        result = _fill_na_if_default(input_df, settings_dict)
+
+        expected = pandas.DataFrame({
+            "field1": ["value1", np.nan, "value3"],
+            "field2": [np.nan, "value2", np.nan]
         })
         assert_frame_equal(expected, result)
 

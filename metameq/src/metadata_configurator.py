@@ -664,7 +664,7 @@ def build_full_flat_config_dict(
 
 def _push_global_settings_into_top_host(
         a_full_nested_hosts_dict: Dict[str, Any],
-        a_software_plus_study_flat_config_dict: Dict[str, Any]) -> None:
+        a_software_plus_study_flat_config_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Push global settings from flat config into top-level host in nested hosts dict.
 
     Parameters
@@ -694,8 +694,8 @@ def _push_global_settings_into_top_host(
                          f"full_nested_hosts_dict but found: {top_level_host_keys}")
     top_level_host_key = top_level_host_keys[0]
 
-    # check for each top-level settings from the software+study dictionary
-    # and add them under the top level host key in a_full_nested_hosts_dict
+    # check for each top-level setting from the software+study dictionary
+    # and add it under the top level host key in a_full_nested_hosts_dict
     for curr_setting_key in GLOBAL_SETTINGS_KEYS:
         if curr_setting_key in a_software_plus_study_flat_config_dict:
             result[HOST_TYPE_SPECIFIC_METADATA_KEY][top_level_host_key][curr_setting_key] = \

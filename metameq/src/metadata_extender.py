@@ -1085,7 +1085,7 @@ def _fill_na_if_default(
     ----------
     metadata_df : pandas.DataFrame
         The metadata DataFrame to process.
-     settings_dict : Dict[str, Any]
+    settings_dict : Dict[str, Any]
         Dictionary containing settings.
 
     Returns
@@ -1099,7 +1099,6 @@ def _fill_na_if_default(
         #  centralized so it is easy to find?
         metadata_df = \
             metadata_df.fillna(default_val)
-#             metadata_df.astype("string").fillna(default_val)
 
     return metadata_df
 
