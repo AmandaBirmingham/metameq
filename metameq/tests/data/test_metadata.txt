@@ -1,3 +1,3 @@
-sample_name	hosttype_shorthand	sampletype_shorthand
-sample1	human	stool
-sample2	human	stool
+sample_name	hosttype_shorthand	sampletype_shorthand	dna_extracted
+sample1	human	stool	TRUE
+sample2	human	stool	FALSE

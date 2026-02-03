@@ -475,7 +475,7 @@ class TestMetadataExtender(TestCase):
 
             # Verify metadata file contents - includes failed row when remove_internals=False
             result_df = pandas.read_csv(
-                metadata_files[0], sep="\t", keep_default_na=False)
+                metadata_files[0], sep="\t", dtype=str, keep_default_na=False)
             assert_frame_equal(metadata_df, result_df)
 
             # Find the validation errors file (uses comma separator)
@@ -484,7 +484,7 @@ class TestMetadataExtender(TestCase):
             self.assertEqual(1, len(validation_files))
 
             # Verify validation errors file contents
-            result_validation_df = pandas.read_csv(validation_files[0], sep=",")
+            result_validation_df = pandas.read_csv(validation_files[0], sep=",", dtype=str, keep_default_na=False)
             assert_frame_equal(validation_msgs_df, result_validation_df)
 
             # No fails file should be created when remove_internals=False
@@ -513,7 +513,7 @@ class TestMetadataExtender(TestCase):
             self.assertEqual(1, len(metadata_files))
 
             # Verify metadata has internal cols removed and no failures
-            result_df = pandas.read_csv(metadata_files[0], sep="\t")
+            result_df = pandas.read_csv(metadata_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample3"],
                 "field_a": ["a1", "a3"]
@@ -526,7 +526,7 @@ class TestMetadataExtender(TestCase):
             self.assertEqual(1, len(fails_files))
 
             # Verify fails file contains the failed row
-            fails_df = pandas.read_csv(fails_files[0], sep=",")
+            fails_df = pandas.read_csv(fails_files[0], sep=",", dtype=str, keep_default_na=False)
             expected_fails_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample2"],
                 "field_a": ["a2"],
@@ -593,7 +593,7 @@ class TestMetadataExtender(TestCase):
             self.assertEqual(1, len(metadata_files))
 
             # Verify custom internal cols are removed
-            result_df = pandas.read_csv(metadata_files[0], sep="\t")
+            result_df = pandas.read_csv(metadata_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
                 "field_a": ["a1", "a2"]
@@ -3334,7 +3334,7 @@ class TestMetadataExtender(TestCase):
             self.assertEqual(1, len(output_files))
 
             # Read and verify contents (keep_default_na=False preserves empty strings)
-            result_df = pandas.read_csv(output_files[0], sep="\t", keep_default_na=False)
+            result_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_df = input_df
             assert_frame_equal(expected_df, result_df)
 
@@ -3358,7 +3358,7 @@ class TestMetadataExtender(TestCase):
             self.assertEqual(1, len(output_files))
 
             # Verify main output has internal cols removed and no failures
-            result_df = pandas.read_csv(output_files[0], sep="\t")
+            result_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample3"],
                 "field_a": ["a1", "a3"]
@@ -3370,7 +3370,7 @@ class TestMetadataExtender(TestCase):
             self.assertEqual(1, len(fails_files))
 
             # Verify fails file contains the failed row
-            fails_df = pandas.read_csv(fails_files[0], sep=",")
+            fails_df = pandas.read_csv(fails_files[0], sep=",", dtype=str, keep_default_na=False)
             expected_fails_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample2"],
                 "field_a": ["a2"],
@@ -3447,7 +3447,7 @@ class TestMetadataExtender(TestCase):
             self.assertEqual(1, len(output_files))
 
             # Read and verify contents (keep_default_na=False preserves empty strings)
-            result_df = pandas.read_csv(output_files[0], sep=",", keep_default_na=False)
+            result_df = pandas.read_csv(output_files[0], sep=",", dtype=str, keep_default_na=False)
             expected_df = input_df
             assert_frame_equal(expected_df, result_df)
 
@@ -3469,14 +3469,14 @@ class TestMetadataExtender(TestCase):
             # Main output file should have only headers (empty data)
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
             self.assertEqual(1, len(output_files))
-            result_df = pandas.read_csv(output_files[0], sep="\t")
+            result_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             self.assertTrue(result_df.empty)
             self.assertEqual([SAMPLE_NAME_KEY, "field_a"], list(result_df.columns))
 
             # Fails file should have both rows
             fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
             self.assertEqual(1, len(fails_files))
-            fails_df = pandas.read_csv(fails_files[0], sep=",")
+            fails_df = pandas.read_csv(fails_files[0], sep=",", dtype=str, keep_default_na=False)
             self.assertEqual(2, len(fails_df))
 
     # Tests for get_extended_metadata_from_df_and_yaml
@@ -3621,7 +3621,7 @@ class TestMetadataExtender(TestCase):
             # Verify main output file was created (internal cols removed by default)
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
             self.assertEqual(1, len(output_files))
-            output_df = pandas.read_csv(output_files[0], sep="\t")
+            output_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
                 "body_product": ["UBERON:feces", "UBERON:feces"],
@@ -3694,7 +3694,7 @@ class TestMetadataExtender(TestCase):
             # Verify main output file excludes failure rows
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
             self.assertEqual(1, len(output_files))
-            output_df = pandas.read_csv(output_files[0], sep="\t")
+            output_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample3"],
                 "body_product": ["UBERON:feces", "UBERON:feces"],
@@ -3709,7 +3709,7 @@ class TestMetadataExtender(TestCase):
             # Verify fails file contains the failed row
             fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
             self.assertEqual(1, len(fails_files))
-            fails_df = pandas.read_csv(fails_files[0], sep=",")
+            fails_df = pandas.read_csv(fails_files[0], sep=",", dtype=str, keep_default_na=False)
             expected_fails_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample2"],
                 "body_product": ["not provided"],
@@ -3780,7 +3780,7 @@ class TestMetadataExtender(TestCase):
             validation_files = glob.glob(
                 os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
             self.assertEqual(1, len(validation_files))
-            validation_df = pandas.read_csv(validation_files[0], sep=",")
+            validation_df = pandas.read_csv(validation_files[0], sep=",", dtype=str, keep_default_na=False)
             expected_validation_df = pandas.DataFrame({
                 "sample_name": ["sample1"],
                 "field_name": ["restricted_field"],
@@ -3821,7 +3821,7 @@ class TestMetadataExtender(TestCase):
             # Verify main output file includes internal columns
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
             self.assertEqual(1, len(output_files))
-            output_df = pandas.read_csv(output_files[0], sep="\t", keep_default_na=False)
+            output_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1"],
                 "body_product": ["UBERON:feces"],
@@ -3844,6 +3844,7 @@ class TestMetadataExtender(TestCase):
 
     TEST_METADATA_CSV_FP = path.join(TEST_DIR, "data/test_metadata.csv")
     TEST_METADATA_TXT_FP = path.join(TEST_DIR, "data/test_metadata.txt")
+    TEST_METADATA_XLSX_FP = path.join(TEST_DIR, "data/test_metadata.xlsx")
     TEST_METADATA_WITH_ERRORS_FP = path.join(
         TEST_DIR, "data/test_metadata_with_errors.csv")
     TEST_STUDY_CONFIG_WITH_VALIDATION_FP = path.join(
@@ -3862,6 +3863,7 @@ class TestMetadataExtender(TestCase):
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3876,12 +3878,13 @@ class TestMetadataExtender(TestCase):
             # Verify main output file was created (internal cols removed by default)
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
             self.assertEqual(1, len(output_files))
-            output_df = pandas.read_csv(output_files[0], sep="\t")
+            output_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3914,6 +3917,7 @@ class TestMetadataExtender(TestCase):
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3928,12 +3932,13 @@ class TestMetadataExtender(TestCase):
             # Verify main output file was created
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
             self.assertEqual(1, len(output_files))
-            output_df = pandas.read_csv(output_files[0], sep="\t")
+            output_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -3941,6 +3946,60 @@ class TestMetadataExtender(TestCase):
                 "study_stool_field": ["stool_custom", "stool_custom"]
             })
             assert_frame_equal(expected_output_df, output_df)
+
+    def test_write_extended_metadata_xlsx_input(self):
+        """Test writing extended metadata from an Excel XLSX input file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = write_extended_metadata(
+                self.TEST_METADATA_XLSX_FP, self.TEST_STUDY_CONFIG_FP,
+                tmpdir, "test_output", stds_fp=self.TEST_STDS_FP)
+
+            # Verify returned DataFrame
+            expected_result_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
+                "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"],
+                HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+                SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+                QC_NOTE_KEY: ["", ""]
+            })
+            assert_frame_equal(expected_result_df, result_df)
+
+            # Verify main output file was created
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            output_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
+            expected_output_df = pandas.DataFrame({
+                SAMPLE_NAME_KEY: ["sample1", "sample2"],
+                "body_product": ["UBERON:feces", "UBERON:feces"],
+                "body_site": ["gut", "gut"],
+                "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
+                "host_common_name": ["human", "human"],
+                QIITA_SAMPLE_TYPE: ["stool", "stool"],
+                SAMPLE_TYPE_KEY: ["stool", "stool"],
+                "study_custom_field": ["custom_value", "custom_value"],
+                "study_stool_field": ["stool_custom", "stool_custom"]
+            })
+            assert_frame_equal(expected_output_df, output_df)
+
+            # Verify empty fails file was created
+            fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(1, len(fails_files))
+            self.assertEqual(0, os.path.getsize(fails_files[0]))
+
+            # Verify empty validation errors file was created
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+            self.assertEqual(0, os.path.getsize(validation_files[0]))
 
     def test_write_extended_metadata_with_validation_errors(self):
         """Test writing extended metadata when validation errors occur."""
@@ -3956,6 +4015,7 @@ class TestMetadataExtender(TestCase):
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 "restricted_field": ["invalid_value", "allowed_value"],
@@ -3969,12 +4029,13 @@ class TestMetadataExtender(TestCase):
             # Verify main output file was created
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
             self.assertEqual(1, len(output_files))
-            output_df = pandas.read_csv(output_files[0], sep="\t")
+            output_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 "restricted_field": ["invalid_value", "allowed_value"],
@@ -3986,7 +4047,7 @@ class TestMetadataExtender(TestCase):
             validation_files = glob.glob(
                 os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
             self.assertEqual(1, len(validation_files))
-            validation_df = pandas.read_csv(validation_files[0], sep=",")
+            validation_df = pandas.read_csv(validation_files[0], sep=",", dtype=str, keep_default_na=False)
             expected_validation_df = pandas.DataFrame({
                 "sample_name": ["sample1"],
                 "field_name": ["restricted_field"],
@@ -4021,6 +4082,7 @@ class TestMetadataExtender(TestCase):
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -4035,12 +4097,13 @@ class TestMetadataExtender(TestCase):
             # Verify output file has .csv extension
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.csv"))
             self.assertEqual(1, len(output_files))
-            output_df = pandas.read_csv(output_files[0], sep=",")
+            output_df = pandas.read_csv(output_files[0], sep=",", dtype=str, keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -4063,6 +4126,7 @@ class TestMetadataExtender(TestCase):
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -4077,12 +4141,13 @@ class TestMetadataExtender(TestCase):
             # Verify main output file includes internal columns
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
             self.assertEqual(1, len(output_files))
-            output_df = pandas.read_csv(output_files[0], sep="\t", keep_default_na=False)
+            output_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -4112,6 +4177,7 @@ class TestMetadataExtender(TestCase):
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -4126,12 +4192,13 @@ class TestMetadataExtender(TestCase):
             # Verify main output file was created
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
             self.assertEqual(1, len(output_files))
-            output_df = pandas.read_csv(output_files[0], sep="\t")
+            output_df = pandas.read_csv(output_files[0], sep="\t", dtype=str, keep_default_na=False)
             expected_output_df = pandas.DataFrame({
                 SAMPLE_NAME_KEY: ["sample1", "sample2"],
                 "body_product": ["UBERON:feces", "UBERON:feces"],
                 "body_site": ["gut", "gut"],
                 "description": ["human sample", "human sample"],
+                "dna_extracted": ["TRUE", "FALSE"],
                 "host_common_name": ["human", "human"],
                 QIITA_SAMPLE_TYPE: ["stool", "stool"],
                 SAMPLE_TYPE_KEY: ["stool", "stool"],
@@ -4148,6 +4215,64 @@ class TestMetadataExtender(TestCase):
             validation_files = glob.glob(
                 os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
             self.assertEqual(0, len(validation_files))
+
+    def test_write_extended_metadata_preserves_string_booleans(self):
+        """Test that TRUE/FALSE string values are not converted to booleans.
+
+        This tests for a bug where loading a CSV without dtype=str causes
+        pandas to convert 'TRUE'/'FALSE' strings to boolean True/False,
+        which then fail validation against allowed string values.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Create a CSV file with TRUE/FALSE string values
+            csv_content = (
+                "sample_name,hosttype_shorthand,sampletype_shorthand,dna_extracted\n"
+                "sample1,human,stool,TRUE\n"
+                "sample2,human,stool,FALSE\n"
+            )
+            csv_fp = path.join(tmpdir, "test_bool_strings.csv")
+            with open(csv_fp, "w") as f:
+                f.write(csv_content)
+
+            # Create a config that defines TRUE/FALSE as allowed string values
+            config_content = """
+default: "not provided"
+leave_requireds_blank: false
+overwrite_non_nans: false
+study_specific_metadata:
+  host_type_specific_metadata:
+    human:
+      default: "not provided"
+      leave_requireds_blank: false
+      overwrite_non_nans: false
+      sample_type_specific_metadata:
+        stool:
+          metadata_fields:
+            dna_extracted:
+              type: string
+              allowed:
+                - "TRUE"
+                - "FALSE"
+"""
+            config_fp = path.join(tmpdir, "test_bool_config.yml")
+            with open(config_fp, "w") as f:
+                f.write(config_content)
+
+            # Call write_extended_metadata
+            result_df = write_extended_metadata(
+                csv_fp, config_fp, tmpdir, "test_output",
+                stds_fp=self.TEST_STDS_FP)
+
+            # Verify the dna_extracted values are preserved as strings
+            self.assertEqual("TRUE", result_df.loc[0, "dna_extracted"])
+            self.assertEqual("FALSE", result_df.loc[1, "dna_extracted"])
+
+            # Verify no validation errors occurred
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+            # The validation errors file should be empty (0 bytes)
+            self.assertEqual(0, os.path.getsize(validation_files[0]))
 
     # Integration tests
 
@@ -4171,9 +4296,6 @@ class TestMetadataExtender(TestCase):
 
         # Load input metadata CSV
         input_df = pandas.read_csv(self.TEST_PROJECT1_METADATA_FP, dtype=str)
-        # for the columns "plating_notes" and "notes", fill NaN with empty string
-        input_df["plating_notes"] = input_df["plating_notes"].fillna("")
-        input_df["notes"] = input_df["notes"].fillna("")
 
         # Load study config
         study_config = _get_study_specific_config(self.TEST_PROJECT1_CONFIG_FP)
@@ -4182,6 +4304,58 @@ class TestMetadataExtender(TestCase):
             write_extended_metadata_from_df(
                 input_df, study_config, tmpdir, "test_output",
                 remove_internals=True)
+
+            # Compare main output file directly to expected file
+            output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))
+            self.assertEqual(1, len(output_files))
+            with open(output_files[0], 'r') as actual_file:
+                actual_content = actual_file.read()
+            with open(self.TEST_PROJECT1_EXPECTED_OUTPUT_FP, 'r') as expected_file:
+                expected_content = expected_file.read()
+            try:
+                self.assertEqual(expected_content, actual_content)
+            except AssertionError:
+                write_mismatched_debug_files(
+                    expected_content, actual_content,
+                    "project1_output.txt")
+                raise
+
+            # Compare fails file directly to expected file
+            fails_files = glob.glob(os.path.join(tmpdir, "*_test_output_fails.csv"))
+            self.assertEqual(1, len(fails_files))
+            with open(fails_files[0], 'r') as actual_file:
+                actual_fails_content = actual_file.read()
+            with open(self.TEST_PROJECT1_EXPECTED_FAILS_FP, 'r') as expected_file:
+                expected_fails_content = expected_file.read()
+            try:
+                self.assertEqual(expected_fails_content, actual_fails_content)
+            except AssertionError:
+                write_mismatched_debug_files(
+                    expected_fails_content, actual_fails_content,
+                    "project1_fails.csv")
+                raise
+
+            # Verify validation errors file is empty
+            validation_files = glob.glob(
+                os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
+            self.assertEqual(1, len(validation_files))
+            self.assertEqual(0, os.path.getsize(validation_files[0]))
+
+    def test_write_extended_metadata_project1_integration(self):
+        """Integration test for write_extended_metadata using project1 test data files."""
+
+        def write_mismatched_debug_files(expected_content, actual_content, file_name):
+            """Write debug files to Desktop for unmatched content."""
+            debug_dir = path.join(path.expanduser("~"), "Desktop")
+            with open(path.join(debug_dir, f"UNMATCHED_1_{file_name}"), 'w') as debug_expected_file:
+                debug_expected_file.write(expected_content)
+            with open(path.join(debug_dir, f"UNMATCHED_2_{file_name}"), 'w') as debug_actual_file:
+                debug_actual_file.write(actual_content)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            write_extended_metadata(
+                self.TEST_PROJECT1_METADATA_FP, self.TEST_PROJECT1_CONFIG_FP,
+                tmpdir, "test_output", remove_internals=True)
 
             # Compare main output file directly to expected file
             output_files = glob.glob(os.path.join(tmpdir, "*_test_output.txt"))

@@ -301,13 +301,13 @@ def write_extended_metadata(
     # extract the extension from the raw_metadata_fp file path
     extension = os.path.splitext(raw_metadata_fp)[1]
     if extension == ".csv":
-        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, ",")
+        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, ",", str)
     elif extension == ".txt":
-        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, "\t")
+        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, "\t", str)
     elif extension == ".xlsx":
         # NB: this loads (only) the first sheet of the input excel file.
         # If needed, can expand with pandas.read_excel sheet_name parameter.
-        raw_metadata_df = pandas.read_excel(raw_metadata_fp)
+        raw_metadata_df = pandas.read_excel(raw_metadata_fp, dtype=str)
     else:
         raise ValueError("Unrecognized input file extension; "
                          "must be .csv, .txt, or .xlsx")

@@ -6,6 +6,7 @@ dependencies:
   - python
   - click
   - pandas
+  - openpyxl
   - pip
   - pyyaml
   - flake8

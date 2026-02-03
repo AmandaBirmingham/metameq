@@ -25,6 +25,7 @@ setup(name='metameq',
       # NB: if changing here, also change the environment.yml
       install_requires=[
           'click>=8.0.0',
+          'openpyxl>=3.0.0',
           'pandas>=1.3.0',
           'PyYAML>=5.4.0',
           'Cerberus>=1.3.4',
