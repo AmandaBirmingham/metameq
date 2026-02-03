@@ -17,7 +17,8 @@ from metameq.src.metadata_configurator import \
     _id_sample_type_definition, \
     update_wip_metadata_dict, \
     build_full_flat_config_dict, \
-    _resolve_sample_type_aliases_and_bases
+    _resolve_sample_type_aliases_and_bases, \
+    _push_global_settings_into_top_host
 
 
 class TestMetadataConfigurator(TestCase):
@@ -3847,6 +3848,9 @@ class TestMetadataConfigurator(TestCase):
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 # base: top level in test_standards.yml, no default
                 "base": {
+                    DEFAULT_KEY: "software_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         # sample_name defined at base level
                         "sample_name": {
@@ -3865,6 +3869,8 @@ class TestMetadataConfigurator(TestCase):
                 "host_associated": {
                     # default defined at host_associated level
                     DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         # description defined at host_associated level
                         "description": {
@@ -3919,6 +3925,8 @@ class TestMetadataConfigurator(TestCase):
                 "human": {
                     # default inherited from host_associated
                     DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         # custom_field added from study_specific_metadata
                         "custom_field": {
@@ -4037,6 +4045,8 @@ class TestMetadataConfigurator(TestCase):
                 "mouse": {
                     # default inherited from host_associated
                     DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         # description inherited from host_associated (not overridden)
                         "description": {
@@ -4103,6 +4113,7 @@ class TestMetadataConfigurator(TestCase):
                 }
             }
         }
+
         self.assertEqual(expected, result)
 
     def test_build_full_flat_config_dict_without_study_config(self):
@@ -4130,6 +4141,9 @@ class TestMetadataConfigurator(TestCase):
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 # base: top level, no default, just sample_name/sample_type
                 "base": {
+                    DEFAULT_KEY: "software_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "sample_name": {
                             REQUIRED_KEY: True,
@@ -4145,6 +4159,8 @@ class TestMetadataConfigurator(TestCase):
                 # host_associated: inherits from base, adds default and description
                 "host_associated": {
                     DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "description": {
                             DEFAULT_KEY: "host associated sample",
@@ -4194,6 +4210,8 @@ class TestMetadataConfigurator(TestCase):
                 # human: inherits from host_associated, overrides description
                 "human": {
                     DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "description": {
                             DEFAULT_KEY: "human sample",
@@ -4291,6 +4309,8 @@ class TestMetadataConfigurator(TestCase):
                 # mouse: inherits from host_associated, keeps parent description
                 "mouse": {
                     DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "description": {
                             DEFAULT_KEY: "host associated sample",
@@ -4395,6 +4415,12 @@ class TestMetadataConfigurator(TestCase):
             # Flattened host types
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {
+                    # default from study_config overrides software_config
+                    DEFAULT_KEY: "study_default",
+                    # leave_requireds_blank from study_config overrides software_config
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    # overwrite_non_nans from software_config (not overridden by study)
+                    OVERWRITE_NON_NANS_KEY: True,
                     METADATA_FIELDS_KEY: {
                         "sample_name": {
                             REQUIRED_KEY: True,
@@ -4409,6 +4435,10 @@ class TestMetadataConfigurator(TestCase):
                 },
                 "host_associated": {
                     DEFAULT_KEY: "not provided",
+                    # leave_requireds_blank from study_config overrides software_config
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    # overwrite_non_nans from software_config (not overridden by study)
+                    OVERWRITE_NON_NANS_KEY: True,
                     METADATA_FIELDS_KEY: {
                         "description": {
                             DEFAULT_KEY: "host associated sample",
@@ -4457,6 +4487,10 @@ class TestMetadataConfigurator(TestCase):
                 },
                 "human": {
                     DEFAULT_KEY: "not provided",
+                    # leave_requireds_blank from study_config overrides software_config
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    # overwrite_non_nans from software_config (not overridden by study)
+                    OVERWRITE_NON_NANS_KEY: True,
                     METADATA_FIELDS_KEY: {
                         "description": {
                             DEFAULT_KEY: "human sample",
@@ -4553,6 +4587,10 @@ class TestMetadataConfigurator(TestCase):
                 },
                 "mouse": {
                     DEFAULT_KEY: "not provided",
+                    # leave_requireds_blank from study_config overrides software_config
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    # overwrite_non_nans from software_config (not overridden by study)
+                    OVERWRITE_NON_NANS_KEY: True,
                     METADATA_FIELDS_KEY: {
                         "description": {
                             DEFAULT_KEY: "host associated sample",
@@ -4649,6 +4687,9 @@ class TestMetadataConfigurator(TestCase):
             # Flattened host types
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {
+                    DEFAULT_KEY: "not applicable",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "sample_name": {
                             REQUIRED_KEY: True,
@@ -4663,6 +4704,8 @@ class TestMetadataConfigurator(TestCase):
                 },
                 "host_associated": {
                     DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "description": {
                             DEFAULT_KEY: "host associated sample",
@@ -4711,6 +4754,8 @@ class TestMetadataConfigurator(TestCase):
                 },
                 "human": {
                     DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "description": {
                             DEFAULT_KEY: "human sample",
@@ -4807,6 +4852,8 @@ class TestMetadataConfigurator(TestCase):
                 },
                 "mouse": {
                     DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "description": {
                             DEFAULT_KEY: "host associated sample",
@@ -4867,4 +4914,140 @@ class TestMetadataConfigurator(TestCase):
                 }
             }
         }
+
         self.assertEqual(expected, result)
+
+    # Tests for _push_global_settings_into_top_host
+
+    def test__push_global_settings_into_top_host_single_setting(self):
+        """Test pushing a single global setting into the top-level host."""
+        nested_hosts_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {TYPE_KEY: "string"}
+                    }
+                }
+            }
+        }
+        flat_config_dict = {
+            DEFAULT_KEY: "custom_default"
+        }
+
+        expected = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    DEFAULT_KEY: "custom_default",
+                    METADATA_FIELDS_KEY: {
+                        "field1": {TYPE_KEY: "string"}
+                    }
+                }
+            }
+        }
+
+        result = _push_global_settings_into_top_host(
+            nested_hosts_dict, flat_config_dict)
+
+        self.assertEqual(expected, result)
+        # Original should be unchanged
+        self.assertNotIn(
+            DEFAULT_KEY,
+            nested_hosts_dict[HOST_TYPE_SPECIFIC_METADATA_KEY]["base"])
+
+    def test__push_global_settings_into_top_host_multiple_settings(self):
+        """Test pushing multiple global settings into the top-level host."""
+        nested_hosts_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {TYPE_KEY: "string"}
+                    }
+                }
+            }
+        }
+        flat_config_dict = {
+            DEFAULT_KEY: "custom_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: True
+        }
+
+        expected = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    DEFAULT_KEY: "custom_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: True,
+                    METADATA_FIELDS_KEY: {
+                        "field1": {TYPE_KEY: "string"}
+                    }
+                }
+            }
+        }
+
+        result = _push_global_settings_into_top_host(
+            nested_hosts_dict, flat_config_dict)
+
+        self.assertEqual(expected, result)
+
+    def test__push_global_settings_into_top_host_no_settings(self):
+        """Test that function returns copy when no global settings present."""
+        nested_hosts_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {TYPE_KEY: "string"}
+                    }
+                }
+            }
+        }
+        flat_config_dict = {
+            "some_other_key": "value"
+        }
+
+        expected = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    METADATA_FIELDS_KEY: {
+                        "field1": {TYPE_KEY: "string"}
+                    }
+                }
+            }
+        }
+
+        result = _push_global_settings_into_top_host(
+            nested_hosts_dict, flat_config_dict)
+
+        self.assertEqual(expected, result)
+
+    def test__push_global_settings_into_top_host_raises_on_zero_hosts(self):
+        """Test that ValueError is raised when no top-level hosts exist."""
+        nested_hosts_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {}
+        }
+        flat_config_dict = {
+            DEFAULT_KEY: "custom_default"
+        }
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r"Expected exactly one top-level key.*found: \[\]"):
+            _push_global_settings_into_top_host(
+                nested_hosts_dict, flat_config_dict)
+
+    def test__push_global_settings_into_top_host_raises_on_multiple_hosts(self):
+        """Test that ValueError is raised when multiple top-level hosts exist."""
+        nested_hosts_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "host1": {METADATA_FIELDS_KEY: {}},
+                "host2": {METADATA_FIELDS_KEY: {}}
+            }
+        }
+        flat_config_dict = {
+            DEFAULT_KEY: "custom_default"
+        }
+
+        with self.assertRaisesRegex(
+                ValueError,
+                r"Expected exactly one top-level key"):
+            _push_global_settings_into_top_host(
+                nested_hosts_dict, flat_config_dict)

@@ -51,6 +51,13 @@ REQUIRED_RAW_METADATA_FIELDS = [SAMPLE_NAME_KEY,
                                 SAMPLETYPE_SHORTHAND_KEY]
 
 
+GLOBAL_SETTINGS_KEYS = [
+    DEFAULT_KEY,
+    LEAVE_REQUIREDS_BLANK_KEY,
+    OVERWRITE_NON_NANS_KEY
+]
+
+
 def extract_config_dict(
         config_fp: Union[str, None]) -> dict:
     """Extract configuration dictionary from a YAML file.

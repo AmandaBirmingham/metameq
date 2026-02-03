@@ -5,7 +5,7 @@ from metameq.src.util import extract_config_dict, extract_stds_config, \
     HOST_TYPE_SPECIFIC_METADATA_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
     DEFAULT_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
-    SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE
+    SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, GLOBAL_SETTINGS_KEYS
 
 
 def combine_stds_and_study_config(
@@ -257,11 +257,12 @@ def _combine_base_and_added_host_type(
     host_type_wip_nested_dict = \
         deepcopy_dict(host_type_base_dict)
 
-    # look for a default key in the add dict for this host; if
-    # it exists, add it to the wip dict (ok to overwrite existing)
-    if DEFAULT_KEY in host_type_add_dict:
-        host_type_wip_nested_dict[DEFAULT_KEY] = \
-            host_type_add_dict.get(DEFAULT_KEY)
+    # look for global settings in the add dict for this host; if
+    # any exists, add it to the wip dict (ok to overwrite existing)
+    for curr_global_setting_key in GLOBAL_SETTINGS_KEYS:
+        if curr_global_setting_key in host_type_add_dict:
+            host_type_wip_nested_dict[curr_global_setting_key] = \
+                host_type_add_dict.get(curr_global_setting_key)
 
     # combine add metadata fields with the wip metadata fields
     # for the current host type and assign to wip if not empty
@@ -636,6 +637,10 @@ def build_full_flat_config_dict(
         # since the software config doesn't include any host type specific info
         full_nested_hosts_dict = extract_stds_config(stds_fp)
 
+    full_nested_hosts_dict = _push_global_settings_into_top_host(
+            full_nested_hosts_dict,
+            software_plus_study_flat_config_dict)
+
     full_flat_hosts_dict = flatten_nested_stds_dict(
         full_nested_hosts_dict, None)
     software_plus_study_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
@@ -655,3 +660,45 @@ def build_full_flat_config_dict(
     full_flat_config_dict = software_plus_study_flat_config_dict
 
     return full_flat_config_dict
+
+
+def _push_global_settings_into_top_host(
+        a_full_nested_hosts_dict: Dict[str, Any],
+        a_software_plus_study_flat_config_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Push global settings from flat config into top-level host in nested hosts dict.
+
+    Parameters
+    ----------
+    a_full_nested_hosts_dict : Dict[str, Any]
+        Nested hosts dictionary to update.
+    a_software_plus_study_flat_config_dict : Dict[str, Any]
+        Flat configuration dictionary containing global settings.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Updated nested hosts dictionary with global settings added to top-level host.
+
+    Raises
+    ------
+    ValueError
+        If there is not exactly one top-level host in the nested hosts dictionary.
+    """
+    result = deepcopy_dict(a_full_nested_hosts_dict)
+
+    # get the top level host(s) in full_nested_hosts_dict
+    # (should be only one because it is nested)
+    top_level_host_keys = list(a_full_nested_hosts_dict[HOST_TYPE_SPECIFIC_METADATA_KEY].keys())
+    if len(top_level_host_keys) != 1:
+        raise ValueError(f"Expected exactly one top-level key in "
+                         f"full_nested_hosts_dict but found: {top_level_host_keys}")
+    top_level_host_key = top_level_host_keys[0]
+
+    # check for each top-level setting from the software+study dictionary
+    # and add it under the top level host key in a_full_nested_hosts_dict
+    for curr_setting_key in GLOBAL_SETTINGS_KEYS:
+        if curr_setting_key in a_software_plus_study_flat_config_dict:
+            result[HOST_TYPE_SPECIFIC_METADATA_KEY][top_level_host_key][curr_setting_key] = \
+                a_software_plus_study_flat_config_dict[curr_setting_key]
+
+    return result

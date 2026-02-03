@@ -748,16 +748,15 @@ class TestMetadataExtender(TestCase):
 
     # Tests for _fill_na_if_default
 
-    def test__fill_na_if_default_specific_overrides_settings(self):
+    def test__fill_na_if_default_has_default_in_settings(self):
         """Test that specific_dict default takes precedence over settings_dict."""
         input_df = pandas.DataFrame({
             "field1": ["value1", np.nan, "value3"],
             "field2": [np.nan, "value2", np.nan]
         })
-        specific_dict = {DEFAULT_KEY: "filled"}
-        settings_dict = {DEFAULT_KEY: "unused"}
+        settings_dict = {DEFAULT_KEY: "filled"}
 
-        result = _fill_na_if_default(input_df, specific_dict, settings_dict)
+        result = _fill_na_if_default(input_df, settings_dict)
 
         expected = pandas.DataFrame({
             "field1": ["value1", "filled", "value3"],
@@ -765,18 +764,19 @@ class TestMetadataExtender(TestCase):
         })
         assert_frame_equal(expected, result)
 
-    def test__fill_na_if_default_uses_settings_when_specific_missing(self):
-        """Test that settings_dict default is used when specific_dict has no default."""
+    def test__fill_na_if_default_no_default_in_settings(self):
+        """Test that NaN values are unchanged when no default is in settings."""
         input_df = pandas.DataFrame({
-            "field1": [np.nan]
+            "field1": ["value1", np.nan, "value3"],
+            "field2": [np.nan, "value2", np.nan]
         })
-        specific_dict = {}
-        settings_dict = {DEFAULT_KEY: "settings_default"}
+        settings_dict = {}
 
-        result = _fill_na_if_default(input_df, specific_dict, settings_dict)
+        result = _fill_na_if_default(input_df, settings_dict)
 
         expected = pandas.DataFrame({
-            "field1": ["settings_default"]
+            "field1": ["value1", np.nan, "value3"],
+            "field2": [np.nan, "value2", np.nan]
         })
         assert_frame_equal(expected, result)
 
@@ -1273,14 +1273,13 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
             QC_NOTE_KEY: ["", ""]
         })
-        global_plus_host_settings_dict = {
-            OVERWRITE_NON_NANS_KEY: False,
-            LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "not provided"
-        }
+
         # Config is pre-resolved: sample type's metadata_fields already includes
         # host fields merged in, plus sample_type and qiita_sample_type
         host_type_config_dict = {
+            OVERWRITE_NON_NANS_KEY: False,
+            LEAVE_REQUIREDS_BLANK_KEY: False,
+            DEFAULT_KEY: "not provided",
             METADATA_FIELDS_KEY: {
                 "host_field": {
                     DEFAULT_KEY: "host_default",
@@ -1314,7 +1313,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_sample_type_in_a_host_type(
-            input_df, "stool", global_plus_host_settings_dict, host_type_config_dict)
+            input_df, "stool", host_type_config_dict)
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
@@ -1337,12 +1336,11 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["unknown_type"],
             QC_NOTE_KEY: [""]
         })
-        global_plus_host_settings_dict = {
+
+        host_type_config_dict = {
             OVERWRITE_NON_NANS_KEY: False,
             LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "not provided"
-        }
-        host_type_config_dict = {
+            DEFAULT_KEY: "not provided",
             METADATA_FIELDS_KEY: {},
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                 "stool": {
@@ -1352,7 +1350,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_sample_type_in_a_host_type(
-            input_df, "unknown_type", global_plus_host_settings_dict, host_type_config_dict)
+            input_df, "unknown_type", host_type_config_dict)
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
@@ -1371,12 +1369,11 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "blood", "stool"],
             QC_NOTE_KEY: ["", "", ""]
         })
-        global_plus_host_settings_dict = {
+
+        host_type_config_dict = {
             OVERWRITE_NON_NANS_KEY: False,
             LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "not provided"
-        }
-        host_type_config_dict = {
+            DEFAULT_KEY: "not provided",
             METADATA_FIELDS_KEY: {},
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                 "stool": {
@@ -1394,7 +1391,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_sample_type_in_a_host_type(
-            input_df, "stool", global_plus_host_settings_dict, host_type_config_dict)
+            input_df, "stool", host_type_config_dict)
 
         # Should only have the two stool samples
         self.assertEqual(2, len(result_df))
@@ -1409,12 +1406,11 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool"],
             QC_NOTE_KEY: [""]
         })
-        global_plus_host_settings_dict = {
+
+        host_type_config_dict = {
             OVERWRITE_NON_NANS_KEY: False,
             LEAVE_REQUIREDS_BLANK_KEY: True,
-            DEFAULT_KEY: "not provided"
-        }
-        host_type_config_dict = {
+            DEFAULT_KEY: "not provided",
             METADATA_FIELDS_KEY: {},
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                 "stool": {
@@ -1429,7 +1425,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_sample_type_in_a_host_type(
-            input_df, "stool", global_plus_host_settings_dict, host_type_config_dict)
+            input_df, "stool", host_type_config_dict)
 
         self.assertEqual(LEAVE_BLANK_VAL, result_df["required_field"].iloc[0])
 
@@ -1441,12 +1437,11 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool"],
             QC_NOTE_KEY: [""]
         })
-        global_plus_host_settings_dict = {
+
+        host_type_config_dict = {
             OVERWRITE_NON_NANS_KEY: False,
             LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "global_default"
-        }
-        host_type_config_dict = {
+            DEFAULT_KEY: "global_default",
             METADATA_FIELDS_KEY: {},
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                 "stool": {
@@ -1461,7 +1456,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_sample_type_in_a_host_type(
-            input_df, "stool", global_plus_host_settings_dict, host_type_config_dict)
+            input_df, "stool", host_type_config_dict)
 
         # When leave_requireds_blank is False, NaN values get filled with global default
         self.assertEqual("global_default", result_df["required_field"].iloc[0])
@@ -1475,12 +1470,11 @@ class TestMetadataExtender(TestCase):
             QC_NOTE_KEY: [""],
             "existing_field": ["original_value"]
         })
-        global_plus_host_settings_dict = {
+
+        host_type_config_dict = {
             OVERWRITE_NON_NANS_KEY: True,
             LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "not provided"
-        }
-        host_type_config_dict = {
+            DEFAULT_KEY: "not provided",
             METADATA_FIELDS_KEY: {},
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                 "stool": {
@@ -1495,7 +1489,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_sample_type_in_a_host_type(
-            input_df, "stool", global_plus_host_settings_dict, host_type_config_dict)
+            input_df, "stool", host_type_config_dict)
 
         self.assertEqual("new_value", result_df["existing_field"].iloc[0])
 
@@ -1508,12 +1502,11 @@ class TestMetadataExtender(TestCase):
             QC_NOTE_KEY: [""],
             "existing_field": ["original_value"]
         })
-        global_plus_host_settings_dict = {
+
+        host_type_config_dict = {
             OVERWRITE_NON_NANS_KEY: False,
             LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "not provided"
-        }
-        host_type_config_dict = {
+            DEFAULT_KEY: "not provided",
             METADATA_FIELDS_KEY: {},
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                 "stool": {
@@ -1528,7 +1521,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_sample_type_in_a_host_type(
-            input_df, "stool", global_plus_host_settings_dict, host_type_config_dict)
+            input_df, "stool", host_type_config_dict)
 
         self.assertEqual("original_value", result_df["existing_field"].iloc[0])
 
@@ -1540,14 +1533,13 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["feces"],
             QC_NOTE_KEY: [""]
         })
-        global_plus_host_settings_dict = {
-            OVERWRITE_NON_NANS_KEY: False,
-            LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "not provided"
-        }
+
         # Config is pre-resolved: alias "feces" has its own metadata_fields
         # that is a copy of "stool"'s resolved fields with sample_type="stool"
         host_type_config_dict = {
+            OVERWRITE_NON_NANS_KEY: False,
+            LEAVE_REQUIREDS_BLANK_KEY: False,
+            DEFAULT_KEY: "not provided",
             METADATA_FIELDS_KEY: {},
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                 "feces": {
@@ -1590,7 +1582,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_sample_type_in_a_host_type(
-            input_df, "feces", global_plus_host_settings_dict, host_type_config_dict)
+            input_df, "feces", host_type_config_dict)
 
         self.assertEqual("stool_value", result_df["stool_field"].iloc[0])
         # sample_type should be set to the resolved type "stool"
@@ -1606,17 +1598,15 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
             QC_NOTE_KEY: ["", ""]
         })
-        settings_dict = {
-            OVERWRITE_NON_NANS_KEY: False,
-            LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "global_default"
-        }
+
         # Config is pre-resolved: sample type's metadata_fields includes
         # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
                     DEFAULT_KEY: "human_default",
+                    OVERWRITE_NON_NANS_KEY: False,
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "host_field": {
                             DEFAULT_KEY: "host_value",
@@ -1652,7 +1642,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_host_type(
-            input_df, "human", settings_dict, full_flat_config_dict)
+            input_df, "human", full_flat_config_dict)
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
@@ -1675,14 +1665,13 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool"],
             QC_NOTE_KEY: [""]
         })
-        settings_dict = {
-            OVERWRITE_NON_NANS_KEY: False,
-            LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "global_default"
-        }
+
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    OVERWRITE_NON_NANS_KEY: False,
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    DEFAULT_KEY: "global_default",
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {}
                 }
@@ -1690,7 +1679,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_host_type(
-            input_df, "unknown_host", settings_dict, full_flat_config_dict)
+            input_df, "unknown_host", full_flat_config_dict)
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
@@ -1709,14 +1698,13 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["unknown_sample"],
             QC_NOTE_KEY: [""]
         })
-        settings_dict = {
-            OVERWRITE_NON_NANS_KEY: False,
-            LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "global_default"
-        }
+
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    OVERWRITE_NON_NANS_KEY: False,
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    DEFAULT_KEY: "global_default",
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
@@ -1728,7 +1716,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_host_type(
-            input_df, "human", settings_dict, full_flat_config_dict)
+            input_df, "human", full_flat_config_dict)
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
@@ -1747,16 +1735,15 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool", "stool"],
             QC_NOTE_KEY: ["", "", ""]
         })
-        settings_dict = {
-            OVERWRITE_NON_NANS_KEY: False,
-            LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "global_default"
-        }
+
         # Config is pre-resolved: sample type's metadata_fields includes
         # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    OVERWRITE_NON_NANS_KEY: False,
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    DEFAULT_KEY: "global_default",
                     METADATA_FIELDS_KEY: {
                         "human_field": {
                             DEFAULT_KEY: "human_value",
@@ -1785,6 +1772,9 @@ class TestMetadataExtender(TestCase):
                     }
                 },
                 "mouse": {
+                    OVERWRITE_NON_NANS_KEY: False,
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    DEFAULT_KEY: "global_default",
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {}
                 }
@@ -1792,7 +1782,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_host_type(
-            input_df, "human", settings_dict, full_flat_config_dict)
+            input_df, "human", full_flat_config_dict)
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample3"],
@@ -1813,17 +1803,15 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool"],
             QC_NOTE_KEY: [""]
         })
-        settings_dict = {
-            OVERWRITE_NON_NANS_KEY: False,
-            LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "global_default"
-        }
+
         # Config is pre-resolved: sample type's metadata_fields includes
         # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
                     DEFAULT_KEY: "human_specific_default",
+                    OVERWRITE_NON_NANS_KEY: False,
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
@@ -1850,7 +1838,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_host_type(
-            input_df, "human", settings_dict, full_flat_config_dict)
+            input_df, "human", full_flat_config_dict)
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
@@ -1871,17 +1859,14 @@ class TestMetadataExtender(TestCase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool"],
             QC_NOTE_KEY: [""]
         })
-        settings_dict = {
-            OVERWRITE_NON_NANS_KEY: False,
-            LEAVE_REQUIREDS_BLANK_KEY: False,
-            DEFAULT_KEY: "global_default"
-        }
         # Config is pre-resolved: sample type's metadata_fields includes
         # host fields merged in, plus sample_type and qiita_sample_type
         full_flat_config_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
-                    # No DEFAULT_KEY here
+                    OVERWRITE_NON_NANS_KEY: False,
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    DEFAULT_KEY: "global_default",
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
@@ -1908,7 +1893,7 @@ class TestMetadataExtender(TestCase):
         }
 
         result_df, validation_msgs = _generate_metadata_for_a_host_type(
-            input_df, "human", settings_dict, full_flat_config_dict)
+            input_df, "human", full_flat_config_dict)
 
         expected_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
@@ -1939,6 +1924,9 @@ class TestMetadataExtender(TestCase):
             OVERWRITE_NON_NANS_KEY: False,
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    DEFAULT_KEY: "global_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "host_field": {
                             DEFAULT_KEY: "host_value",
@@ -2005,6 +1993,9 @@ class TestMetadataExtender(TestCase):
             OVERWRITE_NON_NANS_KEY: False,
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    DEFAULT_KEY: "global_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "human_field": {
                             DEFAULT_KEY: "human_value",
@@ -2051,6 +2042,9 @@ class TestMetadataExtender(TestCase):
                     }
                 },
                 "mouse": {
+                    DEFAULT_KEY: "global_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "mouse_field": {
                             DEFAULT_KEY: "mouse_value",
@@ -2182,6 +2176,9 @@ class TestMetadataExtender(TestCase):
             OVERWRITE_NON_NANS_KEY: False,
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    DEFAULT_KEY: "global_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,  # This causes required fields to get LEAVE_BLANK_VAL
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
@@ -2506,6 +2503,9 @@ class TestMetadataExtender(TestCase):
             OVERWRITE_NON_NANS_KEY: False,
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {
                         "host_field": {
                             DEFAULT_KEY: "host_value",
@@ -2580,6 +2580,9 @@ class TestMetadataExtender(TestCase):
             },
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
@@ -2639,6 +2642,9 @@ class TestMetadataExtender(TestCase):
             },
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
@@ -2687,6 +2693,9 @@ class TestMetadataExtender(TestCase):
             OVERWRITE_NON_NANS_KEY: False,
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {}
                 }
@@ -2721,6 +2730,9 @@ class TestMetadataExtender(TestCase):
             OVERWRITE_NON_NANS_KEY: False,
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
@@ -2781,6 +2793,9 @@ class TestMetadataExtender(TestCase):
             },
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: False,
+                    OVERWRITE_NON_NANS_KEY: False,
                     METADATA_FIELDS_KEY: {},
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
@@ -4142,6 +4157,7 @@ class TestMetadataExtender(TestCase):
         TEST_DIR, "data/test_project1_output_metadata.txt")
     TEST_PROJECT1_EXPECTED_FAILS_FP = path.join(
         TEST_DIR, "data/test_project1_output_fails.csv")
+
     def test_write_extended_metadata_from_df_project1_integration(self):
         """Integration test using project1 test data files."""
 
@@ -4152,7 +4168,6 @@ class TestMetadataExtender(TestCase):
                 debug_expected_file.write(expected_content)
             with open(path.join(debug_dir, f"UNMATCHED_2_{file_name}"), 'w') as debug_actual_file:
                 debug_actual_file.write(actual_content)
-
 
         # Load input metadata CSV
         input_df = pandas.read_csv(self.TEST_PROJECT1_METADATA_FP, dtype=str)
