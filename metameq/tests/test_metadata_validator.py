@@ -931,12 +931,12 @@ class TestGenerateValidationMsg(TestCase):
         """Test that unknown fields are allowed and don't cause errors."""
         metadata_df = pd.DataFrame({
             "sample_name": ["sample1"],
-            "known_field": ["value"],
+            "known_field": [42],
             "unknown_field": ["extra_value"]
         })
         config = {
             "sample_name": {"type": "string"},
-            "known_field": {"type": "string"}
+            "known_field": {"type": "integer"}
         }
 
         result = _generate_validation_msg(metadata_df, config)

@@ -289,6 +289,17 @@ def update_metadata_df_field(
     # Note: function doesn't return anything.  Work is done in-place on the
     #  metadata_df passed in.
 
+    # pandas has hard-to-predict behavior when setting values in a DataFrame
+    # (such as turning a int input value into a float column even when setting
+    # for all values in df so there are no NaNs).  To avoid this, we convert
+    # all non-NaN values to strings before setting them.  The validator code 
+    # casts values to the expected type before validating them so this won't
+    # impede validation. We leave NaNs as-is so they can be caught by the
+    # downstream default-filling logic.
+    def turn_non_nans_to_str(val: str) -> str:
+        """Convert non-NaN values to strings."""
+        return str(val) if pandas.notna(val) else val
+
     # If the field does not already exist in the metadata OR if we have
     # been told to overwrite existing (i.e., non-NaN) values, we will set its
     # value in all rows; otherwise, will only set it where it is currently NaN
@@ -300,9 +311,9 @@ def update_metadata_df_field(
     if source_fields:
         metadata_df.loc[row_mask, field_name] = \
             metadata_df.apply(
-                lambda row: field_val_or_func(row, source_fields),
+                lambda row: turn_non_nans_to_str(field_val_or_func(row, source_fields)),
                 axis=1)
     else:
         # Otherwise, it is a constant value
-        metadata_df.loc[row_mask, field_name] = field_val_or_func
+        metadata_df.loc[row_mask, field_name] = turn_non_nans_to_str(field_val_or_func)
     # endif using a function/a constant value
