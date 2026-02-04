@@ -1,7 +1,7 @@
 import copy
 from importlib.resources import files
 import pandas
-from typing import List, Optional, Union, Callable
+from typing import List, Optional, Union, Callable, Any
 import yaml
 
 CONFIG_MODULE_PATH = "metameq.config"
@@ -296,7 +296,7 @@ def update_metadata_df_field(
     # casts values to the expected type before validating them so this won't
     # impede validation. We leave NaNs as-is so they can be caught by the
     # downstream default-filling logic.
-    def turn_non_nans_to_str(val: str) -> str:
+    def turn_non_nans_to_str(val: Any) -> Any:
         """Convert non-NaN values to strings."""
         return str(val) if pandas.notna(val) else val
 

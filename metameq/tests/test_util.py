@@ -434,3 +434,31 @@ class TestUtil(TestCase):
             working_df, "combined", test_func,
             ["sample_name", "sample_type"], overwrite_non_nans=True)
         assert_frame_equal(exp_df, working_df)
+
+    def test_update_metadata_df_field_integer_stored_as_string(self):
+        """Test that an integer value is stored as a string in the DataFrame.
+
+        Verifies that when an integer is passed as the field value, it is
+        converted to a string representation to avoid pandas float coercion.
+        """
+        working_df = pandas.DataFrame({
+            "sample_name": ["s1", "s2"],
+            "sample_type": ["st1", "st2"]
+        })
+
+        exp_df = pandas.DataFrame({
+            "sample_name": ["s1", "s2"],
+            "sample_type": ["st1", "st2"],
+            "taxon_id": ["539655", "539655"]
+        })
+
+        update_metadata_df_field(
+            working_df, "taxon_id", 539655,
+            overwrite_non_nans=True)
+
+        # Verify the values are strings, not integers or floats
+        self.assertIsInstance(working_df["taxon_id"].iloc[0], str)
+        self.assertIsInstance(working_df["taxon_id"].iloc[1], str)
+        self.assertEqual(working_df["taxon_id"].iloc[0], "539655")
+        self.assertEqual(working_df["taxon_id"].iloc[1], "539655")
+        assert_frame_equal(exp_df, working_df)
