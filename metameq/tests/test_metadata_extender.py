@@ -2486,6 +2486,190 @@ class TestMetadataExtender(TestCase):
         })
         assert_frame_equal(expected_df, result_df)
 
+    def test__transform_metadata_same_source_and_target_with_nan(self):
+        """Test overriding false non-nan rewrite for individual transformer.
+
+        Uses the same column (latitude) as both source and target of a
+        pre-transformer that formats values to two decimal places.
+        Non-NaN values should be formatted, NaN values should remain NaN.
+        """
+        def format_lat_to_two_decimals(row, source_fields):
+            val = row[source_fields[0]]
+            if pandas.isna(val):
+                return val
+            return f"{float(val):.2f}"
+
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2", "sample3", "sample4"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human", "human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool", "stool", "stool"],
+            "latitude": ["32.8812345678", "-117.2345678901", "0.1234567890", np.nan]
+        })
+
+        full_flat_config_dict = {
+            OVERWRITE_NON_NANS_KEY: True,
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "latitude": {
+                        SOURCES_KEY: ["latitude"],
+                        FUNCTION_KEY: "format_lat_to_two_decimals",
+                        OVERWRITE_NON_NANS_KEY: True
+                    }
+                }
+            }
+        }
+
+        transformer_funcs_dict = {
+            "format_lat_to_two_decimals": format_lat_to_two_decimals
+        }
+
+        result_df = _transform_metadata(
+            input_df, full_flat_config_dict, PRE_TRANSFORMERS_KEY,
+            transformer_funcs_dict)
+
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2", "sample3", "sample4"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human", "human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool", "stool", "stool"],
+            "latitude": ["32.88", "-117.23", "0.12", np.nan]
+        })
+        assert_frame_equal(expected_df, result_df)
+
+    def test__transform_metadata_per_transformer_overwrite_true_overrides_global_false(self):
+        """Test per-transformer overwrite_non_nans=True overrides global False."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "source_field": ["new_value1", "new_value2"],
+            "target_field": ["existing1", "existing2"]
+        })
+        full_flat_config_dict = {
+            OVERWRITE_NON_NANS_KEY: False,  # Global setting: don't overwrite
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "target_field": {
+                        SOURCES_KEY: ["source_field"],
+                        FUNCTION_KEY: "pass_through",
+                        OVERWRITE_NON_NANS_KEY: True  # Per-transformer: do overwrite
+                    }
+                }
+            }
+        }
+
+        result_df = _transform_metadata(
+            input_df, full_flat_config_dict, PRE_TRANSFORMERS_KEY, None)
+
+        # Should overwrite because per-transformer setting takes precedence
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "source_field": ["new_value1", "new_value2"],
+            "target_field": ["new_value1", "new_value2"]
+        })
+        assert_frame_equal(expected_df, result_df)
+
+    def test__transform_metadata_per_transformer_overwrite_false_overrides_global_true(self):
+        """Test per-transformer overwrite_non_nans=False overrides global True."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "source_field": ["new_value1", "new_value2"],
+            "target_field": ["existing1", np.nan]
+        })
+        full_flat_config_dict = {
+            OVERWRITE_NON_NANS_KEY: True,  # Global setting: do overwrite
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "target_field": {
+                        SOURCES_KEY: ["source_field"],
+                        FUNCTION_KEY: "pass_through",
+                        OVERWRITE_NON_NANS_KEY: False  # Per-transformer: don't overwrite
+                    }
+                }
+            }
+        }
+
+        result_df = _transform_metadata(
+            input_df, full_flat_config_dict, PRE_TRANSFORMERS_KEY, None)
+
+        # Should NOT overwrite existing1 because per-transformer setting takes precedence
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "source_field": ["new_value1", "new_value2"],
+            "target_field": ["existing1", "new_value2"]
+        })
+        assert_frame_equal(expected_df, result_df)
+
+    def test__transform_metadata_missing_source_field_skips_with_warning(self):
+        """Test that missing source fields cause transformer to be skipped with warning."""
+        import logging
+
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "existing_field": ["value1", "value2"]
+        })
+        full_flat_config_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "target_field": {
+                        SOURCES_KEY: ["missing_field"],  # This field doesn't exist
+                        FUNCTION_KEY: "pass_through"
+                    }
+                }
+            }
+        }
+
+        # Should not raise an error, just skip the transformer and log warning
+        with self.assertLogs(level=logging.WARNING) as log_context:
+            result_df = _transform_metadata(
+                input_df, full_flat_config_dict, PRE_TRANSFORMERS_KEY, None)
+
+        # DataFrame should be unchanged (no target_field added)
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "existing_field": ["value1", "value2"]
+        })
+        assert_frame_equal(expected_df, result_df)
+
+        # Check that warning was logged with expected content
+        self.assertEqual(1, len(log_context.output))
+        self.assertIn("pass_through", log_context.output[0])
+        self.assertIn("target_field", log_context.output[0])
+        self.assertIn("missing_field", log_context.output[0])
+
+    def test__transform_metadata_partial_missing_source_skips_transformer(self):
+        """Test transformer is skipped when only some source fields are missing."""
+        import logging
+
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "field_a": ["a1", "a2"]
+            # field_b is missing
+        })
+        full_flat_config_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "target_field": {
+                        SOURCES_KEY: ["field_a", "field_b"],  # field_b doesn't exist
+                        FUNCTION_KEY: "pass_through"
+                    }
+                }
+            }
+        }
+
+        with self.assertLogs(level=logging.WARNING) as log_context:
+            result_df = _transform_metadata(
+                input_df, full_flat_config_dict, PRE_TRANSFORMERS_KEY, None)
+
+        # DataFrame should be unchanged (transformer skipped)
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "field_a": ["a1", "a2"]
+        })
+        assert_frame_equal(expected_df, result_df)
+
+        # Check warning mentions only the missing field, not the present one
+        self.assertEqual(1, len(log_context.output))
+        self.assertIn("field_b", log_context.output[0])
+        self.assertNotIn("field_a", log_context.output[0])
+
     # Tests for _populate_metadata_df
 
     def test__populate_metadata_df_basic(self):
@@ -3271,6 +3455,19 @@ class TestMetadataExtender(TestCase):
         result = _get_study_specific_config(config_fp)
 
         expected = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "pass_through",
+                    },
+                    "days_since_first_day": {
+                        "sources": ["days_since_first_day"],
+                        "function": "transform_format_field_as_int",
+                        "overwrite_non_nans": True
+                    }
+                }
+            },
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {
                     METADATA_FIELDS_KEY: {

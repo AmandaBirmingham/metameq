@@ -6,7 +6,6 @@ from unittest import TestCase
 from datetime import datetime
 from datetime import timedelta
 from metameq.src.metadata_validator import (
-    _cast_field_to_type,
     _generate_validation_msg,
     _get_allowed_pandas_types,
     _make_cerberus_schema,
@@ -723,61 +722,6 @@ class TestGetAllowedPandasTypes(TestCase):
             _get_allowed_pandas_types,
             "my_field",
             field_definition)
-
-
-class TestCastFieldToType(TestCase):
-    """Tests for _cast_field_to_type function."""
-
-    def test_cast_field_to_type_string(self):
-        """Test casting a value to string."""
-        result = _cast_field_to_type(123, [str])
-
-        self.assertEqual("123", result)
-        self.assertIsInstance(result, str)
-
-    def test_cast_field_to_type_integer(self):
-        """Test casting a value to integer."""
-        result = _cast_field_to_type("42", [int])
-
-        self.assertEqual(42, result)
-        self.assertIsInstance(result, int)
-
-    def test_cast_field_to_type_float(self):
-        """Test casting a value to float."""
-        result = _cast_field_to_type("3.14", [float])
-
-        self.assertEqual(3.14, result)
-        self.assertIsInstance(result, float)
-
-    def test_cast_field_to_type_bool(self):
-        """Test casting a value to bool."""
-        result = _cast_field_to_type(1, [bool])
-
-        self.assertEqual(True, result)
-        self.assertIsInstance(result, bool)
-
-    def test_cast_field_to_type_first_type_succeeds(self):
-        """Test that first matching type in list is used."""
-        result = _cast_field_to_type("42", [str, int])
-
-        self.assertEqual("42", result)
-        self.assertIsInstance(result, str)
-
-    def test_cast_field_to_type_fallback_to_second_type(self):
-        """Test fallback to second type when first fails."""
-        result = _cast_field_to_type("hello", [int, str])
-
-        self.assertEqual("hello", result)
-        self.assertIsInstance(result, str)
-
-    def test_cast_field_to_type_no_valid_type_raises_error(self):
-        """Test that ValueError is raised when no type matches."""
-        self.assertRaisesRegex(
-            ValueError,
-            "Unable to cast 'hello' to any of the allowed types",
-            _cast_field_to_type,
-            "hello",
-            [int, float])
 
 
 class TestMetameqValidatorCheckWithDateNotInFuture(TestCase):

@@ -7,12 +7,15 @@ from metameq.src.metadata_transformers import (
     transform_input_sex_to_std_sex,
     transform_age_to_life_stage,
     transform_date_to_formatted_date,
+    transform_format_field_as_int,
+    transform_format_field_as_location,
     help_transform_mapping,
     standardize_input_sex,
     set_life_stage_from_age_yrs,
     format_a_datetime,
     _get_one_source_field,
-    _help_transform_mapping
+    _help_transform_mapping,
+    _format_field_val
 )
 
 
@@ -275,3 +278,305 @@ class TestMetadataTransformers(TestCase):
         mapping = {'a': '1', 'b': '2'}
         result = _help_transform_mapping('A', mapping, make_lower=True)
         self.assertEqual(result, '1')
+
+    # Tests for _format_field_val
+
+    def test__format_field_val_float_to_two_decimals(self):
+        """Test formatting a float string to two decimal places."""
+        row = pandas.Series({'latitude': '32.8812345678'})
+        result = _format_field_val(row, ['latitude'], float, '{0:.2f}')
+        self.assertEqual(result, '32.88')
+
+    def test__format_field_val_negative_float(self):
+        """Test formatting a negative float string."""
+        row = pandas.Series({'longitude': '-117.2345678901'})
+        result = _format_field_val(row, ['longitude'], float, '{0:.2f}')
+        self.assertEqual(result, '-117.23')
+
+    def test__format_field_val_zero(self):
+        """Test formatting zero."""
+        row = pandas.Series({'value': '0.0'})
+        result = _format_field_val(row, ['value'], float, '{0:.2f}')
+        self.assertEqual(result, '0.00')
+
+    def test__format_field_val_g_format_removes_trailing_zeros(self):
+        """Test formatting with 'g' format removes trailing zeros."""
+        row = pandas.Series({'value': '100.00'})
+        result = _format_field_val(row, ['value'], float, '{0:g}')
+        self.assertEqual(result, '100')
+
+    def test__format_field_val_nan_returns_nan(self):
+        """Test that NaN value is returned as-is."""
+        row = pandas.Series({'latitude': np.nan})
+        result = _format_field_val(row, ['latitude'], float, '{0:.2f}')
+        self.assertTrue(pandas.isna(result))
+
+    def test__format_field_val_cast_failure_returns_original(self):
+        """Test that cast failure returns the original value."""
+        row = pandas.Series({'value': 'hello'})
+        result = _format_field_val(row, ['value'], float, '{0:.2f}')
+        self.assertEqual(result, 'hello')
+
+    def test__format_field_val_integer_string(self):
+        """Test formatting an integer string."""
+        row = pandas.Series({'count': '42'})
+        result = _format_field_val(row, ['count'], int, '{0:d}')
+        self.assertEqual(result, '42')
+
+    def test__format_field_val_integer_string_no_format(self):
+        """Test formatting an integer string."""
+        row = pandas.Series({'count': '42'})
+        result = _format_field_val(row, ['count'], int, None)
+        self.assertEqual(result, '42')
+
+    def test__format_field_val_float_with_int_format_returns_original(self):
+        """Test that a float cast with int format returns a string (format fails)."""
+        row = pandas.Series({'value': '42.7'})
+        result = _format_field_val(row, ['value'], float, '{0:d}')
+        # Format fails because {0:d} requires int, so returns string of cast value
+        self.assertEqual(result, '42.7')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_float_to_int_returns_original(self):
+        """Test trying to cast a float with nonzero decimal places to an int returns the original string."""
+        row = pandas.Series({'value': '42.7'})
+        result = _format_field_val(row, ['value'], int, None)
+        self.assertEqual(result, '42.7')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_multiple_source_fields_raises(self):
+        """Test that multiple source fields raises ValueError."""
+        row = pandas.Series({'a': '1', 'b': '2'})
+        with self.assertRaisesRegex(ValueError, "format_field_val requires exactly one source field"):
+            _format_field_val(row, ['a', 'b'], float, '{0:.2f}')
+
+    def test__format_field_val_empty_source_fields_raises(self):
+        """Test that empty source fields raises ValueError."""
+        row = pandas.Series({'a': '1'})
+        with self.assertRaisesRegex(ValueError, "format_field_val requires exactly one source field"):
+            _format_field_val(row, [], float, '{0:.2f}')
+
+    # Tests for bool formatting
+    def test__format_field_val_string_true_to_bool_no_format(self):
+        """Test casting 'true' string to bool with no format string."""
+        row = pandas.Series({'flag': 'true'})
+        result = _format_field_val(row, ['flag'], bool, None)
+        self.assertEqual(result, 'True')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_string_false_to_bool_no_format(self):
+        """Test casting 'false' string to bool with no format string."""
+        row = pandas.Series({'flag': 'false'})
+        result = _format_field_val(row, ['flag'], bool, None)
+        self.assertEqual(result, 'False')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_string_yes_to_bool_decimal_format(self):
+        """Test casting 'yes' string to bool with decimal format."""
+        row = pandas.Series({'flag': 'yes'})
+        result = _format_field_val(row, ['flag'], bool, '{0:d}')
+        self.assertEqual(result, '1')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_string_no_to_bool_decimal_format(self):
+        """Test casting 'no' string to bool with decimal format."""
+        row = pandas.Series({'flag': 'no'})
+        result = _format_field_val(row, ['flag'], bool, '{0:d}')
+        self.assertEqual(result, '0')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_string_1_to_bool_no_format(self):
+        """Test casting '1' string to bool with no format string."""
+        row = pandas.Series({'flag': '1'})
+        result = _format_field_val(row, ['flag'], bool, None)
+        self.assertEqual(result, 'True')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_string_0_to_bool_no_format(self):
+        """Test casting '0' string to bool with no format string."""
+        row = pandas.Series({'flag': '0'})
+        result = _format_field_val(row, ['flag'], bool, None)
+        self.assertEqual(result, 'False')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_string_maybe_to_bool_fails(self):
+        """Test that non-boolean string returns original when cast to bool fails."""
+        row = pandas.Series({'flag': 'maybe'})
+        result = _format_field_val(row, ['flag'], bool, None)
+        self.assertEqual(result, 'maybe')
+        self.assertIsInstance(result, str)
+
+    # Tests for numeric (non-string) inputs
+    def test__format_field_val_float_input_to_float_with_format(self):
+        """Test formatting a float input to two decimal places."""
+        row = pandas.Series({'latitude': 32.8812345678})
+        result = _format_field_val(row, ['latitude'], float, '{0:.2f}')
+        self.assertEqual(result, '32.88')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_int_input_to_int_with_format(self):
+        """Test formatting an int input with decimal format."""
+        row = pandas.Series({'count': 42})
+        result = _format_field_val(row, ['count'], int, '{0:d}')
+        self.assertEqual(result, '42')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_int_input_to_int_no_format(self):
+        """Test casting an int input to int with no format string."""
+        row = pandas.Series({'count': 42})
+        result = _format_field_val(row, ['count'], int, None)
+        self.assertEqual(result, '42')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_int_input_to_float_with_format(self):
+        """Test formatting an int input as float to two decimal places."""
+        row = pandas.Series({'value': 42})
+        result = _format_field_val(row, ['value'], float, '{0:.2f}')
+        self.assertEqual(result, '42.00')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_float_input_to_int_success(self):
+        """Test casting a float with zero decimal to int."""
+        row = pandas.Series({'value': 42.0})
+        result = _format_field_val(row, ['value'], int, '{0:d}')
+        self.assertEqual(result, '42')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_float_input_to_int_fail(self):
+        """Test that a float with nonzero decimal returns original as str when cast to int fails."""
+        row = pandas.Series({'value': 42.7})
+        result = _format_field_val(row, ['value'], int, '{0:d}')
+        self.assertEqual(result, '42.7')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_tiny_float_to_decimal_format(self):
+        """Test that a tiny numeric float is formatted to decimal, not scientific notation."""
+        # 0.00001 would be '1e-05' with str(), but fixed-point format gives decimal
+        row = pandas.Series({'value': 0.00001})
+        result = _format_field_val(row, ['value'], float, '{0:.10f}')
+        self.assertEqual(result, '0.0000100000')
+        self.assertIsInstance(result, str)
+
+    def test__format_field_val_scientific_notation_string_to_decimal_format(self):
+        """Test that a scientific notation string is formatted to decimal."""
+        row = pandas.Series({'value': '1e-05'})
+        result = _format_field_val(row, ['value'], float, '{0:.10f}')
+        self.assertEqual(result, '0.0000100000')
+        self.assertIsInstance(result, str)
+
+    # Tests for transform_format_field_as_int
+    def test_transform_format_field_as_int_valid_int_string(self):
+        """Test formatting an integer string."""
+        row = pandas.Series({'days': '42'})
+        result = transform_format_field_as_int(row, ['days'])
+        self.assertEqual(result, '42')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_int_float_with_zero_decimal(self):
+        """Test formatting a float string with zero decimal part."""
+        row = pandas.Series({'days': '42.0'})
+        result = transform_format_field_as_int(row, ['days'])
+        self.assertEqual(result, '42')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_int_float_with_nonzero_decimal(self):
+        """Test that a float string with nonzero decimal returns original."""
+        row = pandas.Series({'days': '42.7'})
+        result = transform_format_field_as_int(row, ['days'])
+        self.assertEqual(result, '42.7')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_int_nan(self):
+        """Test that NaN value is returned as-is."""
+        row = pandas.Series({'days': np.nan})
+        result = transform_format_field_as_int(row, ['days'])
+        self.assertTrue(pandas.isna(result))
+
+    def test_transform_format_field_as_int_invalid_string(self):
+        """Test that invalid string returns original."""
+        row = pandas.Series({'days': 'hello'})
+        result = transform_format_field_as_int(row, ['days'])
+        self.assertEqual(result, 'hello')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_int_multiple_source_fields_raises(self):
+        """Test that multiple source fields raises ValueError."""
+        row = pandas.Series({'a': '1', 'b': '2'})
+        with self.assertRaisesRegex(ValueError, "format_field_val requires exactly one source field"):
+            transform_format_field_as_int(row, ['a', 'b'])
+
+    def test_transform_format_field_as_int_numeric_input(self):
+        """Test formatting a numeric (non-string) integer input."""
+        row = pandas.Series({'days': 42})
+        result = transform_format_field_as_int(row, ['days'])
+        self.assertEqual(result, '42')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_int_negative_int(self):
+        """Test formatting a negative integer string."""
+        row = pandas.Series({'days': '-5'})
+        result = transform_format_field_as_int(row, ['days'])
+        self.assertEqual(result, '-5')
+        self.assertIsInstance(result, str)
+
+    # Tests for transform_format_field_as_location
+    def test_transform_format_field_as_location_valid_float_string(self):
+        """Test formatting a float string as location."""
+        row = pandas.Series({'latitude': '32.8812345678'})
+        result = transform_format_field_as_location(row, ['latitude'])
+        self.assertEqual(result, '32.8812345678')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_location_negative_float(self):
+        """Test formatting a negative float string as location."""
+        row = pandas.Series({'longitude': '-117.234567890'})
+        result = transform_format_field_as_location(row, ['longitude'])
+        self.assertEqual(result, '-117.23456789')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_location_integer_string(self):
+        """Test formatting an integer string as location."""
+        row = pandas.Series({'elevation': '100'})
+        result = transform_format_field_as_location(row, ['elevation'])
+        self.assertEqual(result, '100')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_location_small_decimal(self):
+        """Test formatting a small decimal value as location."""
+        row = pandas.Series({'value': '0.00012345678'})
+        result = transform_format_field_as_location(row, ['value'])
+        self.assertEqual(result, '0.00012345678')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_location_nan(self):
+        """Test that NaN value is returned as-is."""
+        row = pandas.Series({'latitude': np.nan})
+        result = transform_format_field_as_location(row, ['latitude'])
+        self.assertTrue(pandas.isna(result))
+
+    def test_transform_format_field_as_location_invalid_string(self):
+        """Test that invalid string returns original."""
+        row = pandas.Series({'latitude': 'unknown'})
+        result = transform_format_field_as_location(row, ['latitude'])
+        self.assertEqual(result, 'unknown')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_location_multiple_source_fields_raises(self):
+        """Test that multiple source fields raises ValueError."""
+        row = pandas.Series({'lat': '32.88', 'lon': '-117.23'})
+        with self.assertRaisesRegex(ValueError, "format_field_val requires exactly one source field"):
+            transform_format_field_as_location(row, ['lat', 'lon'])
+
+    def test_transform_format_field_as_location_numeric_input(self):
+        """Test formatting a numeric (non-string) float input."""
+        row = pandas.Series({'latitude': 32.8812345678})
+        result = transform_format_field_as_location(row, ['latitude'])
+        self.assertEqual(result, '32.8812345678')
+        self.assertIsInstance(result, str)
+
+    def test_transform_format_field_as_location_large_value(self):
+        """Test formatting a large value as location."""
+        row = pandas.Series({'elevation': '12345.6789'})
+        result = transform_format_field_as_location(row, ['elevation'])
+        self.assertEqual(result, '12345.6789')
+        self.assertIsInstance(result, str)

@@ -1,5 +1,5 @@
 from typing import Dict, Optional, Any
-from metameq.src.util import extract_config_dict, extract_stds_config, \
+from metameq.src.util import METADATA_TRANSFORMERS_KEY, extract_config_dict, extract_stds_config, \
     deepcopy_dict, \
     METADATA_FIELDS_KEY, STUDY_SPECIFIC_METADATA_KEY, \
     HOST_TYPE_SPECIFIC_METADATA_KEY, \
@@ -12,28 +12,84 @@ def combine_stds_and_study_config(
         study_config_dict: Dict[str, Any],
         stds_fp: Optional[str] = None) \
         -> Dict[str, Any]:
-    """Combine standards and study-specific-configuration dictionaries.
+    """Combine standards and study-specific configuration dictionaries.
+
+    Merges host type configurations, metadata transformers, and other top-level
+    keys from both sources. Study-specific values override standards values
+    where they overlap.
 
     Parameters
     ----------
     study_config_dict : Dict[str, Any]
-        Study-specific flat-host-type config dictionary.
+        Study-specific configuration dictionary. May contain
+        STUDY_SPECIFIC_METADATA_KEY with host type overrides,
+        METADATA_TRANSFORMERS_KEY with transformer definitions,
+        and other top-level configuration keys.
     stds_fp : Optional[str], default=None
         Path to standards dictionary file.
 
     Returns
     -------
     Dict[str, Any]
-        Nested-host-type config dictionary combining standards and study-specific info.
+        Combined configuration dictionary containing:
+        - HOST_TYPE_SPECIFIC_METADATA_KEY: nested host type configurations
+        - METADATA_TRANSFORMERS_KEY: merged transformer definitions (if any)
+        - Other top-level keys from both standards and study configs
     """
     stds_nested_dict = extract_stds_config(stds_fp)
-    study_flat_dict = study_config_dict.get(STUDY_SPECIFIC_METADATA_KEY, {})
+
+    # pull the study-specific host type specific metadata out of the (local copy of)
+    # the study config; we need it for combining host types but specifically don't
+    # want it later when merging the remainder of the study config with the standards config
+    study_config_dict_local = deepcopy_dict(study_config_dict)
+    study_flat_dict = study_config_dict_local.pop(STUDY_SPECIFIC_METADATA_KEY, {})
+
     combined_host_types_dict = _make_combined_stds_and_study_host_type_dicts(
         study_flat_dict, stds_nested_dict)
 
-    stds_plus_study_nested_dict = {
-        HOST_TYPE_SPECIFIC_METADATA_KEY: combined_host_types_dict}
+    combined_transformers_dict = _combine_metadata_transformers_dicts(
+        stds_nested_dict, study_config_dict_local)
+
+    stds_plus_study_nested_dict = stds_nested_dict | study_config_dict_local
+    stds_plus_study_nested_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = combined_host_types_dict
+    if combined_transformers_dict:
+        stds_plus_study_nested_dict[METADATA_TRANSFORMERS_KEY] = combined_transformers_dict
     return stds_plus_study_nested_dict
+
+
+def _combine_metadata_transformers_dicts(
+        stds_transformers_dict: Dict[str, Any],
+        study_transformers_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Combine metadata transformers from standards and study configurations.
+
+    Merges transformer definitions from both sources. For each transformer type
+    (e.g., pre_transformers, post_transformers), transformers from the study
+    config override those from standards when they target the same field.
+
+    Parameters
+    ----------
+    stds_transformers_dict : Dict[str, Any]
+        Standards configuration dictionary (may contain METADATA_TRANSFORMERS_KEY).
+    study_transformers_dict : Dict[str, Any]
+        Study configuration dictionary (may contain METADATA_TRANSFORMERS_KEY).
+
+    Returns
+    -------
+    Dict[str, Any]
+        Combined transformers dictionary with transformer types as keys
+        (e.g., pre_transformers, post_transformers) and their merged transformer
+        definitions as values. Returns empty dict if neither input has transformers.
+    """
+    stds_transformers_dict = stds_transformers_dict.get(METADATA_TRANSFORMERS_KEY, {})
+    study_transformers_dict = study_transformers_dict.get(METADATA_TRANSFORMERS_KEY, {})
+
+    result = deepcopy_dict(stds_transformers_dict)
+    for curr_transformer_type, curr_study_transformers_dict in study_transformers_dict.items():
+        curr_stds_transformers_dict = stds_transformers_dict.get(curr_transformer_type, {})
+        combined_transformers_dict = curr_stds_transformers_dict | curr_study_transformers_dict
+        result[curr_transformer_type] = combined_transformers_dict
+
+    return result
 
 
 def flatten_nested_stds_dict(
@@ -602,8 +658,10 @@ def build_full_flat_config_dict(
     Parameters
     ----------
     study_specific_config_dict : Optional[Dict[str, Any]], default=None
-        Study-specific flat-host-type config dictionary. If provided, these
-        settings override the software config defaults.
+        Study-specific configuration dictionary. If provided, these settings
+        override the software config defaults. May contain host type overrides
+        under STUDY_SPECIFIC_METADATA_KEY and transformer definitions under
+        METADATA_TRANSFORMERS_KEY.
     software_config_dict : Optional[Dict[str, Any]], default=None
         Software configuration dictionary with default settings. If None,
         the default software config from config.yml will be used.
@@ -614,50 +672,36 @@ def build_full_flat_config_dict(
     Returns
     -------
     Dict[str, Any]
-        A complete flat configuration dictionary with HOST_TYPE_SPECIFIC_METADATA_KEY
-        containing the flattened and merged host type configurations.
+        A complete flat configuration dictionary containing:
+        - HOST_TYPE_SPECIFIC_METADATA_KEY: flattened and merged host type configs
+        - METADATA_TRANSFORMERS_KEY: merged transformer definitions (if any)
+        - Other top-level configuration keys (default, leave_requireds_blank, etc.)
     """
     if software_config_dict is None:
         software_config_dict = extract_config_dict(None)
 
-    if study_specific_config_dict:
-        # overwrite default settings in software config with study-specific ones (if any)
-        software_plus_study_flat_config_dict = deepcopy_dict(study_specific_config_dict)
-        software_plus_study_flat_config_dict = \
-            software_config_dict | software_plus_study_flat_config_dict
+    if study_specific_config_dict is None:
+        study_specific_config_dict = {}
 
-        # combine the software+study flat-host-type config's host type specific info
-        # with the standards nested-host-type config's host type specific info
-        # to get a full combined, nested dictionary starting from HOST_TYPE_SPECIFIC_METADATA_KEY
-        full_nested_hosts_dict = combine_stds_and_study_config(
-            software_plus_study_flat_config_dict, stds_fp)
-    else:
-        software_plus_study_flat_config_dict = software_config_dict
-        # no need to combine the standards' host info with anything else,
-        # since the software config doesn't include any host type specific info
-        full_nested_hosts_dict = extract_stds_config(stds_fp)
+    # overwrite default settings in software config with study-specific ones (if any)
+    software_plus_study_flat_config_dict = deepcopy_dict(study_specific_config_dict)
+    software_plus_study_flat_config_dict = \
+        software_config_dict | software_plus_study_flat_config_dict
+
+    # combine the software+study flat-host-type config's host type specific info
+    # with the standards nested-host-type config's host type specific info
+    # to get a full combined, nested dictionary starting from HOST_TYPE_SPECIFIC_METADATA_KEY
+    full_nested_hosts_dict = combine_stds_and_study_config(
+        software_plus_study_flat_config_dict, stds_fp)
 
     full_nested_hosts_dict = _push_global_settings_into_top_host(
             full_nested_hosts_dict,
-            software_plus_study_flat_config_dict)
+            full_nested_hosts_dict)
 
     full_flat_hosts_dict = flatten_nested_stds_dict(
         full_nested_hosts_dict, None)
-    software_plus_study_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
-        full_flat_hosts_dict
-
-    # drop the STUDY_SPECIFIC_METADATA_KEY from the final output dict (because
-    # its contents have already been incorporated into the
-    # HOST_TYPE_SPECIFIC_METADATA_KEY section); note we keep all the other
-    # top-level keys from the study-specific config dict
-    if STUDY_SPECIFIC_METADATA_KEY in software_plus_study_flat_config_dict:
-        del software_plus_study_flat_config_dict[STUDY_SPECIFIC_METADATA_KEY]
-
-    # this is just a renaming to indicate that, having overwritten any original
-    # HOST_TYPE_SPECIFIC_METADATA_KEY in the software_plus_study_flat_config_dict
-    # with the complete and flattened combination of software+study+standards, it is now
-    # the "full" flat-host-type config dictionary
-    full_flat_config_dict = software_plus_study_flat_config_dict
+    full_flat_config_dict = deepcopy_dict(full_nested_hosts_dict)
+    full_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = full_flat_hosts_dict
 
     return full_flat_config_dict
 

@@ -170,3 +170,18 @@
       sources:
         - "collection_timestamp"
       function: "transform_date_to_formatted_date"
+    days_since_first_day:
+      sources:
+        - "days_since_first_day"
+      function: "transform_format_field_as_int"
+      overwrite_non_nans: true
+    elevation:
+      sources:
+        - "elevation"
+      function: "transform_format_field_as_location"
+      overwrite_non_nans: true
+    latitude:
+      sources:
+        - "latitude"
+      function: "transform_format_field_as_location"
+      overwrite_non_nans: true

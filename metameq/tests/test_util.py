@@ -7,7 +7,8 @@ from unittest import TestCase
 from metameq.src.util import extract_config_dict, \
     extract_yaml_dict, extract_stds_config, deepcopy_dict, \
     validate_required_columns_exist, update_metadata_df_field, get_extension, \
-    load_df_with_best_fit_encoding
+    load_df_with_best_fit_encoding, cast_field_to_type, \
+    _try_cast_to_int, _try_cast_to_bool
 
 
 class TestUtil(TestCase):
@@ -17,21 +18,34 @@ class TestUtil(TestCase):
     TEST_DIR = path.dirname(__file__)
 
     TEST_CONFIG_DICT = {
-            "host_type_specific_metadata": {
-                "base": {
-                    "metadata_fields": {
-                        "sample_name": {
-                            "type": "string",
-                            "unique": True
-                        },
-                        "sample_type": {
-                            "empty": False,
-                            "is_phi": False
-                        }
+        "metadata_transformers": {
+            "pre_transformers": {
+                "collection_date": {
+                    "sources": ["collection_timestamp"],
+                    "function": "pass_through",
+                },
+                "days_since_first_day": {
+                    "sources": ["days_since_first_day"],
+                    "function": "transform_format_field_as_int",
+                    "overwrite_non_nans": True
+                }
+            }
+        },
+        "host_type_specific_metadata": {
+            "base": {
+                "metadata_fields": {
+                    "sample_name": {
+                        "type": "string",
+                        "unique": True
+                    },
+                    "sample_type": {
+                        "empty": False,
+                        "is_phi": False
                     }
                 }
             }
         }
+    }
 
     # Tests for extract_config_dict
     def test_extract_config_dict_no_inputs(self):
@@ -462,3 +476,514 @@ class TestUtil(TestCase):
         self.assertEqual(working_df["taxon_id"].iloc[0], "539655")
         self.assertEqual(working_df["taxon_id"].iloc[1], "539655")
         assert_frame_equal(exp_df, working_df)
+
+    def test_update_metadata_df_field_same_source_and_target(self):
+        """Test using the same column as both source and target of a transformer.
+
+        Verifies that a field can be transformed in place using itself as the
+        source, which requires internal handling to avoid reading modified values.
+        """
+        def format_lat_to_two_decimals(row, source_fields):
+            val = float(row[source_fields[0]])
+            return f"{val:.2f}"
+
+        working_df = pandas.DataFrame({
+            "sample_name": ["s1", "s2", "s3"],
+            "latitude": ["32.8812345678", "-117.2345678901", "0.1234567890"]
+        })
+
+        exp_df = pandas.DataFrame({
+            "sample_name": ["s1", "s2", "s3"],
+            "latitude": ["32.88", "-117.23", "0.12"]
+        })
+
+        update_metadata_df_field(
+            working_df, "latitude", format_lat_to_two_decimals,
+            ["latitude"], overwrite_non_nans=True)
+        assert_frame_equal(exp_df, working_df)
+
+    def test_update_metadata_df_field_same_source_and_target_no_overwrite(self):
+        """Test that same-column transformation fails when overwrite_non_nans is False.
+
+        When overwrite_non_nans is False, existing non-NaN values are not modified,
+        so the transformation is not applied to the existing latitude values.
+        """
+        def format_lat_to_two_decimals(row, source_fields):
+            val = float(row[source_fields[0]])
+            return f"{val:.2f}"
+
+        working_df = pandas.DataFrame({
+            "sample_name": ["s1", "s2", "s3"],
+            "latitude": ["32.8812345678", "-117.2345678901", "0.1234567890"]
+        })
+
+        # Expected: values remain unchanged because overwrite_non_nans=False
+        # and all values are non-NaN
+        exp_df = pandas.DataFrame({
+            "sample_name": ["s1", "s2", "s3"],
+            "latitude": ["32.8812345678", "-117.2345678901", "0.1234567890"]
+        })
+
+        update_metadata_df_field(
+            working_df, "latitude", format_lat_to_two_decimals,
+            ["latitude"], overwrite_non_nans=False)
+        assert_frame_equal(exp_df, working_df)
+
+
+class TestCastFieldToType(TestCase):
+    """Tests for cast_field_to_type function."""
+
+    def test_cast_field_to_type_string(self):
+        """Test casting a value to string."""
+        result = cast_field_to_type(123, [str])
+
+        self.assertEqual("123", result)
+        self.assertIsInstance(result, str)
+
+    def test_cast_field_to_type_integer(self):
+        """Test casting a value to integer."""
+        result = cast_field_to_type("42", [int])
+
+        self.assertEqual(42, result)
+        self.assertIsInstance(result, int)
+
+    def test_cast_field_to_type_float(self):
+        """Test casting a value to float."""
+        result = cast_field_to_type("3.14", [float])
+
+        self.assertEqual(3.14, result)
+        self.assertIsInstance(result, float)
+
+    def test_cast_field_to_type_bool(self):
+        """Test casting a value to bool."""
+        result = cast_field_to_type(1, [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_first_type_succeeds(self):
+        """Test that first matching type in list is used."""
+        result = cast_field_to_type("42", [str, int])
+
+        self.assertEqual("42", result)
+        self.assertIsInstance(result, str)
+
+    def test_cast_field_to_type_fallback_to_second_type(self):
+        """Test fallback to second type when first fails."""
+        result = cast_field_to_type("hello", [int, str])
+
+        self.assertEqual("hello", result)
+        self.assertIsInstance(result, str)
+
+    def test_cast_field_to_type_no_valid_type_raises_error(self):
+        """Test that ValueError is raised when no type matches."""
+        with self.assertRaisesRegex(ValueError, "Unable to cast 'hello' to any of the allowed types"):
+            cast_field_to_type("hello", [int, float])
+
+    def test_cast_field_to_type_float_string_to_int_success(self):
+        """Test casting a float-formatted string to integer."""
+        result = cast_field_to_type(" 447426.0 ", [int])
+
+        self.assertEqual(447426, result)
+        self.assertIsInstance(result, int)
+
+    def test_cast_field_to_type_float_string_to_int_fail(self):
+        """Test fail of casting a float-formatted string with nonzero decimals to integer."""
+        with self.assertRaisesRegex(ValueError, "Unable to cast ' 447426.7 ' to any of the allowed types"):
+            cast_field_to_type(" 447426.7 ", [int])
+
+    def test_cast_field_to_type_non_string_to_int_fail(self):
+        """Test that non-integer float input fails to cast to int."""
+        with self.assertRaisesRegex(ValueError, "Unable to cast '123.8' to any of the allowed types"):
+            cast_field_to_type(123.8, [int])
+
+    def test_cast_field_to_type_negative_float_string_to_int(self):
+        """Test casting a negative float-formatted string to integer."""
+        result = cast_field_to_type("-42.0", [int])
+
+        self.assertEqual(-42, result)
+        self.assertIsInstance(result, int)
+
+    def test_cast_field_to_type_zero_float_string_to_int(self):
+        """Test casting zero as float-formatted string to integer."""
+        result = cast_field_to_type("0.0", [int])
+
+        self.assertEqual(0, result)
+        self.assertIsInstance(result, int)
+
+    # Bool passthrough tests
+    def test_cast_field_to_type_bool_true_passthrough(self):
+        """Test that True bool passes through unchanged."""
+        result = cast_field_to_type(True, [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_bool_false_passthrough(self):
+        """Test that False bool passes through unchanged."""
+        result = cast_field_to_type(False, [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    # Numeric 0/1 to bool tests
+    def test_cast_field_to_type_int_zero_to_bool(self):
+        """Test casting int 0 to bool False."""
+        result = cast_field_to_type(0, [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_int_one_to_bool(self):
+        """Test casting int 1 to bool True."""
+        result = cast_field_to_type(1, [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_float_zero_to_bool(self):
+        """Test casting float 0.0 to bool False."""
+        result = cast_field_to_type(0.0, [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_float_one_to_bool(self):
+        """Test casting float 1.0 to bool True."""
+        result = cast_field_to_type(1.0, [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    # String to bool (truthy) tests
+    def test_cast_field_to_type_string_true_lowercase_to_bool(self):
+        """Test casting 'true' to bool True."""
+        result = cast_field_to_type("true", [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_True_to_bool(self):
+        """Test casting 'True' to bool True."""
+        result = cast_field_to_type("True", [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_TRUE_to_bool(self):
+        """Test casting 'TRUE' to bool True (case insensitive)."""
+        result = cast_field_to_type("TRUE", [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_yes_to_bool(self):
+        """Test casting 'yes' to bool True."""
+        result = cast_field_to_type("yes", [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_y_to_bool(self):
+        """Test casting 'y' to bool True."""
+        result = cast_field_to_type("y", [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_t_to_bool(self):
+        """Test casting 't' to bool True."""
+        result = cast_field_to_type("t", [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_1_to_bool(self):
+        """Test casting '1' to bool True."""
+        result = cast_field_to_type("1", [bool])
+
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    # String to bool (falsy) tests
+    def test_cast_field_to_type_string_false_lowercase_to_bool(self):
+        """Test casting 'false' to bool False."""
+        result = cast_field_to_type("false", [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_False_to_bool(self):
+        """Test casting 'False' to bool False."""
+        result = cast_field_to_type("False", [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_FALSE_to_bool(self):
+        """Test casting 'FALSE' to bool False (case insensitive)."""
+        result = cast_field_to_type("FALSE", [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_no_to_bool(self):
+        """Test casting 'no' to bool False."""
+        result = cast_field_to_type("no", [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_n_to_bool(self):
+        """Test casting 'n' to bool False."""
+        result = cast_field_to_type("n", [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_f_to_bool(self):
+        """Test casting 'f' to bool False."""
+        result = cast_field_to_type("f", [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_cast_field_to_type_string_0_to_bool(self):
+        """Test casting '0' to bool False."""
+        result = cast_field_to_type("0", [bool])
+
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    # Values that should NOT cast to bool
+    def test_cast_field_to_type_int_two_to_bool_fail(self):
+        """Test that int 2 fails to cast to bool."""
+        with self.assertRaisesRegex(ValueError, "Unable to cast '2' to any of the allowed types"):
+            cast_field_to_type(2, [bool])
+
+    def test_cast_field_to_type_float_nonbool_to_bool_fail(self):
+        """Test that arbitrary float fails to cast to bool."""
+        with self.assertRaisesRegex(ValueError, "Unable to cast '-138.3' to any of the allowed types"):
+            cast_field_to_type(-138.3, [bool])
+
+    def test_cast_field_to_type_string_maybe_to_bool_fail(self):
+        """Test that non-boolean string fails to cast to bool."""
+        with self.assertRaisesRegex(ValueError, "Unable to cast 'maybe' to any of the allowed types"):
+            cast_field_to_type("maybe", [bool])
+
+    def test_cast_field_to_type_float_string_to_bool_int_fail(self):
+        """Test that '123.9' fails to cast when allowed types are [bool, int]."""
+        with self.assertRaisesRegex(ValueError, "Unable to cast '123.9' to any of the allowed types"):
+            cast_field_to_type("123.9", [bool, int])
+
+
+class TestTryCastToInt(TestCase):
+    """Tests for _try_cast_to_int helper function."""
+
+    def test_try_cast_to_int_integer_string(self):
+        """Test casting an integer string to int."""
+        result = _try_cast_to_int("42")
+        self.assertEqual(42, result)
+        self.assertIsInstance(result, int)
+
+    def test_try_cast_to_int_float_string_whole_number(self):
+        """Test casting a float string with zero decimals to int."""
+        result = _try_cast_to_int("42.0")
+        self.assertEqual(42, result)
+        self.assertIsInstance(result, int)
+
+    def test_try_cast_to_int_float_string_with_decimals(self):
+        """Test that float string with non-zero decimals returns None."""
+        result = _try_cast_to_int("42.7")
+        self.assertIsNone(result)
+
+    def test_try_cast_to_int_negative_float_string(self):
+        """Test casting a negative float string with zero decimals."""
+        result = _try_cast_to_int("-42.0")
+        self.assertEqual(-42, result)
+        self.assertIsInstance(result, int)
+
+    def test_try_cast_to_int_zero(self):
+        """Test casting zero string."""
+        result = _try_cast_to_int("0")
+        self.assertEqual(0, result)
+        self.assertIsInstance(result, int)
+
+    def test_try_cast_to_int_zero_float_string(self):
+        """Test casting zero as float string."""
+        result = _try_cast_to_int("0.0")
+        self.assertEqual(0, result)
+        self.assertIsInstance(result, int)
+
+    def test_try_cast_to_int_whitespace_padded(self):
+        """Test casting string with whitespace padding."""
+        result = _try_cast_to_int(" 42.0 ")
+        self.assertEqual(42, result)
+        self.assertIsInstance(result, int)
+
+    def test_try_cast_to_int_actual_int(self):
+        """Test casting an actual int passes through."""
+        result = _try_cast_to_int(42)
+        self.assertEqual(42, result)
+        self.assertIsInstance(result, int)
+
+    def test_try_cast_to_int_actual_float_whole(self):
+        """Test casting an actual float with zero decimals."""
+        result = _try_cast_to_int(42.0)
+        self.assertEqual(42, result)
+        self.assertIsInstance(result, int)
+
+    def test_try_cast_to_int_actual_float_with_decimals(self):
+        """Test that actual float with non-zero decimals returns None."""
+        result = _try_cast_to_int(42.7)
+        self.assertIsNone(result)
+
+    def test_try_cast_to_int_non_numeric_string(self):
+        """Test that non-numeric string returns None."""
+        result = _try_cast_to_int("hello")
+        self.assertIsNone(result)
+
+    def test_try_cast_to_int_empty_string(self):
+        """Test that empty string returns None."""
+        result = _try_cast_to_int("")
+        self.assertIsNone(result)
+
+    def test_try_cast_to_int_none(self):
+        """Test that None input returns None."""
+        result = _try_cast_to_int(None)
+        self.assertIsNone(result)
+
+
+class TestTryCastToBool(TestCase):
+    """Tests for _try_cast_to_bool helper function."""
+
+    # Bool passthrough tests
+    def test_try_cast_to_bool_true_passthrough(self):
+        """Test that True bool passes through."""
+        result = _try_cast_to_bool(True)
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_try_cast_to_bool_false_passthrough(self):
+        """Test that False bool passes through."""
+        result = _try_cast_to_bool(False)
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    # Numeric 0/1 tests
+    def test_try_cast_to_bool_int_zero(self):
+        """Test casting int 0 to bool False."""
+        result = _try_cast_to_bool(0)
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_try_cast_to_bool_int_one(self):
+        """Test casting int 1 to bool True."""
+        result = _try_cast_to_bool(1)
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    def test_try_cast_to_bool_float_zero(self):
+        """Test casting float 0.0 to bool False."""
+        result = _try_cast_to_bool(0.0)
+        self.assertEqual(False, result)
+        self.assertIsInstance(result, bool)
+
+    def test_try_cast_to_bool_float_one(self):
+        """Test casting float 1.0 to bool True."""
+        result = _try_cast_to_bool(1.0)
+        self.assertEqual(True, result)
+        self.assertIsInstance(result, bool)
+
+    # String truthy tests
+    def test_try_cast_to_bool_string_true(self):
+        """Test casting 'true' to bool True."""
+        result = _try_cast_to_bool("true")
+        self.assertEqual(True, result)
+
+    def test_try_cast_to_bool_string_TRUE(self):
+        """Test casting 'TRUE' to bool True (case insensitive)."""
+        result = _try_cast_to_bool("TRUE")
+        self.assertEqual(True, result)
+
+    def test_try_cast_to_bool_string_yes(self):
+        """Test casting 'yes' to bool True."""
+        result = _try_cast_to_bool("yes")
+        self.assertEqual(True, result)
+
+    def test_try_cast_to_bool_string_y(self):
+        """Test casting 'y' to bool True."""
+        result = _try_cast_to_bool("y")
+        self.assertEqual(True, result)
+
+    def test_try_cast_to_bool_string_t(self):
+        """Test casting 't' to bool True."""
+        result = _try_cast_to_bool("t")
+        self.assertEqual(True, result)
+
+    def test_try_cast_to_bool_string_1(self):
+        """Test casting '1' to bool True."""
+        result = _try_cast_to_bool("1")
+        self.assertEqual(True, result)
+
+    # String falsy tests
+    def test_try_cast_to_bool_string_false(self):
+        """Test casting 'false' to bool False."""
+        result = _try_cast_to_bool("false")
+        self.assertEqual(False, result)
+
+    def test_try_cast_to_bool_string_FALSE(self):
+        """Test casting 'FALSE' to bool False (case insensitive)."""
+        result = _try_cast_to_bool("FALSE")
+        self.assertEqual(False, result)
+
+    def test_try_cast_to_bool_string_no(self):
+        """Test casting 'no' to bool False."""
+        result = _try_cast_to_bool("no")
+        self.assertEqual(False, result)
+
+    def test_try_cast_to_bool_string_n(self):
+        """Test casting 'n' to bool False."""
+        result = _try_cast_to_bool("n")
+        self.assertEqual(False, result)
+
+    def test_try_cast_to_bool_string_f(self):
+        """Test casting 'f' to bool False."""
+        result = _try_cast_to_bool("f")
+        self.assertEqual(False, result)
+
+    def test_try_cast_to_bool_string_0(self):
+        """Test casting '0' to bool False."""
+        result = _try_cast_to_bool("0")
+        self.assertEqual(False, result)
+
+    # Values that should return None
+    def test_try_cast_to_bool_int_two(self):
+        """Test that int 2 returns None."""
+        result = _try_cast_to_bool(2)
+        self.assertIsNone(result)
+
+    def test_try_cast_to_bool_negative_int(self):
+        """Test that negative int returns None."""
+        result = _try_cast_to_bool(-1)
+        self.assertIsNone(result)
+
+    def test_try_cast_to_bool_arbitrary_float(self):
+        """Test that arbitrary float returns None."""
+        result = _try_cast_to_bool(3.14)
+        self.assertIsNone(result)
+
+    def test_try_cast_to_bool_non_boolean_string(self):
+        """Test that non-boolean string returns None."""
+        result = _try_cast_to_bool("maybe")
+        self.assertIsNone(result)
+
+    def test_try_cast_to_bool_empty_string(self):
+        """Test that empty string returns None."""
+        result = _try_cast_to_bool("")
+        self.assertIsNone(result)
+
+    def test_try_cast_to_bool_none(self):
+        """Test that None input returns None."""
+        result = _try_cast_to_bool(None)
+        self.assertIsNone(result)

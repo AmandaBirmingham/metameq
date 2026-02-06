@@ -651,7 +651,7 @@ def _transform_metadata(
         full_flat_config_dict: Dict[str, Any],
         stage_key: str,
         transformer_funcs_dict: Optional[Dict[str, Any]]) -> pandas.DataFrame:
-    """Apply transformations defined in full_flat_config_dict to metadata fields using dict of transformer functions.
+    """Apply transformations defined in full_flat_config_dict to metadata fields.
 
     Parameters
     ----------
@@ -659,14 +659,14 @@ def _transform_metadata(
         The metadata DataFrame to transform, which must contain at least
         the columns in REQUIRED_RAW_METADATA_FIELDS.
     full_flat_config_dict : Dict[str, Any]
-        Fully combined flat-host-type config dictionary.
+        Fully combined flat-host-type config dictionary. May contain
+        OVERWRITE_NON_NANS_KEY as a global setting, which can be overridden
+        by individual transformers.
     stage_key : str
         Key indicating the transformation stage (pre or post).
     transformer_funcs_dict : Optional[Dict[str, Any]]
-        Dictionary of transformer functions, keyed by field name,
-        with each value being a dict with keys SOURCES_KEY and FUNCTION_KEY,
-        which map to lists of source field names for the transformer to use
-        and an existing transformer function name, respectively.
+        Dictionary of transformer functions, keyed by function name.
+        If None, only built-in transformers will be available.
 
     Returns
     -------
@@ -677,6 +677,16 @@ def _transform_metadata(
     ------
     ValueError
         If a specified transformer function cannot be found.
+
+    Notes
+    -----
+    Each transformer may optionally specify its own OVERWRITE_NON_NANS_KEY
+    setting, which takes precedence over the global setting.
+
+    If a transformer references source fields that are not present in the
+    DataFrame, that transformer is skipped and a warning is logged. This
+    allows optional fields to be used as transformer sources without causing
+    errors when they are absent.
     """
     if transformer_funcs_dict is None:
         transformer_funcs_dict = {}
@@ -691,6 +701,20 @@ def _transform_metadata(
                     stage_transformers.items():
                 curr_source_fields = curr_transformer_dict[SOURCES_KEY]
                 curr_func_name = curr_transformer_dict[FUNCTION_KEY]
+                curr_overwrite_non_nans = curr_transformer_dict.get(
+                    OVERWRITE_NON_NANS_KEY, overwrite_non_nans)
+
+                # If any of the source fields for this transformer are missing from
+                # the metadata, skip this transformer and log a warning.  This can
+                # happen if, for example, there is a transformer set that uses an
+                # optional field as a source, and that optional field is not present.
+                curr_missing_sources = set(curr_source_fields) - set(metadata_df.columns)
+                if curr_missing_sources:
+                    logging.warning(
+                        f"Transformer '{curr_func_name}' for target field"
+                        f" '{curr_target_field}' skipped due to missing source fields: "
+                        f"{', '.join(curr_missing_sources)}")
+                    continue
 
                 try:
                     curr_func = transformer_funcs_dict[curr_func_name]
@@ -711,7 +735,7 @@ def _transform_metadata(
                 # metadata_df named curr_source_fields to fill curr_target_field
                 update_metadata_df_field(metadata_df, curr_target_field,
                                          curr_func, curr_source_fields,
-                                         overwrite_non_nans=overwrite_non_nans)
+                                         overwrite_non_nans=curr_overwrite_non_nans)
             # next stage transformer
         # end if there are stage transformers for this stage
     # end if there are any metadata transformers

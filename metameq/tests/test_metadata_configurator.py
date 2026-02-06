@@ -1,14 +1,15 @@
 import os.path as path
 from unittest import TestCase
 from metameq.src.util import \
-    HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_FIELDS_KEY, \
-    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, DEFAULT_KEY, \
-    ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
+    HOST_TYPE_SPECIFIC_METADATA_KEY, METADATA_FIELDS_KEY, METADATA_TRANSFORMERS_KEY, \
+    PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, SAMPLE_TYPE_SPECIFIC_METADATA_KEY, \
+    DEFAULT_KEY, ALIAS_KEY, BASE_TYPE_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
     STUDY_SPECIFIC_METADATA_KEY, LEAVE_REQUIREDS_BLANK_KEY, \
     OVERWRITE_NON_NANS_KEY, REQUIRED_KEY, SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, \
     HOSTTYPE_COL_OPTIONS_KEY, SAMPLETYPE_COL_OPTIONS_KEY
 from metameq.src.metadata_configurator import \
     combine_stds_and_study_config, \
+    _combine_metadata_transformers_dicts, \
     _make_combined_stds_and_study_host_type_dicts, \
     flatten_nested_stds_dict,  \
     _combine_base_and_added_metadata_fields, \
@@ -2081,6 +2082,19 @@ class TestMetadataConfigurator(TestCase):
             path.join(self.TEST_DIR, "data/test_config.yml"))
 
         expected = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "pass_through",
+                    },
+                    "days_since_first_day": {
+                        "sources": ["days_since_first_day"],
+                        "function": "transform_format_field_as_int",
+                        "overwrite_non_nans": True
+                    }
+                }
+            },
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {
                     METADATA_FIELDS_KEY: {
@@ -2113,6 +2127,19 @@ class TestMetadataConfigurator(TestCase):
                         }
                     }
                 }
+            },
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "new_field_2": {
+                        "sources": ["new_field"],
+                        "function": "pass_through",
+                    },
+                    "days_since_first_day": {
+                        "sources": ["days_since_first_day"],
+                        "function": "pass_through",
+                        "overwrite_non_nans": True
+                    }
+                }
             }
         }
 
@@ -2121,6 +2148,25 @@ class TestMetadataConfigurator(TestCase):
             path.join(self.TEST_DIR, "data/test_config.yml"))
 
         expected = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "pass_through",
+                    },
+                    # overwritten by study config
+                    "days_since_first_day": {
+                        "sources": ["days_since_first_day"],
+                        "function": "pass_through",
+                        "overwrite_non_nans": True
+                    },
+                    # from study config
+                    "new_field_2": {
+                        "sources": ["new_field"],
+                        "function": "pass_through",
+                    },
+                }
+            },
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {
                     METADATA_FIELDS_KEY: {
@@ -2164,6 +2210,19 @@ class TestMetadataConfigurator(TestCase):
             path.join(self.TEST_DIR, "data/test_config.yml"))
 
         expected = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "pass_through",
+                    },
+                    "days_since_first_day": {
+                        "sources": ["days_since_first_day"],
+                        "function": "transform_format_field_as_int",
+                        "overwrite_non_nans": True
+                    }
+                }
+            },            
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {
                     METADATA_FIELDS_KEY: {
@@ -2181,6 +2240,256 @@ class TestMetadataConfigurator(TestCase):
         }
 
         self.assertDictEqual(expected, result)
+
+    def test_combine_stds_and_study_config_does_not_mutate_input(self):
+        """Verify study_config_dict is not modified by the function."""
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "base": {
+                        METADATA_FIELDS_KEY: {
+                            "new_field": {
+                                TYPE_KEY: "string",
+                                DEFAULT_KEY: "study_value"
+                            }
+                        }
+                    }
+                }
+            },
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "custom_transformer": {
+                        "sources": ["some_field"],
+                        "function": "pass_through",
+                    }
+                }
+            }
+        }
+
+        # Make a deep copy to compare after the function call
+        import copy
+        study_config_original = copy.deepcopy(study_config)
+
+        # Call the function
+        combine_stds_and_study_config(
+            study_config,
+            path.join(self.TEST_DIR, "data/test_config.yml"))
+
+        # Verify the input dict was not mutated
+        self.assertDictEqual(study_config_original, study_config,
+            "combine_stds_and_study_config should not mutate the input study_config_dict")
+
+    # Tests for _combine_metadata_transformers_dicts
+
+    def test__combine_metadata_transformers_dicts_both_empty(self):
+        """Test combining when both dicts have no transformers."""
+        stds_dict = {}
+        study_dict = {}
+
+        result = _combine_metadata_transformers_dicts(stds_dict, study_dict)
+
+        expected = {}
+        self.assertDictEqual(expected, result)
+
+    def test__combine_metadata_transformers_dicts_stds_only(self):
+        """Test combining when only standards has transformers."""
+        stds_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "field_a": {
+                        "sources": ["source_a"],
+                        "function": "func_a"
+                    }
+                }
+            }
+        }
+        study_dict = {}
+
+        result = _combine_metadata_transformers_dicts(stds_dict, study_dict)
+
+        expected = {
+            PRE_TRANSFORMERS_KEY: {
+                "field_a": {
+                    "sources": ["source_a"],
+                    "function": "func_a"
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__combine_metadata_transformers_dicts_study_only(self):
+        """Test combining when only study has transformers."""
+        stds_dict = {}
+        study_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "field_b": {
+                        "sources": ["source_b"],
+                        "function": "func_b"
+                    }
+                }
+            }
+        }
+
+        result = _combine_metadata_transformers_dicts(stds_dict, study_dict)
+
+        expected = {
+            PRE_TRANSFORMERS_KEY: {
+                "field_b": {
+                    "sources": ["source_b"],
+                    "function": "func_b"
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__combine_metadata_transformers_dicts_study_overrides_stds(self):
+        """Test that study transformer overrides standards for same field."""
+        stds_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "shared_field": {
+                        "sources": ["stds_source"],
+                        "function": "stds_func"
+                    }
+                }
+            }
+        }
+        study_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "shared_field": {
+                        "sources": ["study_source"],
+                        "function": "study_func"
+                    }
+                }
+            }
+        }
+
+        result = _combine_metadata_transformers_dicts(stds_dict, study_dict)
+
+        expected = {
+            PRE_TRANSFORMERS_KEY: {
+                "shared_field": {
+                    "sources": ["study_source"],
+                    "function": "study_func"
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__combine_metadata_transformers_dicts_merges_same_type(self):
+        """Test that transformers of same type are merged, with study adding new ones."""
+        stds_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "stds_field": {
+                        "sources": ["stds_source"],
+                        "function": "stds_func"
+                    }
+                }
+            }
+        }
+        study_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "study_field": {
+                        "sources": ["study_source"],
+                        "function": "study_func"
+                    }
+                }
+            }
+        }
+
+        result = _combine_metadata_transformers_dicts(stds_dict, study_dict)
+
+        expected = {
+            PRE_TRANSFORMERS_KEY: {
+                "stds_field": {
+                    "sources": ["stds_source"],
+                    "function": "stds_func"
+                },
+                "study_field": {
+                    "sources": ["study_source"],
+                    "function": "study_func"
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__combine_metadata_transformers_dicts_different_types(self):
+        """Test combining pre_transformers from stds with post_transformers from study."""
+        stds_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "pre_field": {
+                        "sources": ["pre_source"],
+                        "function": "pre_func"
+                    }
+                }
+            }
+        }
+        study_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                POST_TRANSFORMERS_KEY: {
+                    "post_field": {
+                        "sources": ["post_source"],
+                        "function": "post_func"
+                    }
+                }
+            }
+        }
+
+        result = _combine_metadata_transformers_dicts(stds_dict, study_dict)
+
+        expected = {
+            PRE_TRANSFORMERS_KEY: {
+                "pre_field": {
+                    "sources": ["pre_source"],
+                    "function": "pre_func"
+                }
+            },
+            POST_TRANSFORMERS_KEY: {
+                "post_field": {
+                    "sources": ["post_source"],
+                    "function": "post_func"
+                }
+            }
+        }
+        self.assertDictEqual(expected, result)
+
+    def test__combine_metadata_transformers_dicts_does_not_mutate_inputs(self):
+        """Test that input dictionaries are not mutated."""
+        import copy
+        stds_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "stds_field": {
+                        "sources": ["stds_source"],
+                        "function": "stds_func"
+                    }
+                }
+            }
+        }
+        study_dict = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "study_field": {
+                        "sources": ["study_source"],
+                        "function": "study_func"
+                    }
+                }
+            }
+        }
+        stds_original = copy.deepcopy(stds_dict)
+        study_original = copy.deepcopy(study_dict)
+
+        _combine_metadata_transformers_dicts(stds_dict, study_dict)
+
+        self.assertDictEqual(stds_original, stds_dict,
+            "_combine_metadata_transformers_dicts should not mutate stds input")
+        self.assertDictEqual(study_original, study_dict,
+            "_combine_metadata_transformers_dicts should not mutate study input")
 
     def test__make_combined_stds_and_study_host_type_dicts(self):
         """Test making a combined standards and study host type dictionary."""
@@ -3844,6 +4153,15 @@ class TestMetadataConfigurator(TestCase):
             DEFAULT_KEY: "software_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,
             OVERWRITE_NON_NANS_KEY: False,
+            # Transformers from test_standards.yml
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "transform_date_to_formatted_date"
+                    }
+                }
+            },
             # Flattened host types from standards + study
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 # base: top level in test_standards.yml, no default
@@ -4136,6 +4454,15 @@ class TestMetadataConfigurator(TestCase):
             DEFAULT_KEY: "software_default",
             LEAVE_REQUIREDS_BLANK_KEY: True,
             OVERWRITE_NON_NANS_KEY: False,
+            # Transformers from test_standards.yml
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "transform_date_to_formatted_date"
+                    }
+                }
+            },
             # No STUDY_SPECIFIC_METADATA_KEY since no study config provided
             # Flattened host types from standards only
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
@@ -4373,6 +4700,819 @@ class TestMetadataConfigurator(TestCase):
         }
         self.assertEqual(expected, result)
 
+    def test_build_full_flat_config_dict_study_overrides_stds_transformer(self):
+        """Test that study transformer overrides standards transformer for same field."""
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False
+        }
+        study_config = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    # Override the collection_date transformer from test_standards.yml
+                    "collection_date": {
+                        "sources": ["different_source"],
+                        "function": "different_function",
+                        "overwrite_non_nans": True
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_FP)
+
+        expected = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            # collection_date should have study's definition, not standards'
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["different_source"],
+                        "function": "different_function",
+                        "overwrite_non_nans": True
+                    }
+                }
+            },
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    DEFAULT_KEY: "software_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "mouse",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
+
+    def test_build_full_flat_config_dict_study_adds_new_transformer(self):
+        """Test that study config can add a new transformer merged with standards."""
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False
+        }
+        study_config = {
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    # New transformer not in test_standards.yml
+                    "study_specific_field": {
+                        "sources": ["raw_field"],
+                        "function": "pass_through"
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_FP)
+
+        expected = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            # Should have both standards and study transformers merged
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    # From standards
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "transform_date_to_formatted_date"
+                    },
+                    # From study
+                    "study_specific_field": {
+                        "sources": ["raw_field"],
+                        "function": "pass_through"
+                    }
+                }
+            },
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    DEFAULT_KEY: "software_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "mouse",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
+
+    def test_build_full_flat_config_dict_pre_and_post_transformers(self):
+        """Test combining pre_transformers from standards with post_transformers from study."""
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False
+        }
+        study_config = {
+            METADATA_TRANSFORMERS_KEY: {
+                # Add post_transformers (not in test_standards.yml)
+                POST_TRANSFORMERS_KEY: {
+                    "final_field": {
+                        "sources": ["intermediate_field"],
+                        "function": "finalize_value"
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_FP)
+
+        expected = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            METADATA_TRANSFORMERS_KEY: {
+                # pre_transformers from standards
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "transform_date_to_formatted_date"
+                    }
+                },
+                # post_transformers from study
+                POST_TRANSFORMERS_KEY: {
+                    "final_field": {
+                        "sources": ["intermediate_field"],
+                        "function": "finalize_value"
+                    }
+                }
+            },
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    DEFAULT_KEY: "software_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "mouse",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
+
     def test_build_full_flat_config_dict_merges_software_and_study(self):
         """Test that study config values override software config values.
 
@@ -4412,6 +5552,15 @@ class TestMetadataConfigurator(TestCase):
             LEAVE_REQUIREDS_BLANK_KEY: True,
             # overwrite_non_nans from software_config (not overridden by study)
             OVERWRITE_NON_NANS_KEY: True,
+            # Transformers from test_standards.yml
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "transform_date_to_formatted_date"
+                    }
+                }
+            },
             # Flattened host types
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {
@@ -4684,6 +5833,15 @@ class TestMetadataConfigurator(TestCase):
             OVERWRITE_NON_NANS_KEY: False,
             HOSTTYPE_COL_OPTIONS_KEY: ["host_common_name"],
             SAMPLETYPE_COL_OPTIONS_KEY: ["sample_type"],
+            # Transformers from test_standards.yml
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "transform_date_to_formatted_date"
+                    }
+                }
+            },
             # Flattened host types
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
                 "base": {

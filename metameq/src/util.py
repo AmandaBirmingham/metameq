@@ -266,8 +266,8 @@ def update_metadata_df_field(
         overwrite_non_nans: bool = True) -> None:
     """Update or add a field in an existing metadata DataFrame.
 
-    Can update an existing field or add a new one, using either a constant value
-    or a function to compute values based on other fields.
+    Can update an existing field or add a new one, using either a constant
+    value or a function to compute values based on other fields.
 
 
     Parameters
@@ -289,16 +289,26 @@ def update_metadata_df_field(
     # Note: function doesn't return anything.  Work is done in-place on the
     #  metadata_df passed in.
 
+    TEMP_COL_SUFFIX = "___metameq___temp"
+
     # pandas has hard-to-predict behavior when setting values in a DataFrame
     # (such as turning a int input value into a float column even when setting
     # for all values in df so there are no NaNs).  To avoid this, we convert
-    # all non-NaN values to strings before setting them.  The validator code 
+    # all non-NaN values to strings before setting them.  The validator code
     # casts values to the expected type before validating them so this won't
     # impede validation. We leave NaNs as-is so they can be caught by the
     # downstream default-filling logic.
     def turn_non_nans_to_str(val: Any) -> Any:
         """Convert non-NaN values to strings."""
         return str(val) if pandas.notna(val) else val
+
+    # if the field already exists in the metadata, make a temporary copy of it
+    # with a different name; we will set values on this rather than on the
+    # original in case the original uses itself as a source field
+    field_to_set = field_name
+    if field_name in metadata_df.columns:
+        field_to_set = f"{field_name}{TEMP_COL_SUFFIX}"
+        metadata_df[field_to_set] = metadata_df[field_name]
 
     # If the field does not already exist in the metadata OR if we have
     # been told to overwrite existing (i.e., non-NaN) values, we will set its
@@ -309,11 +319,133 @@ def update_metadata_df_field(
 
     # If source fields were passed in, the field_val_or_func must be a function
     if source_fields:
-        metadata_df.loc[row_mask, field_name] = \
+        metadata_df.loc[row_mask, field_to_set] = \
             metadata_df.apply(
-                lambda row: turn_non_nans_to_str(field_val_or_func(row, source_fields)),
+                lambda row: turn_non_nans_to_str(
+                    field_val_or_func(row, source_fields)),
                 axis=1)
     else:
         # Otherwise, it is a constant value
-        metadata_df.loc[row_mask, field_name] = turn_non_nans_to_str(field_val_or_func)
+        metadata_df.loc[row_mask, field_to_set] = \
+            turn_non_nans_to_str(field_val_or_func)
     # endif using a function/a constant value
+
+    # if field already existed and we set values in a temporary column,
+    # copy the set values back to the original column and drop the temp column
+    if field_to_set != field_name:
+        metadata_df[field_name] = metadata_df[field_to_set]
+        metadata_df.drop(columns=[field_to_set], inplace=True)
+
+
+def _try_cast_to_int(raw_field_val):
+    """Attempt to cast a value to integer without losing information.
+
+    Converts values to int only if the conversion is lossless:
+    - Float-formatted strings like "42.0" are accepted
+    - Floats with non-zero decimals like "42.7" are rejected
+    - Actual integers pass through
+
+    Parameters
+    ----------
+    raw_field_val : any
+        The value to attempt to cast to integer.
+
+    Returns
+    -------
+    int or None
+        The integer value if casting succeeds, None otherwise.
+    """
+    try:
+        float_val = float(raw_field_val)
+        if isinstance(float_val, float) and float_val.is_integer():
+            return int(float_val)
+    except Exception:  # noqa: E722
+        pass
+    return None
+
+
+def _try_cast_to_bool(raw_field_val):
+    """Attempt to cast a value to boolean with strict validation.
+
+    Only accepts values that clearly represent boolean intent:
+    - Actual bool values pass through
+    - Numeric 0 or 1 (int or float) convert to False/True
+    - String representations: 'true', 't', 'yes', 'y', '1' for True;
+      'false', 'f', 'no', 'n', '0' for False (case-insensitive)
+
+    Parameters
+    ----------
+    raw_field_val : any
+        The value to attempt to cast to boolean.
+
+    Returns
+    -------
+    bool or None
+        The boolean value if casting succeeds, None otherwise.
+    """
+    if isinstance(raw_field_val, bool):
+        return raw_field_val
+
+    if isinstance(raw_field_val, (int, float)) and \
+            (raw_field_val == 0 or raw_field_val == 1):
+        return bool(raw_field_val)
+
+    if isinstance(raw_field_val, str):
+        if raw_field_val.lower() in ('true', 't', 'yes', 'y', '1'):
+            return True
+        if raw_field_val.lower() in ('false', 'f', 'no', 'n', '0'):
+            return False
+
+    return None
+
+
+def cast_field_to_type(raw_field_val, allowed_pandas_types):
+    """Cast a field value to one of the allowed Python types.
+
+    Attempts to cast the raw field value to each type in allowed_pandas_types
+    in order, returning the first successful cast. This allows flexible type
+    coercion where a value might be validly interpreted as multiple types.
+
+    Parameters
+    ----------
+    raw_field_val : any
+        The raw value to cast.
+    allowed_pandas_types : list
+        A list of Python type callables (e.g., str, int, float) to attempt
+        casting to, in order of preference.
+
+    Returns
+    -------
+    any
+        The field value cast to the first successfully matched type.
+
+    Raises
+    ------
+    ValueError
+        If the value cannot be cast to any of the allowed types.
+    """
+    typed_field_val = None
+    for curr_type in allowed_pandas_types:
+        if curr_type is int:
+            typed_field_val = _try_cast_to_int(raw_field_val)
+            if typed_field_val is not None:
+                break
+        elif curr_type is bool:
+            typed_field_val = _try_cast_to_bool(raw_field_val)
+            if typed_field_val is not None:
+                break
+        else:
+            # noinspection PyBroadException
+            try:
+                typed_field_val = curr_type(raw_field_val)
+                break
+            except Exception:  # noqa: E722
+                pass
+    # next allowed type
+
+    if typed_field_val is None:
+        raise ValueError(
+            f"Unable to cast '{raw_field_val}' to any of the allowed "
+            f"types: {allowed_pandas_types}")
+
+    return typed_field_val
