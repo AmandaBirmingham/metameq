@@ -1,4 +1,10 @@
 # Test standards file with proper nested structure for testing flattening
+"metadata_transformers":
+  "pre_transformers":
+    collection_date:
+      sources:
+        - "collection_timestamp"
+      function: "transform_date_to_formatted_date"
 # Structure: base -> host_associated -> human/mouse
 host_type_specific_metadata:
   base:

@@ -5,7 +5,7 @@ from dateutil import parser
 import logging
 import os
 from pathlib import Path
-from metameq.src.util import SAMPLE_NAME_KEY, get_extension
+from metameq.src.util import SAMPLE_NAME_KEY, get_extension, cast_field_to_type
 
 _TYPE_KEY = "type"
 _ANYOF_KEY = "anyof"
@@ -101,7 +101,7 @@ def validate_metadata_df(metadata_df, sample_type_full_metadata_fields_dict):
         curr_allowed_types = _get_allowed_pandas_types(
             curr_field, curr_definition)
         typed_metadata_df[curr_field] = typed_metadata_df[curr_field].apply(
-            lambda x: _cast_field_to_type(x, curr_allowed_types))
+            lambda x: cast_field_to_type(x, curr_allowed_types))
     # next field in config
 
     validation_msgs = _generate_validation_msg(typed_metadata_df, config)
@@ -244,49 +244,6 @@ def _remove_leaf_keys_from_dict_in_list(input_list, keys_to_remove):
         else:
             output_list.append(curr_val)
     return output_list
-
-
-def _cast_field_to_type(raw_field_val, allowed_pandas_types):
-    """Cast a field value to one of the allowed Python types.
-
-    Attempts to cast the raw field value to each type in allowed_pandas_types
-    in order, returning the first successful cast. This allows flexible type
-    coercion where a value might be validly interpreted as multiple types.
-
-    Parameters
-    ----------
-    raw_field_val : any
-        The raw value to cast.
-    allowed_pandas_types : list
-        A list of Python type callables (e.g., str, int, float) to attempt
-        casting to, in order of preference.
-
-    Returns
-    -------
-    any
-        The field value cast to the first successfully matched type.
-
-    Raises
-    ------
-    ValueError
-        If the value cannot be cast to any of the allowed types.
-    """
-    typed_field_val = None
-    for curr_type in allowed_pandas_types:
-        # noinspection PyBroadException
-        try:
-            typed_field_val = curr_type(raw_field_val)
-            break
-        except Exception:  # noqa: E722
-            pass
-    # next allowed type
-
-    if typed_field_val is None:
-        raise ValueError(
-            f"Unable to cast '{raw_field_val}' to any of the allowed "
-            f"types: {allowed_pandas_types}")
-
-    return typed_field_val
 
 
 def _get_allowed_pandas_types(field_name, field_definition):

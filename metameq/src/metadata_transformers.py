@@ -2,6 +2,7 @@ import pandas
 from dateutil import parser
 from typing import Any, Dict, List, Union
 from datetime import datetime
+from metameq.src.util import cast_field_to_type
 
 
 # individual transformer functions
@@ -109,6 +110,59 @@ def transform_date_to_formatted_date(row: pandas.Series, source_fields: List[str
     x = _get_one_source_field(
         row, source_fields, "transform_date_to_formatted_date")
     return format_a_datetime(x, source_fields[0])
+
+
+def transform_format_field_as_int(
+        row: pandas.Series, source_fields: List[str]) -> str:
+    """Transform a field to an integer format.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row of data containing the source field.
+    source_fields : List[str]
+        List containing exactly one source field name.
+
+    Returns
+    -------
+    str
+        The value from the source field formatted as an integer string.
+
+    Raises
+    ------
+    ValueError
+        If source_fields does not contain exactly one field name.
+    """
+    return _format_field_val(row, source_fields, int, '{0:d}')
+
+
+def transform_format_field_as_location(row: pandas.Series, source_fields: List[str]) -> str:
+    """Transform a field to a float format for a location (latitude, longitude, elevation).
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row of data containing the source field.
+    source_fields : List[str]
+        List containing exactly one source field name.
+
+    Returns
+    -------
+    str
+        The value from the source field formatted as a location string.
+
+    Raises
+    ------
+    ValueError
+        If source_fields does not contain exactly one field name.
+    """
+
+    result = _format_field_val(row, source_fields, float, None)
+    # if the result is a string
+    if isinstance(result, str):
+        # Strip any trailing zeros and any subsequently unnecessary decimal point
+        result = result.rstrip('0').rstrip('.')
+    return result
 
 
 def help_transform_mapping(
@@ -325,11 +379,55 @@ def _help_transform_mapping(
     raise ValueError(f"Unrecognized {field_name}: {input_val}")
 
 
-# def _format_field_val(row, source_fields, field_type, format_string):
-#    x = _get_one_source_field(row, source_fields, "format_field_val")
-#    result = x
-#    # format string should be something like '{0:g}' or '{0:.2f}'
-#    # field type should be something like float or int
-#    if isinstance(x, field_type) and not pandas.isnull(x):
-#        result = format_string.format(x)
-#    return result
+def _format_field_val(row, source_fields, field_type, format_string=None):
+    """Format a field value by casting to a type and optionally applying a format string.
+
+    Parameters
+    ----------
+    row : pandas.Series
+        Row of data containing the source field.
+    source_fields : List[str]
+        List containing exactly one source field name.
+    field_type : type
+        Type to cast the value to (e.g., int, float, bool).
+    format_string : str, optional
+        Format string to apply (e.g., '{0:d}', '{0:.2f}', '{0:.6g}').
+        Defaults to None.
+
+    Returns
+    -------
+    str
+        The formatted value as a string. Returns the original value as a string
+        if casting fails, or the cast value as a string if formatting fails.
+
+    Raises
+    ------
+    ValueError
+        If source_fields does not contain exactly one field name.
+    """
+    x = _get_one_source_field(row, source_fields, "format_field_val")
+
+    if pandas.isnull(x):
+        return x
+
+    # TODO: be aware that calling str() on a float that is very small
+    # very large or has many decimal places will turn it into as str of
+    # scientific notation, which may not be expected.  Should there
+    # be some sort of handling for this case?
+    result = str(x)
+    try:
+        result = cast_field_to_type(x, [field_type])
+    except ValueError:
+        # if it can't be cast to the specified type,
+        # just return string version of the original value
+        return result
+
+    if format_string is not None:
+        try:
+            result = format_string.format(result)
+        except ValueError:
+            # if it CAN be cast but can't be formatted, return the cast value
+            # (e.g., if it's a float but the format string is for an int)
+            pass
+
+    return str(result)
