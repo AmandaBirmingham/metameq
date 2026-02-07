@@ -11,8 +11,8 @@ from metameq.src.util import extract_config_dict, \
     _try_cast_to_int, _try_cast_to_bool
 
 
-class TestUtil(TestCase):
-    """Test suite for utility functions in metameq.src.util module."""
+class UtilTestBase(TestCase):
+    """Base class for util tests that need shared path and config constants."""
 
     # get the parent directory of the current file
     TEST_DIR = path.dirname(__file__)
@@ -47,7 +47,8 @@ class TestUtil(TestCase):
         }
     }
 
-    # Tests for extract_config_dict
+
+class TestExtractConfigDict(UtilTestBase):
     def test_extract_config_dict_no_inputs(self):
         """Test extracting config dictionary with no inputs.
 
@@ -80,14 +81,16 @@ class TestUtil(TestCase):
         with self.assertRaises(Exception):
             extract_config_dict(invalid_yaml_path)
 
-    # Tests for extract_yaml_dict
+
+class TestExtractYamlDict(UtilTestBase):
     def test_extract_yaml_dict(self):
         """Test extracting YAML dictionary from a valid YAML file."""
         config_fp = path.join(self.TEST_DIR, "data/test_config.yml")
         obs = extract_yaml_dict(config_fp)
         self.assertDictEqual(self.TEST_CONFIG_DICT, obs)
 
-    # Tests for extract_stds_config
+
+class TestExtractStdsConfig(UtilTestBase):
     def test_extract_stds_config(self):
         """Test extracting standards configuration with default settings.
 
@@ -111,7 +114,8 @@ class TestUtil(TestCase):
         config = extract_stds_config(path.join(self.TEST_DIR, "data/test_config.yml"))
         self.assertDictEqual(config, self.TEST_CONFIG_DICT)
 
-    # Tests for deepcopy_dict
+
+class TestDeepcopyDict(UtilTestBase):
     def test_deepcopy_dict(self):
         """Test deep copying of nested dictionary structure.
 
@@ -124,7 +128,8 @@ class TestUtil(TestCase):
             "sample_name")
         self.assertFalse(self.TEST_CONFIG_DICT == obs)
 
-    # Tests for load_df_with_best_fit_encoding
+
+class TestLoadDfWithBestFitEncoding(UtilTestBase):
     def test_load_df_with_best_fit_encoding_utf8(self):
         """Test loading DataFrame from a file with UTF-8 encoding."""
         test_data = "col1,col2\nval1,val2"
@@ -175,7 +180,8 @@ class TestUtil(TestCase):
             if path.exists(test_file):
                 os.remove(test_file)
 
-    # Tests for validate_required_columns_exist
+
+class TestValidateRequiredColumnsExist(TestCase):
     def test_validate_required_columns_exist_empty_df(self):
         """Test that validation of required columns in an empty DataFrame raises ValueError."""
 
@@ -211,7 +217,8 @@ class TestUtil(TestCase):
                 test_df, ["sample_name", "sample_type"],
                 "test_df missing column")
 
-    # Tests for get_extension
+
+class TestGetExtension(TestCase):
     def test_get_extension(self):
         """Test that the correct file extension is returned for different separator types."""
 
@@ -225,7 +232,8 @@ class TestUtil(TestCase):
         self.assertEqual(get_extension(";"), "txt")
         self.assertEqual(get_extension("|"), "txt")
 
-    # Tests for update_metadata_df_field
+
+class TestUpdateMetadataDfField(TestCase):
     def test_update_metadata_df_field_constant_new_field(self):
         """Test that a new field can be added to the DataFrame with a constant value."""
 
