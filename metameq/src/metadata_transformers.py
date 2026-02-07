@@ -157,8 +157,6 @@ def transform_format_field_as_location(row: pandas.Series, source_fields: List[s
         If source_fields does not contain exactly one field name.
     """
 
-    # Use a high precision format string to turn the input value into
-    # a string without being forced into scientific notation
     result = _format_field_val(row, source_fields, float, None)
     # if the result is a string
     if isinstance(result, str):

@@ -320,8 +320,11 @@ def update_metadata_df_field(
 
         # If source fields were passed in, the field_val_or_func must be a function
         if source_fields:
+            # Apply only to masked rows to avoid overhead of running func
+            # on rows that won't be updated; pandas aligns the result back
+            # to the correct rows by matching on the index
             metadata_df.loc[row_mask, field_to_set] = \
-                metadata_df.apply(
+                metadata_df.loc[row_mask].apply(
                     lambda row: turn_non_nans_to_str(
                         field_val_or_func(row, source_fields)),
                     axis=1)
@@ -409,9 +412,10 @@ def _try_cast_to_bool(raw_field_val):
         return bool(raw_field_val)
 
     if isinstance(raw_field_val, str):
-        if raw_field_val.lower() in ('true', 't', 'yes', 'y', '1'):
+        stripped = raw_field_val.strip().lower()
+        if stripped in ('true', 't', 'yes', 'y', '1'):
             return True
-        if raw_field_val.lower() in ('false', 'f', 'no', 'n', '0'):
+        if stripped in ('false', 'f', 'no', 'n', '0'):
             return False
 
     return None

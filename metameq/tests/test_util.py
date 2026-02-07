@@ -1026,3 +1026,18 @@ class TestTryCastToBool(TestCase):
         """Test that None input returns None."""
         result = _try_cast_to_bool(None)
         self.assertIsNone(result)
+
+    def test_try_cast_to_bool_leading_whitespace(self):
+        """Test that a boolean string with leading whitespace is cast correctly."""
+        result = _try_cast_to_bool(" true")
+        self.assertEqual(True, result)
+
+    def test_try_cast_to_bool_trailing_whitespace(self):
+        """Test that a boolean string with trailing whitespace is cast correctly."""
+        result = _try_cast_to_bool("false ")
+        self.assertEqual(False, result)
+
+    def test_try_cast_to_bool_surrounding_whitespace(self):
+        """Test that a boolean string with surrounding whitespace is cast correctly."""
+        result = _try_cast_to_bool(" yes ")
+        self.assertEqual(True, result)
