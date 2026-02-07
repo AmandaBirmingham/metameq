@@ -713,7 +713,7 @@ def _transform_metadata(
                     logging.warning(
                         f"Transformer '{curr_func_name}' for target field"
                         f" '{curr_target_field}' skipped due to missing source fields: "
-                        f"{', '.join(curr_missing_sources)}")
+                        f"{', '.join(sorted(curr_missing_sources))}")
                     continue
 
                 try:

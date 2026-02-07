@@ -310,31 +310,35 @@ def update_metadata_df_field(
         field_to_set = f"{field_name}{TEMP_COL_SUFFIX}"
         metadata_df[field_to_set] = metadata_df[field_name]
 
-    # If the field does not already exist in the metadata OR if we have
-    # been told to overwrite existing (i.e., non-NaN) values, we will set its
-    # value in all rows; otherwise, will only set it where it is currently NaN
-    set_all = overwrite_non_nans or (field_name not in metadata_df.columns)
-    row_mask = \
-        metadata_df.index if set_all else metadata_df[field_name].isnull()
+    try:
+        # If the field does not already exist in the metadata OR if we have
+        # been told to overwrite existing (i.e., non-NaN) values, we will set its
+        # value in all rows; otherwise, will only set it where it is currently NaN
+        set_all = overwrite_non_nans or (field_name not in metadata_df.columns)
+        row_mask = \
+            metadata_df.index if set_all else metadata_df[field_name].isnull()
 
-    # If source fields were passed in, the field_val_or_func must be a function
-    if source_fields:
-        metadata_df.loc[row_mask, field_to_set] = \
-            metadata_df.apply(
-                lambda row: turn_non_nans_to_str(
-                    field_val_or_func(row, source_fields)),
-                axis=1)
-    else:
-        # Otherwise, it is a constant value
-        metadata_df.loc[row_mask, field_to_set] = \
-            turn_non_nans_to_str(field_val_or_func)
-    # endif using a function/a constant value
+        # If source fields were passed in, the field_val_or_func must be a function
+        if source_fields:
+            metadata_df.loc[row_mask, field_to_set] = \
+                metadata_df.apply(
+                    lambda row: turn_non_nans_to_str(
+                        field_val_or_func(row, source_fields)),
+                    axis=1)
+        else:
+            # Otherwise, it is a constant value
+            metadata_df.loc[row_mask, field_to_set] = \
+                turn_non_nans_to_str(field_val_or_func)
+        # endif using a function/a constant value
 
-    # if field already existed and we set values in a temporary column,
-    # copy the set values back to the original column and drop the temp column
-    if field_to_set != field_name:
-        metadata_df[field_name] = metadata_df[field_to_set]
-        metadata_df.drop(columns=[field_to_set], inplace=True)
+        # if field already existed and we set values in a temporary column,
+        # copy the set values back to the original column and drop the temp column
+        if field_to_set != field_name:
+            metadata_df[field_name] = metadata_df[field_to_set]
+    finally:
+        # if we created a temporary column, drop it, even if an error was raised during setting
+        if field_to_set != field_name:
+            metadata_df.drop(columns=[field_to_set], inplace=True)
 
 
 def _try_cast_to_int(raw_field_val):
@@ -355,6 +359,20 @@ def _try_cast_to_int(raw_field_val):
     int or None
         The integer value if casting succeeds, None otherwise.
     """
+    # If already an int (but not a bool, which is a subclass of int),
+    # return it directly to avoid precision loss from float conversion
+    if isinstance(raw_field_val, int) and not isinstance(raw_field_val, bool):
+        return raw_field_val
+
+    # If it's a string, try int() directly first to avoid precision loss
+    # from float conversion for large integers beyond 2^53
+    if isinstance(raw_field_val, str):
+        try:
+            return int(raw_field_val)
+        except (ValueError, TypeError):
+            pass
+
+    # Fall back to float path for "42.0"-style strings and actual floats
     try:
         float_val = float(raw_field_val)
         if isinstance(float_val, float) and float_val.is_integer():

@@ -537,6 +537,25 @@ class TestUpdateMetadataDfField(TestCase):
             ["latitude"], overwrite_non_nans=False)
         assert_frame_equal(exp_df, working_df)
 
+    def test_update_metadata_df_field_func_error_cleans_up_temp_col(self):
+        """Test that temp column is removed when function raises an error."""
+        def bad_func(row, source_fields):
+            raise ValueError("intentional error")
+
+        working_df = pandas.DataFrame({
+            "sample_name": ["s1", "s2"],
+            "latitude": ["32.88", "-117.23"]
+        })
+
+        with self.assertRaisesRegex(ValueError, "intentional error"):
+            update_metadata_df_field(
+                working_df, "latitude", bad_func,
+                ["latitude"], overwrite_non_nans=True)
+
+        # The temp column should have been cleaned up by the finally block
+        self.assertEqual(
+            list(working_df.columns), ["sample_name", "latitude"])
+
 
 class TestCastFieldToType(TestCase):
     """Tests for cast_field_to_type function."""
@@ -860,6 +879,18 @@ class TestTryCastToInt(TestCase):
         """Test that None input returns None."""
         result = _try_cast_to_int(None)
         self.assertIsNone(result)
+
+    def test_try_cast_to_int_large_integer_string(self):
+        """Test that a large integer string beyond float precision is cast losslessly."""
+        result = _try_cast_to_int("123456789012345678")
+        self.assertEqual(123456789012345678, result)
+        self.assertIsInstance(result, int)
+
+    def test_try_cast_to_int_large_actual_int(self):
+        """Test that a large actual int beyond float precision is returned losslessly."""
+        result = _try_cast_to_int(123456789012345678)
+        self.assertEqual(123456789012345678, result)
+        self.assertIsInstance(result, int)
 
 
 class TestTryCastToBool(TestCase):
