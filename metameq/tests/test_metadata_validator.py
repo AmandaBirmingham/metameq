@@ -11,6 +11,7 @@ from metameq.src.metadata_validator import (
     _make_cerberus_schema,
     _remove_leaf_keys_from_dict,
     _remove_leaf_keys_from_dict_in_list,
+    format_validation_msgs_as_df,
     MetameqValidator,
     output_validation_msgs,
     validate_metadata_df
@@ -1133,3 +1134,188 @@ class TestValidateMetadataDf(TestCase):
             "error_message": [["Date cannot be in the future"]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
+
+
+class TestFormatValidationMsgsAsDf(TestCase):
+    """Tests for format_validation_msgs_as_df function."""
+
+    def test_format_validation_msgs_as_df_empty_list(self):
+        """Test that empty input returns an empty DataFrame with correct columns."""
+        result = format_validation_msgs_as_df([])
+
+        self.assertIsInstance(result, pd.DataFrame)
+        self.assertEqual(
+            ["sample_name", "field_name", "error_message"],
+            list(result.columns))
+        self.assertEqual(0, len(result))
+
+    def test_format_validation_msgs_as_df_single_error(self):
+        """Test formatting a single validation message with one error."""
+        validation_msgs = [
+            {
+                "sample_name": "sample1",
+                "field_name": "age",
+                "error_message": ["must be of integer type"]
+            }
+        ]
+
+        result = format_validation_msgs_as_df(validation_msgs)
+
+        expected = pd.DataFrame({
+            "sample_name": ["sample1"],
+            "field_name": ["age"],
+            "error_message": ["must be of integer type"]
+        })
+        pd.testing.assert_frame_equal(expected, result)
+
+    def test_format_validation_msgs_as_df_multiple_errors_same_field(self):
+        """Test that multiple errors for one field are flattened to separate rows."""
+        validation_msgs = [
+            {
+                "sample_name": "sample1",
+                "field_name": "date_field",
+                "error_message": [
+                    "Must be a valid date",
+                    "value does not match regex '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'"
+                ]
+            }
+        ]
+
+        result = format_validation_msgs_as_df(validation_msgs)
+
+        expected = pd.DataFrame({
+            "sample_name": ["sample1", "sample1"],
+            "field_name": ["date_field", "date_field"],
+            "error_message": [
+                "Must be a valid date",
+                "value does not match regex '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'"
+            ]
+        })
+        pd.testing.assert_frame_equal(expected, result)
+
+    def test_format_validation_msgs_as_df_multiple_fields_same_sample(self):
+        """Test multiple fields with errors for the same sample."""
+        validation_msgs = [
+            {
+                "sample_name": "sample1",
+                "field_name": "age",
+                "error_message": ["must be of integer type"]
+            },
+            {
+                "sample_name": "sample1",
+                "field_name": "count",
+                "error_message": ["must be of integer type"]
+            }
+        ]
+
+        result = format_validation_msgs_as_df(validation_msgs)
+
+        expected = pd.DataFrame({
+            "sample_name": ["sample1", "sample1"],
+            "field_name": ["age", "count"],
+            "error_message": [
+                "must be of integer type",
+                "must be of integer type"
+            ]
+        })
+        pd.testing.assert_frame_equal(expected, result)
+
+    def test_format_validation_msgs_as_df_multiple_samples(self):
+        """Test errors across multiple samples."""
+        validation_msgs = [
+            {
+                "sample_name": "sample1",
+                "field_name": "age",
+                "error_message": ["must be of integer type"]
+            },
+            {
+                "sample_name": "sample2",
+                "field_name": "age",
+                "error_message": ["must be of integer type"]
+            }
+        ]
+
+        result = format_validation_msgs_as_df(validation_msgs)
+
+        expected = pd.DataFrame({
+            "sample_name": ["sample1", "sample2"],
+            "field_name": ["age", "age"],
+            "error_message": [
+                "must be of integer type",
+                "must be of integer type"
+            ]
+        })
+        pd.testing.assert_frame_equal(expected, result)
+
+    def test_format_validation_msgs_as_df_sorted_by_sample_then_field(self):
+        """Test that output is sorted by sample_name then field_name."""
+        validation_msgs = [
+            {
+                "sample_name": "sample_z",
+                "field_name": "beta_field",
+                "error_message": ["error z-beta"]
+            },
+            {
+                "sample_name": "sample_a",
+                "field_name": "gamma_field",
+                "error_message": ["error a-gamma"]
+            },
+            {
+                "sample_name": "sample_a",
+                "field_name": "alpha_field",
+                "error_message": ["error a-alpha"]
+            },
+            {
+                "sample_name": "sample_z",
+                "field_name": "alpha_field",
+                "error_message": ["error z-alpha"]
+            }
+        ]
+
+        result = format_validation_msgs_as_df(validation_msgs)
+
+        expected = pd.DataFrame({
+            "sample_name": [
+                "sample_a", "sample_a", "sample_z", "sample_z"],
+            "field_name": [
+                "alpha_field", "gamma_field", "alpha_field", "beta_field"],
+            "error_message": [
+                "error a-alpha", "error a-gamma",
+                "error z-alpha", "error z-beta"]
+        })
+        pd.testing.assert_frame_equal(expected, result)
+
+    def test_format_validation_msgs_as_df_flattening_and_sorting_combined(self):
+        """Test that flattening and sorting work correctly together."""
+        validation_msgs = [
+            {
+                "sample_name": "sample_b",
+                "field_name": "field_x",
+                "error_message": ["error 2", "error 1"]
+            },
+            {
+                "sample_name": "sample_a",
+                "field_name": "field_y",
+                "error_message": ["error 5", "error 3"]
+            },
+            {
+                "sample_name": "sample_a",
+                "field_name": "field_x",
+                "error_message": ["error 4"]
+            }
+        ]
+
+        result = format_validation_msgs_as_df(validation_msgs)
+
+        expected = pd.DataFrame({
+            "sample_name": [
+                "sample_a", "sample_a", "sample_a",
+                "sample_b", "sample_b"],
+            "field_name": [
+                "field_x", "field_y", "field_y",
+                "field_x", "field_x"],
+            "error_message": [
+                "error 4", "error 3", "error 5",
+                "error 1", "error 2"]
+        })
+        pd.testing.assert_frame_equal(expected, result)

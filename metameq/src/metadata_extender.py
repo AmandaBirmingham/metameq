@@ -20,7 +20,7 @@ from metameq.src.util import extract_config_dict, \
 from metameq.src.metadata_configurator import update_wip_metadata_dict, \
     build_full_flat_config_dict
 from metameq.src.metadata_validator import validate_metadata_df, \
-    output_validation_msgs
+    format_validation_msgs_as_df, output_validation_msgs
 import metameq.src.metadata_transformers as transformers
 
 
@@ -605,7 +605,7 @@ def _populate_metadata_df(
     metadata_df = _reorder_df(metadata_df, INTERNAL_COL_KEYS)
 
     # Turn the validation messages into a DataFrame of validation messages for easier use downstream.
-    validation_msgs_df = pandas.DataFrame(validation_msgs)
+    validation_msgs_df = format_validation_msgs_as_df(validation_msgs)
 
     return metadata_df, validation_msgs_df
 

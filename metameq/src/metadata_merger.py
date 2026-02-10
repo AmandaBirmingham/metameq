@@ -1,3 +1,4 @@
+import numpy
 import pandas
 from typing import List, Optional, Literal
 from metameq.src.util import validate_required_columns_exist
@@ -325,8 +326,8 @@ def _check_for_duplicate_field_vals(
     error_msgs = []
     duplicates_mask = metadata_df.duplicated(subset=col_name)
     if duplicates_mask.any():
-        duplicates = metadata_df.loc[duplicates_mask, col_name].unique()
-        duplicates.sort()
+        duplicates = numpy.sort(
+            metadata_df.loc[duplicates_mask, col_name].unique())
 
         # generate an error message including the duplicate values
         error_msgs.append(

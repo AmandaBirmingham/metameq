@@ -4,6 +4,7 @@ from datetime import datetime
 from dateutil import parser
 import logging
 import os
+import pandas
 from pathlib import Path
 from metameq.src.util import SAMPLE_NAME_KEY, get_extension, cast_field_to_type
 
@@ -144,6 +145,47 @@ def output_validation_msgs(validation_msgs_df, out_dir, out_base, sep="\t",
         # else, just do nothing
     else:
         validation_msgs_df.to_csv(out_fp, sep=sep, index=False)
+
+
+def format_validation_msgs_as_df(validation_msgs):
+    """Format validation messages into a more human-readable DataFrame.
+
+    Takes the list of validation message dictionaries (as returned by
+    ``_generate_validation_msg`` or ``validate_metadata_df``) and produces a
+    DataFrame with one row per individual error message, sorted by sample
+    name and field name.
+
+    Parameters
+    ----------
+    validation_msgs : list
+        A list of dictionaries, each containing SAMPLE_NAME_KEY,
+        "field_name", and "error_message" keys, where "error_message"
+        is a list of error strings.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame with columns SAMPLE_NAME_KEY, "field_name", and
+        "error_message" (a single string per row), sorted by
+        SAMPLE_NAME_KEY then "field_name" then "error_message".
+    """
+    flattened_rows = []
+    for msg in validation_msgs:
+        for err in msg["error_message"]:
+            flattened_rows.append({
+                SAMPLE_NAME_KEY: msg[SAMPLE_NAME_KEY],
+                "field_name": msg["field_name"],
+                "error_message": err
+            })
+
+    result_df = pandas.DataFrame(
+        flattened_rows,
+        columns=[SAMPLE_NAME_KEY, "field_name", "error_message"])
+    result_df.sort_values(
+        by=[SAMPLE_NAME_KEY, "field_name", "error_message"],
+        inplace=True)
+    result_df.reset_index(drop=True, inplace=True)
+    return result_df
 
 
 def _make_cerberus_schema(sample_type_metadata_dict):

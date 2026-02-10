@@ -289,7 +289,8 @@ class TestWriteExtendedMetadataFromDf(ExtenderTestBase):
                         METADATA_FIELDS_KEY: {
                             "restricted_field": {
                                 TYPE_KEY: "string",
-                                ALLOWED_KEY: ["allowed_value"]
+                                ALLOWED_KEY: ["allowed_value"],
+                                "regex": "^allowed_.*$"
                             }
                         },
                         SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
@@ -323,15 +324,19 @@ class TestWriteExtendedMetadataFromDf(ExtenderTestBase):
             })
             assert_frame_equal(expected_result_df, result_df)
 
-            # Verify validation errors file contains the error
+            # Verify validation errors file contains the errors
+            # (two flattened rows for sample1's restricted_field)
             validation_files = glob.glob(
                 os.path.join(tmpdir, "*_test_output_validation_errors.csv"))
             self.assertEqual(1, len(validation_files))
             validation_df = pandas.read_csv(validation_files[0], sep=",", dtype=str, keep_default_na=False)
             expected_validation_df = pandas.DataFrame({
-                "sample_name": ["sample1"],
-                "field_name": ["restricted_field"],
-                "error_message": ["['unallowed value invalid_value']"]
+                "sample_name": ["sample1", "sample1"],
+                "field_name": ["restricted_field", "restricted_field"],
+                "error_message": [
+                    "unallowed value invalid_value",
+                    "value does not match regex '^allowed_.*$'"
+                ]
             })
             assert_frame_equal(expected_validation_df, validation_df)
 
@@ -648,7 +653,7 @@ class TestWriteExtendedMetadata(ExtenderTestBase):
             expected_validation_df = pandas.DataFrame({
                 "sample_name": ["sample1"],
                 "field_name": ["restricted_field"],
-                "error_message": ["['unallowed value invalid_value']"]
+                "error_message": ["unallowed value invalid_value"]
             })
             assert_frame_equal(expected_validation_df, validation_df)
 
