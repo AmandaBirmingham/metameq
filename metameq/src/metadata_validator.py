@@ -147,6 +147,41 @@ def output_validation_msgs(validation_msgs_df, out_dir, out_base, sep="\t",
         validation_msgs_df.to_csv(out_fp, sep=sep, index=False)
 
 
+def _flatten_error_message(error_message):
+    """Flatten a cerberus error message list into a list of strings.
+
+    Cerberus anyof errors produce a list like
+    ``["no definitions validate", {"anyof definition 0": [...], ...}]``.
+    This function converts each item independently to a string: plain
+    strings are kept as-is, dicts are converted to a human-readable
+    string of their contents, and any other types are converted via
+    ``str()``.
+
+    Parameters
+    ----------
+    error_message : list
+        A list of error items as returned by cerberus, where each item is
+        either a string or a dict mapping definition names to error lists.
+
+    Returns
+    -------
+    list of str
+        A list where every element is a string.
+    """
+    result = []
+    for item in error_message:
+        if isinstance(item, str):
+            result.append(item)
+        elif isinstance(item, dict):
+            detail_parts = []
+            for key, msgs in item.items():
+                detail_parts.append(f"{key}: {', '.join(msgs)}")
+            result.append("; ".join(detail_parts))
+        else:
+            result.append(str(item))
+    return result
+
+
 def format_validation_msgs_as_df(validation_msgs):
     """Format validation messages into a more human-readable DataFrame.
 
@@ -171,7 +206,7 @@ def format_validation_msgs_as_df(validation_msgs):
     """
     flattened_rows = []
     for msg in validation_msgs:
-        for err in msg["error_message"]:
+        for err in _flatten_error_message(msg["error_message"]):
             flattened_rows.append({
                 SAMPLE_NAME_KEY: msg[SAMPLE_NAME_KEY],
                 "field_name": msg["field_name"],

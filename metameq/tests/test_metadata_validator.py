@@ -6,6 +6,7 @@ from unittest import TestCase
 from datetime import datetime
 from datetime import timedelta
 from metameq.src.metadata_validator import (
+    _flatten_error_message,
     _generate_validation_msg,
     _get_allowed_pandas_types,
     _make_cerberus_schema,
@@ -21,7 +22,7 @@ from metameq.src.metadata_validator import (
 class TestRemoveLeafKeysFromDictInList(TestCase):
     """Tests for _remove_leaf_keys_from_dict_in_list function."""
 
-    def test_remove_leaf_keys_from_dict_in_list_simple(self):
+    def test__remove_leaf_keys_from_dict_in_list_simple(self):
         """Test removing keys from dicts in a flat list."""
         input_list = [
             {"a": 1, "b": 2, "c": 3},
@@ -37,7 +38,7 @@ class TestRemoveLeafKeysFromDictInList(TestCase):
         ]
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_in_list_nested_dicts(self):
+    def test__remove_leaf_keys_from_dict_in_list_nested_dicts(self):
         """Test removing keys from nested dicts within list items."""
         input_list = [
             {
@@ -62,7 +63,7 @@ class TestRemoveLeafKeysFromDictInList(TestCase):
         ]
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_in_list_nested_lists(self):
+    def test__remove_leaf_keys_from_dict_in_list_nested_lists(self):
         """Test handling nested lists containing dicts."""
         input_list = [
             [
@@ -84,7 +85,7 @@ class TestRemoveLeafKeysFromDictInList(TestCase):
         ]
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_in_list_non_dict_items(self):
+    def test__remove_leaf_keys_from_dict_in_list_non_dict_items(self):
         """Test that non-dict items in the list are preserved unchanged."""
         input_list = [
             "string_item",
@@ -108,7 +109,7 @@ class TestRemoveLeafKeysFromDictInList(TestCase):
         ]
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_in_list_empty_list(self):
+    def test__remove_leaf_keys_from_dict_in_list_empty_list(self):
         """Test that empty list returns empty list."""
         input_list = []
         keys_to_remove = ["a", "b"]
@@ -117,7 +118,7 @@ class TestRemoveLeafKeysFromDictInList(TestCase):
 
         self.assertEqual([], result)
 
-    def test_remove_leaf_keys_from_dict_in_list_no_matching_keys(self):
+    def test__remove_leaf_keys_from_dict_in_list_no_matching_keys(self):
         """Test when no keys match those to be removed."""
         input_list = [
             {"a": 1, "b": 2},
@@ -133,7 +134,7 @@ class TestRemoveLeafKeysFromDictInList(TestCase):
         ]
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_in_list_multiple_keys(self):
+    def test__remove_leaf_keys_from_dict_in_list_multiple_keys(self):
         """Test removing multiple keys at once."""
         input_list = [
             {"a": 1, "b": 2, "c": 3, "d": 4},
@@ -149,7 +150,7 @@ class TestRemoveLeafKeysFromDictInList(TestCase):
         ]
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_in_list_deeply_nested(self):
+    def test__remove_leaf_keys_from_dict_in_list_deeply_nested(self):
         """Test removing keys from deeply nested structures."""
         input_list = [
             {
@@ -181,7 +182,7 @@ class TestRemoveLeafKeysFromDictInList(TestCase):
 class TestRemoveLeafKeysFromDict(TestCase):
     """Tests for _remove_leaf_keys_from_dict function."""
 
-    def test_remove_leaf_keys_from_dict_simple(self):
+    def test__remove_leaf_keys_from_dict_simple(self):
         """Test removing specified keys from a flat dict."""
         input_dict = {"a": 1, "b": 2, "c": 3}
         keys_to_remove = ["b"]
@@ -191,7 +192,7 @@ class TestRemoveLeafKeysFromDict(TestCase):
         expected = {"a": 1, "c": 3}
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_nested(self):
+    def test__remove_leaf_keys_from_dict_nested(self):
         """Test removing specified keys from nested dicts."""
         input_dict = {
             "outer": "value",
@@ -213,7 +214,7 @@ class TestRemoveLeafKeysFromDict(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_with_list(self):
+    def test__remove_leaf_keys_from_dict_with_list(self):
         """Test removing keys from dicts within lists."""
         input_dict = {
             "items": [
@@ -234,7 +235,7 @@ class TestRemoveLeafKeysFromDict(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_no_matching_keys(self):
+    def test__remove_leaf_keys_from_dict_no_matching_keys(self):
         """Test when no keys match those to be removed."""
         input_dict = {"a": 1, "b": 2, "c": 3}
         keys_to_remove = ["x", "y", "z"]
@@ -244,7 +245,7 @@ class TestRemoveLeafKeysFromDict(TestCase):
         expected = {"a": 1, "b": 2, "c": 3}
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_empty(self):
+    def test__remove_leaf_keys_from_dict_empty(self):
         """Test that empty dict returns empty dict."""
         input_dict = {}
         keys_to_remove = ["a", "b"]
@@ -253,7 +254,7 @@ class TestRemoveLeafKeysFromDict(TestCase):
 
         self.assertEqual({}, result)
 
-    def test_remove_leaf_keys_from_dict_multiple_keys(self):
+    def test__remove_leaf_keys_from_dict_multiple_keys(self):
         """Test removing multiple keys at once."""
         input_dict = {"a": 1, "b": 2, "c": 3, "d": 4}
         keys_to_remove = ["b", "d"]
@@ -263,7 +264,7 @@ class TestRemoveLeafKeysFromDict(TestCase):
         expected = {"a": 1, "c": 3}
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_deeply_nested(self):
+    def test__remove_leaf_keys_from_dict_deeply_nested(self):
         """Test removing keys from deeply nested structures."""
         input_dict = {
             "level1": {
@@ -292,7 +293,7 @@ class TestRemoveLeafKeysFromDict(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_key_with_dict_value_not_removed(self):
+    def test__remove_leaf_keys_from_dict_key_with_dict_value_not_removed(self):
         """Test that keys with dict values are preserved, only their contents processed."""
         input_dict = {
             "remove_me": {
@@ -314,7 +315,7 @@ class TestRemoveLeafKeysFromDict(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_remove_leaf_keys_from_dict_mixed_nested_structures(self):
+    def test__remove_leaf_keys_from_dict_mixed_nested_structures(self):
         """Test with mixed nested dicts and lists."""
         input_dict = {
             "config": {
@@ -344,7 +345,7 @@ class TestRemoveLeafKeysFromDict(TestCase):
 class TestMakeCerberusSchema(TestCase):
     """Tests for _make_cerberus_schema function."""
 
-    def test_make_cerberus_schema_removes_is_phi(self):
+    def test__make_cerberus_schema_removes_is_phi(self):
         """Test that is_phi key is removed from schema."""
         input_dict = {
             "field1": {
@@ -362,7 +363,7 @@ class TestMakeCerberusSchema(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_make_cerberus_schema_removes_field_desc(self):
+    def test__make_cerberus_schema_removes_field_desc(self):
         """Test that field_desc key is removed from schema."""
         input_dict = {
             "field1": {
@@ -380,7 +381,7 @@ class TestMakeCerberusSchema(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_make_cerberus_schema_removes_units(self):
+    def test__make_cerberus_schema_removes_units(self):
         """Test that units key is removed from schema."""
         input_dict = {
             "field1": {
@@ -398,7 +399,7 @@ class TestMakeCerberusSchema(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_make_cerberus_schema_removes_min_exclusive(self):
+    def test__make_cerberus_schema_removes_min_exclusive(self):
         """Test that min_exclusive key is removed from schema."""
         input_dict = {
             "field1": {
@@ -416,7 +417,7 @@ class TestMakeCerberusSchema(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_make_cerberus_schema_removes_unique(self):
+    def test__make_cerberus_schema_removes_unique(self):
         """Test that unique key is removed from schema."""
         input_dict = {
             "field1": {
@@ -434,7 +435,7 @@ class TestMakeCerberusSchema(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_make_cerberus_schema_preserves_cerberus_keys(self):
+    def test__make_cerberus_schema_preserves_cerberus_keys(self):
         """Test that valid cerberus keys are preserved."""
         input_dict = {
             "field1": {
@@ -457,7 +458,7 @@ class TestMakeCerberusSchema(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_make_cerberus_schema_removes_multiple_unrecognized_keys(self):
+    def test__make_cerberus_schema_removes_multiple_unrecognized_keys(self):
         """Test removing multiple unrecognized keys at once."""
         input_dict = {
             "field1": {
@@ -481,7 +482,7 @@ class TestMakeCerberusSchema(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_make_cerberus_schema_nested_fields(self):
+    def test__make_cerberus_schema_nested_fields(self):
         """Test that unrecognized keys are removed from nested structures."""
         input_dict = {
             "field1": {
@@ -507,7 +508,7 @@ class TestMakeCerberusSchema(TestCase):
         }
         self.assertEqual(expected, result)
 
-    def test_make_cerberus_schema_empty_dict(self):
+    def test__make_cerberus_schema_empty_dict(self):
         """Test that empty dict returns empty dict."""
         input_dict = {}
 
@@ -515,7 +516,7 @@ class TestMakeCerberusSchema(TestCase):
 
         self.assertEqual({}, result)
 
-    def test_make_cerberus_schema_does_not_modify_original(self):
+    def test__make_cerberus_schema_does_not_modify_original(self):
         """Test that the original dictionary is not modified."""
         input_dict = {
             "field1": {
@@ -639,7 +640,7 @@ class TestOutputValidationMsgs(TestCase):
 class TestGetAllowedPandasTypes(TestCase):
     """Tests for _get_allowed_pandas_types function."""
 
-    def test_get_allowed_pandas_types_string(self):
+    def test__get_allowed_pandas_types_string(self):
         """Test that cerberus 'string' type maps to Python str."""
         field_definition = {"type": "string"}
 
@@ -647,7 +648,7 @@ class TestGetAllowedPandasTypes(TestCase):
 
         self.assertEqual([str], result)
 
-    def test_get_allowed_pandas_types_integer(self):
+    def test__get_allowed_pandas_types_integer(self):
         """Test that cerberus 'integer' type maps to Python int."""
         field_definition = {"type": "integer"}
 
@@ -655,7 +656,7 @@ class TestGetAllowedPandasTypes(TestCase):
 
         self.assertEqual([int], result)
 
-    def test_get_allowed_pandas_types_float(self):
+    def test__get_allowed_pandas_types_float(self):
         """Test that cerberus 'float' type maps to Python float."""
         field_definition = {"type": "float"}
 
@@ -663,7 +664,7 @@ class TestGetAllowedPandasTypes(TestCase):
 
         self.assertEqual([float], result)
 
-    def test_get_allowed_pandas_types_number(self):
+    def test__get_allowed_pandas_types_number(self):
         """Test that cerberus 'number' type maps to Python float."""
         field_definition = {"type": "number"}
 
@@ -671,7 +672,7 @@ class TestGetAllowedPandasTypes(TestCase):
 
         self.assertEqual([float], result)
 
-    def test_get_allowed_pandas_types_bool(self):
+    def test__get_allowed_pandas_types_bool(self):
         """Test that cerberus 'bool' type maps to Python bool."""
         field_definition = {"type": "bool"}
 
@@ -679,7 +680,7 @@ class TestGetAllowedPandasTypes(TestCase):
 
         self.assertEqual([bool], result)
 
-    def test_get_allowed_pandas_types_datetime(self):
+    def test__get_allowed_pandas_types_datetime(self):
         """Test that cerberus 'datetime' type maps to datetime.date."""
         field_definition = {"type": "datetime"}
 
@@ -687,7 +688,7 @@ class TestGetAllowedPandasTypes(TestCase):
 
         self.assertEqual([datetime.date], result)
 
-    def test_get_allowed_pandas_types_anyof_single(self):
+    def test__get_allowed_pandas_types_anyof_single(self):
         """Test anyof with single type option."""
         field_definition = {
             "anyof": [
@@ -699,7 +700,7 @@ class TestGetAllowedPandasTypes(TestCase):
 
         self.assertEqual([str], result)
 
-    def test_get_allowed_pandas_types_anyof_multiple(self):
+    def test__get_allowed_pandas_types_anyof_multiple(self):
         """Test anyof with multiple type options."""
         field_definition = {
             "anyof": [
@@ -713,7 +714,7 @@ class TestGetAllowedPandasTypes(TestCase):
 
         self.assertEqual([str, int, float], result)
 
-    def test_get_allowed_pandas_types_no_type_raises_error(self):
+    def test__get_allowed_pandas_types_no_type_raises_error(self):
         """Test that missing type definition raises ValueError."""
         field_definition = {"required": True}
 
@@ -792,7 +793,7 @@ class TestMetameqValidatorCheckWithDateNotInFuture(TestCase):
 class TestGenerateValidationMsg(TestCase):
     """Tests for _generate_validation_msg function."""
 
-    def test_generate_validation_msg_all_valid(self):
+    def test__generate_validation_msg_all_valid(self):
         """Test that valid rows return empty list."""
         metadata_df = pd.DataFrame({
             "sample_name": ["sample1", "sample2"],
@@ -807,7 +808,7 @@ class TestGenerateValidationMsg(TestCase):
 
         self.assertEqual([], result)
 
-    def test_generate_validation_msg_single_error(self):
+    def test__generate_validation_msg_single_error(self):
         """Test that a single validation error is captured."""
         metadata_df = pd.DataFrame({
             "sample_name": ["sample1"],
@@ -828,7 +829,7 @@ class TestGenerateValidationMsg(TestCase):
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
 
-    def test_generate_validation_msg_multiple_errors_single_row(self):
+    def test__generate_validation_msg_multiple_errors_single_row(self):
         """Test that multiple errors in one row are all captured."""
         metadata_df = pd.DataFrame({
             "sample_name": ["sample1"],
@@ -851,7 +852,7 @@ class TestGenerateValidationMsg(TestCase):
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
 
-    def test_generate_validation_msg_errors_across_multiple_rows(self):
+    def test__generate_validation_msg_errors_across_multiple_rows(self):
         """Test that errors across multiple rows are all captured."""
         metadata_df = pd.DataFrame({
             "sample_name": ["sample1", "sample2"],
@@ -872,7 +873,7 @@ class TestGenerateValidationMsg(TestCase):
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
 
-    def test_generate_validation_msg_allows_unknown_fields(self):
+    def test__generate_validation_msg_allows_unknown_fields(self):
         """Test that unknown fields are allowed and don't cause errors."""
         metadata_df = pd.DataFrame({
             "sample_name": ["sample1"],
@@ -888,7 +889,7 @@ class TestGenerateValidationMsg(TestCase):
 
         self.assertEqual([], result)
 
-    def test_generate_validation_msg_required_field_missing(self):
+    def test__generate_validation_msg_required_field_missing(self):
         """Test that missing required fields are caught."""
         metadata_df = pd.DataFrame({
             "sample_name": ["sample1"],
@@ -909,7 +910,7 @@ class TestGenerateValidationMsg(TestCase):
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
 
-    def test_generate_validation_msg_multiple_errors_same_field(self):
+    def test__generate_validation_msg_multiple_errors_same_field(self):
         """Test that multiple errors for the same field are returned as a list."""
         metadata_df = pd.DataFrame({
             "sample_name": ["sample1"],
@@ -933,6 +934,37 @@ class TestGenerateValidationMsg(TestCase):
             "error_message": [[
                 "Must be a valid date",
                 "value does not match regex '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'"
+            ]]
+        })
+        pd.testing.assert_frame_equal(expected_df, result_df)
+
+    def test__generate_validation_msg_anyof_violation(self):
+        """Test that an anyof schema violation is captured with all
+        sub-definition errors."""
+        metadata_df = pd.DataFrame({
+            "sample_name": ["sample1"],
+            "status": ["invalid"]
+        })
+        config = {
+            "sample_name": {"type": "string"},
+            "status": {
+                "anyof": [
+                    {"type": "string", "allowed": ["active", "inactive"]},
+                    {"type": "integer", "allowed": [0, 1]}
+                ]
+            }
+        }
+
+        result = _generate_validation_msg(metadata_df, config)
+        result_df = pd.DataFrame(result)
+
+        expected_df = pd.DataFrame({
+            "sample_name": ["sample1"],
+            "field_name": ["status"],
+            "error_message": [[
+                "no definitions validate",
+                {"anyof definition 0": ["unallowed value invalid"],
+                 "anyof definition 1": ["must be of integer type"]}
             ]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
@@ -1136,6 +1168,105 @@ class TestValidateMetadataDf(TestCase):
         pd.testing.assert_frame_equal(expected_df, result_df)
 
 
+class TestFlattenErrorMessage(TestCase):
+    """Tests for _flatten_error_message function."""
+
+    def test__flatten_error_message_plain_strings(self):
+        """Test that a list of plain strings is returned as-is."""
+        error_message = ["must be of integer type"]
+
+        result = _flatten_error_message(error_message)
+
+        self.assertEqual(["must be of integer type"], result)
+
+    def test__flatten_error_message_multiple_plain_strings(self):
+        """Test that multiple plain strings are returned as-is."""
+        error_message = ["error one", "error two"]
+
+        result = _flatten_error_message(error_message)
+
+        self.assertEqual(["error one", "error two"], result)
+
+    def test__flatten_error_message_anyof_pattern(self):
+        """Test that the anyof pattern (string + dict) produces two
+        separate string items."""
+        error_message = [
+            "no definitions validate",
+            {"anyof definition 0": ["unallowed value invalid"],
+             "anyof definition 1": ["must be of integer type"]}
+        ]
+
+        result = _flatten_error_message(error_message)
+
+        self.assertEqual(
+            ["no definitions validate",
+             "anyof definition 0: unallowed value invalid; "
+             "anyof definition 1: must be of integer type"],
+            result)
+
+    def test__flatten_error_message_dict_only(self):
+        """Test that a dict with no preceding string produces a detail
+        string without parentheses."""
+        error_message = [
+            {"anyof definition 0": ["error a"],
+             "anyof definition 1": ["error b"]}
+        ]
+
+        result = _flatten_error_message(error_message)
+
+        self.assertEqual(
+            ["anyof definition 0: error a; anyof definition 1: error b"],
+            result)
+
+    def test__flatten_error_message_empty_list(self):
+        """Test that an empty list returns an empty list."""
+        result = _flatten_error_message([])
+
+        self.assertEqual([], result)
+
+    def test__flatten_error_message_multiple_errors_in_definition(self):
+        """Test that multiple errors within a single anyof definition
+        are comma-separated."""
+        error_message = [
+            "no definitions validate",
+            {"anyof definition 0": ["error a", "error b"]}
+        ]
+
+        result = _flatten_error_message(error_message)
+
+        self.assertEqual(
+            ["no definitions validate",
+             "anyof definition 0: error a, error b"],
+            result)
+
+    def test__flatten_error_message_strings_and_dict_each_independent(self):
+        """Test that strings and dicts are each independently converted,
+        with no merging between items."""
+        error_message = [
+            "first error",
+            "no definitions validate",
+            {"anyof definition 0": ["error a"]}
+        ]
+
+        result = _flatten_error_message(error_message)
+
+        self.assertEqual(
+            ["first error",
+             "no definitions validate",
+             "anyof definition 0: error a"],
+            result)
+
+    def test__flatten_error_message_unexpected_type(self):
+        """Test that unexpected types are converted to strings via str()."""
+        error_message = ["a string error", 42, ["a", "list"]]
+
+        result = _flatten_error_message(error_message)
+
+        self.assertEqual(
+            ["a string error", "42", "['a', 'list']"],
+            result)
+
+
 class TestFormatValidationMsgsAsDf(TestCase):
     """Tests for format_validation_msgs_as_df function."""
 
@@ -1317,5 +1448,83 @@ class TestFormatValidationMsgsAsDf(TestCase):
             "error_message": [
                 "error 4", "error 3", "error 5",
                 "error 1", "error 2"]
+        })
+        pd.testing.assert_frame_equal(expected, result)
+
+    def test_format_validation_msgs_as_df_anyof_error(self):
+        """Test that anyof error messages are flattened to separate string
+        rows."""
+        validation_msgs = [
+            {
+                "sample_name": "sample1",
+                "field_name": "status",
+                "error_message": [
+                    "no definitions validate",
+                    {"anyof definition 0": ["unallowed value invalid"],
+                     "anyof definition 1": ["must be of integer type"]}
+                ]
+            }
+        ]
+
+        result = format_validation_msgs_as_df(validation_msgs)
+
+        expected = pd.DataFrame({
+            "sample_name": ["sample1", "sample1"],
+            "field_name": ["status", "status"],
+            "error_message": [
+                "anyof definition 0: unallowed value invalid; "
+                "anyof definition 1: must be of integer type",
+                "no definitions validate"
+            ]
+        })
+        pd.testing.assert_frame_equal(expected, result)
+
+    def test_format_validation_msgs_as_df_anyof_and_other_error(self):
+        """Test that a field failing both anyof and another constraint
+        produces three separate rows."""
+        validation_msgs = [
+            {
+                "sample_name": "sample1",
+                "field_name": "status",
+                "error_message": [
+                    "no definitions validate",
+                    "value does not match regex '^[0-9]+'",
+                    {"anyof definition 0": ["unallowed value invalid"],
+                     "anyof definition 1": ["must be of integer type"]}
+                ]
+            }
+        ]
+
+        result = format_validation_msgs_as_df(validation_msgs)
+
+        expected = pd.DataFrame({
+            "sample_name": ["sample1", "sample1", "sample1"],
+            "field_name": ["status", "status", "status"],
+            "error_message": [
+                "anyof definition 0: unallowed value invalid; "
+                "anyof definition 1: must be of integer type",
+                "no definitions validate",
+                "value does not match regex '^[0-9]+'"
+            ]
+        })
+        pd.testing.assert_frame_equal(expected, result)
+
+    def test_format_validation_msgs_as_df_unexpected_error_type(self):
+        """Test that an unexpected non-string, non-dict error item is
+        converted to a string via str()."""
+        validation_msgs = [
+            {
+                "sample_name": "sample1",
+                "field_name": "age",
+                "error_message": ["a string error", 42]
+            }
+        ]
+
+        result = format_validation_msgs_as_df(validation_msgs)
+
+        expected = pd.DataFrame({
+            "sample_name": ["sample1", "sample1"],
+            "field_name": ["age", "age"],
+            "error_message": ["42", "a string error"]
         })
         pd.testing.assert_frame_equal(expected, result)
