@@ -4,7 +4,7 @@ from datetime import datetime
 from dateutil import parser
 import logging
 import os
-import pandas as pd
+import pandas
 from pathlib import Path
 from metameq.src.util import SAMPLE_NAME_KEY, get_extension, cast_field_to_type
 
@@ -167,7 +167,7 @@ def format_validation_msgs_as_df(validation_msgs):
     pandas.DataFrame
         A DataFrame with columns SAMPLE_NAME_KEY, "field_name", and
         "error_message" (a single string per row), sorted by
-        SAMPLE_NAME_KEY then "field_name".
+        SAMPLE_NAME_KEY then "field_name" then "error_message".
     """
     flattened_rows = []
     for msg in validation_msgs:
@@ -178,7 +178,7 @@ def format_validation_msgs_as_df(validation_msgs):
                 "error_message": err
             })
 
-    result_df = pd.DataFrame(
+    result_df = pandas.DataFrame(
         flattened_rows,
         columns=[SAMPLE_NAME_KEY, "field_name", "error_message"])
     result_df.sort_values(
