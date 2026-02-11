@@ -802,3 +802,221 @@ class TestExtendMetadataDf(ExtenderTestBase):
         })
         assert_frame_equal(expected_df, result_df)
         self.assertTrue(validation_msgs_df.empty)
+
+    def test_extend_metadata_df_with_hosttype_col_name(self):
+        """Test metadata extension with hosttype_col_name parameter."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "host_type": ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result_df, validation_msgs_df = extend_metadata_df(
+            input_df, study_config, None, None, self.TEST_STDS_FP,
+            hosttype_col_name="host_type")
+
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["UBERON:feces", "UBERON:feces"],
+            "body_site": ["gut", "gut"],
+            "description": ["human sample", "human sample"],
+            "host_common_name": ["human", "human"],
+            "host_type": ["human", "human"],
+            QIITA_SAMPLE_TYPE: ["stool", "stool"],
+            SAMPLE_TYPE_KEY: ["stool", "stool"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            QC_NOTE_KEY: ["", ""]
+        })
+        assert_frame_equal(expected_df, result_df)
+        self.assertTrue(validation_msgs_df.empty)
+
+    def test_extend_metadata_df_with_sampletype_col_name(self):
+        """Test metadata extension with sampletype_col_name parameter."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            "sample": ["stool", "stool"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result_df, validation_msgs_df = extend_metadata_df(
+            input_df, study_config, None, None, self.TEST_STDS_FP,
+            sampletype_col_name="sample")
+
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["UBERON:feces", "UBERON:feces"],
+            "body_site": ["gut", "gut"],
+            "description": ["human sample", "human sample"],
+            "host_common_name": ["human", "human"],
+            QIITA_SAMPLE_TYPE: ["stool", "stool"],
+            "sample": ["stool", "stool"],
+            SAMPLE_TYPE_KEY: ["stool", "stool"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            QC_NOTE_KEY: ["", ""]
+        })
+        assert_frame_equal(expected_df, result_df)
+        self.assertTrue(validation_msgs_df.empty)
+
+    def test_extend_metadata_df_with_both_col_name_params(self):
+        """Test metadata extension with both col name parameters specified."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "host_type": ["human", "human"],
+            "sample": ["stool", "stool"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result_df, validation_msgs_df = extend_metadata_df(
+            input_df, study_config, None, None, self.TEST_STDS_FP,
+            hosttype_col_name="host_type", sampletype_col_name="sample")
+
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["UBERON:feces", "UBERON:feces"],
+            "body_site": ["gut", "gut"],
+            "description": ["human sample", "human sample"],
+            "host_common_name": ["human", "human"],
+            "host_type": ["human", "human"],
+            QIITA_SAMPLE_TYPE: ["stool", "stool"],
+            "sample": ["stool", "stool"],
+            SAMPLE_TYPE_KEY: ["stool", "stool"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            QC_NOTE_KEY: ["", ""]
+        })
+        assert_frame_equal(expected_df, result_df)
+        self.assertTrue(validation_msgs_df.empty)
+
+    def test_extend_metadata_df_col_name_param_overrides_config(self):
+        """Test that col name parameter takes priority over config col options."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "host_type": ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
+        })
+        study_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {},
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        # Config points to a column that doesn't exist in the df
+        software_config = {
+            DEFAULT_KEY: "not provided",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            HOSTTYPE_COL_OPTIONS_KEY: ["nonexistent_col"]
+        }
+
+        # Parameter should override config, so "host_type" is used
+        result_df, validation_msgs_df = extend_metadata_df(
+            input_df, study_config, None, software_config, self.TEST_STDS_FP,
+            hosttype_col_name="host_type")
+
+        expected_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1", "sample2"],
+            "body_product": ["UBERON:feces", "UBERON:feces"],
+            "body_site": ["gut", "gut"],
+            "description": ["human sample", "human sample"],
+            "host_common_name": ["human", "human"],
+            "host_type": ["human", "human"],
+            QIITA_SAMPLE_TYPE: ["stool", "stool"],
+            SAMPLE_TYPE_KEY: ["stool", "stool"],
+            HOSTTYPE_SHORTHAND_KEY: ["human", "human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"],
+            QC_NOTE_KEY: ["", ""]
+        })
+        assert_frame_equal(expected_df, result_df)
+        self.assertTrue(validation_msgs_df.empty)
+
+    def test_extend_metadata_df_col_name_not_found_raises(self):
+        """Test that specifying a non-existent column name raises ValueError."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            "other_col": ["value"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+        study_config = {}
+
+        with self.assertRaisesRegex(ValueError, "not found in metadata"):
+            extend_metadata_df(
+                input_df, study_config, None, None, self.TEST_STDS_FP,
+                hosttype_col_name="nonexistent_col")
+
+    def test_extend_metadata_df_col_name_conflicts_raises(self):
+        """Test that both internal and alternate columns existing raises ValueError."""
+        input_df = pandas.DataFrame({
+            SAMPLE_NAME_KEY: ["sample1"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"],
+            "host_type": ["human"],
+            SAMPLETYPE_SHORTHAND_KEY: ["stool"]
+        })
+        study_config = {}
+
+        with self.assertRaisesRegex(ValueError, "contains both"):
+            extend_metadata_df(
+                input_df, study_config, None, None, self.TEST_STDS_FP,
+                hosttype_col_name="host_type")

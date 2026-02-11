@@ -10,15 +10,14 @@ from metameq.src.util import extract_config_dict, \
     load_df_with_best_fit_encoding, update_metadata_df_field, \
     HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
     QC_NOTE_KEY, METADATA_FIELDS_KEY, HOST_TYPE_SPECIFIC_METADATA_KEY, \
-    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, \
-    DEFAULT_KEY, REQUIRED_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
+    SAMPLE_TYPE_SPECIFIC_METADATA_KEY, \
+    DEFAULT_KEY, REQUIRED_KEY, \
     LEAVE_BLANK_VAL, SAMPLE_NAME_KEY, \
-    ALLOWED_KEY, TYPE_KEY, LEAVE_REQUIREDS_BLANK_KEY, OVERWRITE_NON_NANS_KEY, \
+    LEAVE_REQUIREDS_BLANK_KEY, OVERWRITE_NON_NANS_KEY, \
     METADATA_TRANSFORMERS_KEY, PRE_TRANSFORMERS_KEY, POST_TRANSFORMERS_KEY, \
     SOURCES_KEY, FUNCTION_KEY, REQUIRED_RAW_METADATA_FIELDS, \
     HOSTTYPE_COL_OPTIONS_KEY, SAMPLETYPE_COL_OPTIONS_KEY
-from metameq.src.metadata_configurator import update_wip_metadata_dict, \
-    build_full_flat_config_dict
+from metameq.src.metadata_configurator import build_full_flat_config_dict
 from metameq.src.metadata_validator import validate_metadata_df, \
     format_validation_msgs_as_df, output_validation_msgs
 import metameq.src.metadata_transformers as transformers
@@ -98,6 +97,41 @@ def get_reserved_cols(
         temp_df, study_specific_config_dict, None, None, stds_fp)
 
     return sorted(metadata_df.columns.to_list())
+
+
+def get_default_column_name(
+        col_options_key: str,
+        raw_metadata_df: pandas.DataFrame,
+        config_dict: Dict[str, Any] = None) -> Optional[str]:
+    """Get the specified type of column name from the metadata DataFrame based on possible options.
+
+    Parameters
+    ----------
+    col_options_key : str
+        Key in the config dict that holds the list of possible column names to check.
+    raw_metadata_df : pandas.DataFrame
+        The metadata DataFrame to check.
+    config_dict : Dict[str, Any], default=None
+        Configuration dictionary. If provided, may contain a list of possible
+        column names under the key specified by col_options_key.
+        If None, defaults to values from the main config.yml file.
+    Returns
+    -------
+    Optional[str]
+        The specified column name found in the DataFrame, or None if not found.
+    """
+    found_name = None
+
+    if not config_dict:
+        config_dict = extract_config_dict(None)
+    col_options = config_dict.get(col_options_key)
+    if col_options:
+        for col_name in col_options:
+            if col_name in raw_metadata_df.columns:
+                found_name = col_name
+                break
+
+    return found_name
 
 
 def id_missing_cols(a_df: pandas.DataFrame) -> List[str]:
@@ -203,7 +237,89 @@ def find_nonstandard_cols(
     return list(set(a_df.columns) - set(standard_cols))
 
 
-def get_extended_metadata_from_df_and_yaml(
+def extend_metadata_df(
+        raw_metadata_df: pandas.DataFrame,
+        study_specific_config_dict: Optional[Dict[str, Any]],
+        study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
+        software_config_dict: Optional[Dict[str, Any]] = None,
+        stds_fp: Optional[str] = None, 
+        hosttype_col_name: Optional[str] = None,
+        sampletype_col_name: Optional[str] = None
+) -> Tuple[pandas.DataFrame, pandas.DataFrame]:
+    """Extend a metadata DataFrame based on metadata standards and study-specific configurations.
+
+    Parameters
+    ----------
+    raw_metadata_df : pandas.DataFrame
+        The raw metadata DataFrame to extend.
+    study_specific_config_dict : Optional[Dict[str, Any]]
+        Study-specific flat-host-type config dictionary.
+    study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
+        Dictionary of custom transformers for this study (only).
+    software_config_dict : Optional[Dict[str, Any]], default=None
+        Software configuration dictionary. If None, the default software
+        config pulled from the config.yml file will be used.
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
+    hosttype_col_name : Optional[str], default=None
+        Name of the column in raw_metadata_df that contains host type
+        values. If provided, its values are copied into the internal
+        ``hosttype_shorthand`` column before processing. If None, the
+        function checks the config's ``hosttype_col_options`` list for a
+        matching column in the DataFrame.
+    sampletype_col_name : Optional[str], default=None
+        Name of the column in raw_metadata_df that contains sample type
+        values. If provided, its values are copied into the internal
+        ``sampletype_shorthand`` column before processing. If None, the
+        function checks the config's ``sampletype_col_options`` list for
+        a matching column in the DataFrame.
+
+    Returns
+    -------
+    Tuple[pandas.DataFrame, pandas.DataFrame]
+        A tuple containing:
+            - The extended metadata DataFrame
+            - A DataFrame containing validation messages
+
+    Raises
+    ------
+    ValueError
+        If required columns are missing from the metadata, if a specified
+        column name is not found in the DataFrame, or if both the internal
+        shorthand column and the specified alternate column exist.
+    """
+    full_flat_config_dict = build_full_flat_config_dict(
+        study_specific_config_dict, software_config_dict, stds_fp)
+
+    # The metadata df must have metameq-specific host- and sample-type-shorthand columns,
+    # since these are used to determine which specific metadata to add for each sample.
+    # Let the user specify those if they want, but if they don't, check if the config
+    # specifies any possible other column names for these fields and if any of the specified
+    # options actually exist in the metadata (looking for them in the order specified in the
+    # yaml).  If an external name is exists, copy the alternate column to the explicit
+    # shorthand column name used internally, so the rest of the processing can proceed as normal.
+    needed_cols = [(HOSTTYPE_SHORTHAND_KEY, hosttype_col_name,  HOSTTYPE_COL_OPTIONS_KEY),
+                   (SAMPLETYPE_SHORTHAND_KEY, sampletype_col_name, SAMPLETYPE_COL_OPTIONS_KEY)]
+    for curr_internal_key, curr_param_key, curr_options_key in needed_cols:
+        specified_name = _find_internal_col_source_name(
+            raw_metadata_df, full_flat_config_dict,
+            curr_param_key, curr_internal_key, curr_options_key)
+        if specified_name:
+            raw_metadata_df[curr_internal_key] = raw_metadata_df[specified_name]
+
+    validate_required_columns_exist(
+        raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
+        "metadata missing required columns")
+
+    metadata_df, validation_msgs_df = _populate_metadata_df(
+        raw_metadata_df, full_flat_config_dict,
+        study_specific_transformers_dict)
+
+    return metadata_df, validation_msgs_df
+
+
+def extend_metadata_df_from_yamls(
         raw_metadata_df: pandas.DataFrame,
         study_specific_config_fp: Optional[str],
         stds_fp: Optional[str] = None) -> Tuple[pandas.DataFrame, pandas.DataFrame]:
@@ -255,6 +371,64 @@ def get_qc_failures(a_df: pandas.DataFrame) -> pandas.DataFrame:
     qc_fails_df = \
         a_df.loc[fails_qc_mask, :].copy()
     return qc_fails_df
+
+
+def write_extended_metadata_from_df(
+        raw_metadata_df: pandas.DataFrame,
+        study_specific_config_dict: Dict[str, Any],
+        out_dir: str,
+        out_name_base: str,
+        study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
+        sep: str = "\t",
+        remove_internals: bool = True,
+        suppress_empty_fails: bool = False,
+        internal_col_names: Optional[List[str]] = None,
+        stds_fp: Optional[str] = None) -> pandas.DataFrame:
+    """Write extended metadata to files starting from a metadata DataFrame and config dictionary.
+
+    Parameters
+    ----------
+    raw_metadata_df : pandas.DataFrame
+        The raw metadata DataFrame to extend.
+    study_specific_config_dict : Dict[str, Any]
+        Study-specific configuration dictionary.
+    out_dir : str
+        Directory where output files will be written.
+    out_name_base : str
+        Base name for output files.
+    study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
+        Dictionary of custom transformers.
+    sep : str, default="\t"
+        Separator to use in output files.
+    remove_internals : bool, default=True
+        Whether to remove internal columns.
+    suppress_empty_fails : bool, default=False
+        Whether to suppress empty failure files.
+    internal_col_names : Optional[List[str]], default=None
+        List of internal column names.
+    stds_fp : Optional[str], default=None
+        Path to standards dictionary file. If None, the default standards
+        config pulled from the standards.yml file will be used.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The extended metadata DataFrame.
+    """
+    # extend the metadata DataFrame using the study-specific flat-host-type config dictionary
+    metadata_df, validation_msgs_df = extend_metadata_df(
+        raw_metadata_df, study_specific_config_dict,
+        study_specific_transformers_dict, None, stds_fp)
+
+    # write the metadata and validation results to files
+    write_metadata_results(
+        metadata_df, validation_msgs_df, out_dir, out_name_base,
+        sep=sep, remove_internals=remove_internals,
+        suppress_empty_fails=suppress_empty_fails,
+        internal_col_names=internal_col_names)
+
+    # for good measure, return the extended metadata DataFrame
+    return metadata_df
 
 
 def write_extended_metadata(
@@ -328,184 +502,6 @@ def write_extended_metadata(
     return extended_df
 
 
-def _get_study_specific_config(study_specific_config_fp: Optional[str]) -> Optional[Dict[str, Any]]:
-    """Load study-specific flat-host-type configuration from a YAML file.
-
-    Parameters
-    ----------
-    study_specific_config_fp : Optional[str]
-        Path to the study-specific configuration YAML file.
-        This file should contain study-specific values for top-level settings (e.g., default
-        value) and, if necessary, a HOST_TYPE_SPECIFIC_METADATA_KEY holding a *flat*
-        dictionary of host types, defining only their study-specific host and sample type
-        metadata fields.
-
-    Returns
-    -------
-    Optional[Dict[str, Any]]
-        The loaded flat-host-type configuration dictionary, or None if no file path provided.
-    """
-    if study_specific_config_fp:
-        study_specific_config_dict = \
-            extract_config_dict(study_specific_config_fp)
-    else:
-        study_specific_config_dict = None
-
-    return study_specific_config_dict
-
-
-def write_extended_metadata_from_df(
-        raw_metadata_df: pandas.DataFrame,
-        study_specific_config_dict: Dict[str, Any],
-        out_dir: str,
-        out_name_base: str,
-        study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
-        sep: str = "\t",
-        remove_internals: bool = True,
-        suppress_empty_fails: bool = False,
-        internal_col_names: Optional[List[str]] = None,
-        stds_fp: Optional[str] = None) -> pandas.DataFrame:
-    """Write extended metadata to files starting from a metadata DataFrame and config dictionary.
-
-    Parameters
-    ----------
-    raw_metadata_df : pandas.DataFrame
-        The raw metadata DataFrame to extend.
-    study_specific_config_dict : Dict[str, Any]
-        Study-specific configuration dictionary.
-    out_dir : str
-        Directory where output files will be written.
-    out_name_base : str
-        Base name for output files.
-    study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
-        Dictionary of custom transformers.
-    sep : str, default="\t"
-        Separator to use in output files.
-    remove_internals : bool, default=True
-        Whether to remove internal columns.
-    suppress_empty_fails : bool, default=False
-        Whether to suppress empty failure files.
-    internal_col_names : Optional[List[str]], default=None
-        List of internal column names.
-    stds_fp : Optional[str], default=None
-        Path to standards dictionary file. If None, the default standards
-        config pulled from the standards.yml file will be used.
-
-    Returns
-    -------
-    pandas.DataFrame
-        The extended metadata DataFrame.
-    """
-    # extend the metadata DataFrame using the study-specific flat-host-type config dictionary
-    metadata_df, validation_msgs_df = extend_metadata_df(
-        raw_metadata_df, study_specific_config_dict,
-        study_specific_transformers_dict, None, stds_fp)
-
-    # write the metadata and validation results to files
-    write_metadata_results(
-        metadata_df, validation_msgs_df, out_dir, out_name_base,
-        sep=sep, remove_internals=remove_internals,
-        suppress_empty_fails=suppress_empty_fails,
-        internal_col_names=internal_col_names)
-
-    # for good measure, return the extended metadata DataFrame
-    return metadata_df
-
-
-def extend_metadata_df(
-        raw_metadata_df: pandas.DataFrame,
-        study_specific_config_dict: Optional[Dict[str, Any]],
-        study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
-        software_config_dict: Optional[Dict[str, Any]] = None,
-        stds_fp: Optional[str] = None
-) -> Tuple[pandas.DataFrame, pandas.DataFrame]:
-    """Extend a metadata DataFrame based on metadata standards and study-specific configurations.
-
-    Parameters
-    ----------
-    raw_metadata_df : pandas.DataFrame
-        The raw metadata DataFrame to extend.
-    study_specific_config_dict : Optional[Dict[str, Any]]
-        Study-specific flat-host-type config dictionary.
-    study_specific_transformers_dict : Optional[Dict[str, Any]], default=None
-        Dictionary of custom transformers for this study (only).
-    software_config_dict : Optional[Dict[str, Any]], default=None
-        Software configuration dictionary. If None, the default software
-        config pulled from the config.yml file will be used.
-    stds_fp : Optional[str], default=None
-        Path to standards dictionary file. If None, the default standards
-        config pulled from the standards.yml file will be used.
-
-    Returns
-    -------
-    Tuple[pandas.DataFrame, pandas.DataFrame]
-        A tuple containing:
-            - The extended metadata DataFrame
-            - A DataFrame containing validation messages
-
-    Raises
-    ------
-    ValueError
-        If required columns are missing from the metadata.
-    """
-    full_flat_config_dict = build_full_flat_config_dict(
-        study_specific_config_dict, software_config_dict, stds_fp)
-
-    needed_cols = [(HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY),
-                   (SAMPLETYPE_SHORTHAND_KEY, SAMPLETYPE_COL_OPTIONS_KEY)]
-    for curr_key, curr_options_key in needed_cols:
-        if curr_key not in raw_metadata_df.columns:
-            specified_name = _get_specified_column_name(
-                curr_options_key, raw_metadata_df, full_flat_config_dict)
-            if specified_name:
-                raw_metadata_df[curr_key] = raw_metadata_df[specified_name]
-
-    validate_required_columns_exist(
-        raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
-        "metadata missing required columns")
-
-    metadata_df, validation_msgs_df = _populate_metadata_df(
-        raw_metadata_df, full_flat_config_dict,
-        study_specific_transformers_dict)
-
-    return metadata_df, validation_msgs_df
-
-
-def _get_specified_column_name(
-        col_options_key: str,
-        raw_metadata_df: pandas.DataFrame,
-        config_dict: Dict[str, Any] = None) -> Optional[str]:
-    """Get the specified type of column name from the metadata DataFrame based on possible options.
-
-    Parameters
-    ----------
-    col_options_key : str
-        Key in the config dict that holds the list of possible column names to check.
-    raw_metadata_df : pandas.DataFrame
-        The metadata DataFrame to check.
-    config_dict : Dict[str, Any], default=None
-        Configuration dictionary. If provided, may contain a list of possible
-        column names under the key specified by col_options_key.
-        If None, defaults to values from the main config.yml file.
-    Returns
-    -------
-    Optional[str]
-        The specified column name found in the DataFrame, or None if not found.
-    """
-    found_name = None
-
-    if not config_dict:
-        config_dict = extract_config_dict(None)
-    col_options = config_dict.get(col_options_key)
-    if col_options:
-        for col_name in col_options:
-            if col_name in raw_metadata_df.columns:
-                found_name = col_name
-                break
-
-    return found_name
-
-
 def write_metadata_results(
         metadata_df: pandas.DataFrame,
         validation_msgs_df: pandas.DataFrame,
@@ -546,6 +542,32 @@ def write_metadata_results(
 
     output_validation_msgs(validation_msgs_df, out_dir, out_name_base, sep=",",
                            suppress_empty_fails=suppress_empty_fails)
+
+
+def _get_study_specific_config(study_specific_config_fp: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Load study-specific flat-host-type configuration from a YAML file.
+
+    Parameters
+    ----------
+    study_specific_config_fp : Optional[str]
+        Path to the study-specific configuration YAML file.
+        This file should contain study-specific values for top-level settings (e.g., default
+        value) and, if necessary, a HOST_TYPE_SPECIFIC_METADATA_KEY holding a *flat*
+        dictionary of host types, defining only their study-specific host and sample type
+        metadata fields.
+
+    Returns
+    -------
+    Optional[Dict[str, Any]]
+        The loaded flat-host-type configuration dictionary, or None if no file path provided.
+    """
+    if study_specific_config_fp:
+        study_specific_config_dict = \
+            extract_config_dict(study_specific_config_fp)
+    else:
+        study_specific_config_dict = None
+
+    return study_specific_config_dict
 
 
 def _populate_metadata_df(
@@ -610,6 +632,31 @@ def _populate_metadata_df(
     return metadata_df, validation_msgs_df
 
 
+def _find_internal_col_source_name(
+        raw_metadata_df: pandas.DataFrame, full_flat_config_dict: Dict[str, Any],
+        param_key: Optional[str], internal_key: str, options_key: str) -> Optional[str]:
+    specified_name = param_key
+    if not specified_name:
+        specified_name = get_default_column_name(
+            options_key, raw_metadata_df, full_flat_config_dict)
+
+    if specified_name:
+        if specified_name != internal_key:
+            if internal_key in raw_metadata_df.columns:
+                raise ValueError(f"Metadata contains both '{internal_key}' and "
+                                 f"'{specified_name}' columns, which are both specified as "
+                                 f"names for the {internal_key} field.")
+            if specified_name not in raw_metadata_df.columns:
+                raise ValueError(
+                    f"Specified {internal_key} column '{specified_name}' not found in metadata.")
+            return specified_name
+        
+    # note that if the specified column name is the same as the internal key, we don't need to do anything;
+    # if the internal key doesn't exist in the metadata (already), later code will complain, so this
+    # function doesn't need to worry about that case.
+    return None
+                
+
 def _catch_nan_required_fields(metadata_df: pandas.DataFrame) -> pandas.DataFrame:
     """Error for NaNs in sample name, warn for NaNs in host- and sample-type- shorthand fields.
 
@@ -645,7 +692,6 @@ def _catch_nan_required_fields(metadata_df: pandas.DataFrame) -> pandas.DataFram
     return metadata_df
 
 
-# transformer runner function
 def _transform_metadata(
         metadata_df: pandas.DataFrame,
         full_flat_config_dict: Dict[str, Any],
@@ -928,88 +974,6 @@ def _generate_metadata_for_a_sample_type_in_a_host_type(
             sample_type_df, full_sample_type_metadata_fields_dict)
 
     return sample_type_df, validation_msgs
-
-
-def _construct_sample_type_metadata_fields_dict(
-        sample_type: str,
-        host_sample_types_config_dict: Dict[str, Any],
-        a_host_type_metadata_fields_dict: Dict[str, Any]) -> Dict[str, Any]:
-    """Construct metadata fields dictionary for a specific host+sample type, resolving aliases and base types.
-
-    Parameters
-    ----------
-    sample_type : str
-        The sample type to process.
-    host_sample_types_config_dict : Dict[str, Any]
-        Dictionary containing config for *all* sample types in
-        the host type in question.
-    a_host_type_metadata_fields_dict : Dict[str, Any]
-        Dictionary containing metadata fields for the host type in question.
-
-    Returns
-    -------
-    Dict[str, Any]
-        The constructed metadata fields dictionary for this host-and-sample-type combination.
-
-    Raises
-    ------
-    ValueError
-        If there are invalid alias chains or base type configurations.
-    """
-    sample_type_for_metadata = sample_type
-
-    # get dict associated with the naive sample type
-    sample_type_specific_dict = \
-        host_sample_types_config_dict[sample_type]
-
-    # if naive sample type contains an alias
-    sample_type_alias = sample_type_specific_dict.get(ALIAS_KEY)
-    if sample_type_alias:
-        # change the sample type to the alias sample type
-        # and use the alias's sample type dict
-        sample_type_for_metadata = sample_type_alias
-        sample_type_specific_dict = \
-            host_sample_types_config_dict[sample_type_alias]
-        if METADATA_FIELDS_KEY not in sample_type_specific_dict:
-            raise ValueError(f"May not chain aliases "
-                             f"('{sample_type}' to '{sample_type_alias}')")
-    # endif sample type is an alias
-
-    # if the sample type has a base type
-    sample_type_base = sample_type_specific_dict.get(BASE_TYPE_KEY)
-    if sample_type_base:
-        # get the base's sample type dict and add this sample type's
-        # info on top of it
-        base_sample_dict = host_sample_types_config_dict[sample_type_base]
-        if list(base_sample_dict.keys()) != [METADATA_FIELDS_KEY]:
-            raise ValueError(f"Base sample type '{sample_type_base}' "
-                             f"must only have metadata fields")
-        sample_type_specific_dict_metadata = update_wip_metadata_dict(
-            sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}),
-            base_sample_dict[METADATA_FIELDS_KEY])
-        sample_type_specific_dict[METADATA_FIELDS_KEY] = \
-            sample_type_specific_dict_metadata
-    # endif sample type has a base type
-
-    # add the sample-type-specific info generated above on top of the host info
-    sample_type_metadata_dict = update_wip_metadata_dict(
-        a_host_type_metadata_fields_dict,
-        sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}))
-
-    # set sample_type, and qiita_sample_type if it is not already set
-    sample_type_definition = {
-        ALLOWED_KEY: [sample_type_for_metadata],
-        DEFAULT_KEY: sample_type_for_metadata,
-        TYPE_KEY: "string"
-    }
-    sample_type_metadata_dict = update_wip_metadata_dict(
-        sample_type_metadata_dict, {SAMPLE_TYPE_KEY: sample_type_definition})
-    if QIITA_SAMPLE_TYPE not in sample_type_metadata_dict:
-        sample_type_metadata_dict = update_wip_metadata_dict(
-            sample_type_metadata_dict, {QIITA_SAMPLE_TYPE: sample_type_definition})
-    # end if qiita_sample_type not already set
-
-    return sample_type_metadata_dict
 
 
 def _update_metadata_from_dict(

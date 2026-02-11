@@ -22,7 +22,8 @@ from metameq.src.metadata_extender import \
     get_reserved_cols, \
     find_standard_cols, \
     find_nonstandard_cols, \
-    _get_specified_column_name
+    get_default_column_name, \
+    _find_internal_col_source_name
 from metameq.tests.test_metadata_extender.conftest import \
     ExtenderTestBase
 
@@ -442,9 +443,9 @@ class TestFindNonstandardCols(ExtenderTestBase):
             find_nonstandard_cols(input_df, study_config, self.TEST_STDS_FP)
 
 
-class TestGetSpecifiedColumnName(ExtenderTestBase):
-    def test__get_specified_column_name_finds_column(self):
-        """Test that _get_specified_column_name finds a column that exists."""
+class TestGetDefaultColumnName(ExtenderTestBase):
+    def test_get_default_column_name_finds_column(self):
+        """Test that get_default_column_name finds a column that exists."""
         input_df = pandas.DataFrame({
             "sample_name": ["s1"],
             "host_type": ["human"]
@@ -452,12 +453,12 @@ class TestGetSpecifiedColumnName(ExtenderTestBase):
         config_dict = {
             HOSTTYPE_COL_OPTIONS_KEY: ["host_type", "host_common_name"]
         }
-        result = _get_specified_column_name(
+        result = get_default_column_name(
             HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
         self.assertEqual("host_type", result)
 
-    def test__get_specified_column_name_returns_first_match(self):
-        """Test that _get_specified_column_name returns the first match when multiple options exist."""
+    def test_get_default_column_name_returns_first_match(self):
+        """Test that get_default_column_name returns the first match when multiple options exist."""
         input_df = pandas.DataFrame({
             "sample_name": ["s1"],
             "host_type": ["human"],
@@ -466,12 +467,12 @@ class TestGetSpecifiedColumnName(ExtenderTestBase):
         config_dict = {
             HOSTTYPE_COL_OPTIONS_KEY: ["host_type", "host_common_name"]
         }
-        result = _get_specified_column_name(
+        result = get_default_column_name(
             HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
         self.assertEqual("host_type", result)
 
-    def test__get_specified_column_name_returns_none_when_no_match(self):
-        """Test that _get_specified_column_name returns None when no options match."""
+    def test_get_default_column_name_returns_none_when_no_match(self):
+        """Test that get_default_column_name returns None when no options match."""
         input_df = pandas.DataFrame({
             "sample_name": ["s1"],
             "other_column": ["value"]
@@ -479,23 +480,23 @@ class TestGetSpecifiedColumnName(ExtenderTestBase):
         config_dict = {
             HOSTTYPE_COL_OPTIONS_KEY: ["host_type", "host_common_name"]
         }
-        result = _get_specified_column_name(
+        result = get_default_column_name(
             HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
         self.assertIsNone(result)
 
-    def test__get_specified_column_name_returns_none_when_key_missing(self):
-        """Test that _get_specified_column_name returns None when col_options_key is not in config."""
+    def test_get_default_column_name_returns_none_when_key_missing(self):
+        """Test that get_default_column_name returns None when col_options_key is not in config."""
         input_df = pandas.DataFrame({
             "sample_name": ["s1"],
             "host_type": ["human"]
         })
         config_dict = {}
-        result = _get_specified_column_name(
+        result = get_default_column_name(
             HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
         self.assertIsNone(result)
 
-    def test__get_specified_column_name_returns_none_when_options_empty(self):
-        """Test that _get_specified_column_name returns None when col_options is empty list."""
+    def test_get_default_column_name_returns_none_when_options_empty(self):
+        """Test that get_default_column_name returns None when col_options is empty list."""
         input_df = pandas.DataFrame({
             "sample_name": ["s1"],
             "host_type": ["human"]
@@ -503,12 +504,12 @@ class TestGetSpecifiedColumnName(ExtenderTestBase):
         config_dict = {
             HOSTTYPE_COL_OPTIONS_KEY: []
         }
-        result = _get_specified_column_name(
+        result = get_default_column_name(
             HOSTTYPE_COL_OPTIONS_KEY, input_df, config_dict)
         self.assertIsNone(result)
 
-    def test__get_specified_column_name_with_sampletype_key(self):
-        """Test that _get_specified_column_name works with sampletype column options."""
+    def test_get_default_column_name_with_sampletype_key(self):
+        """Test that get_default_column_name works with sampletype column options."""
         input_df = pandas.DataFrame({
             "sample_name": ["s1"],
             "sample_type": ["stool"]
@@ -516,7 +517,123 @@ class TestGetSpecifiedColumnName(ExtenderTestBase):
         config_dict = {
             SAMPLETYPE_COL_OPTIONS_KEY: ["sample_type", "sampletype"]
         }
-        result = _get_specified_column_name(
+        result = get_default_column_name(
             SAMPLETYPE_COL_OPTIONS_KEY, input_df, config_dict)
         self.assertEqual("sample_type", result)
-    # endregion _get_specified_column_name tests
+    # endregion get_default_column_name tests
+
+
+class TestFindInternalColSourceName(ExtenderTestBase):
+    def test__find_internal_col_source_name_param_key_in_df(self):
+        """Test returns param_key when it exists in df and differs from internal_key."""
+        input_df = pandas.DataFrame({
+            "host_type": ["human"]
+        })
+        config_dict = {}
+
+        result = _find_internal_col_source_name(
+            input_df, config_dict,
+            "host_type", HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY)
+
+        self.assertEqual("host_type", result)
+
+    def test__find_internal_col_source_name_param_key_equals_internal_key(self):
+        """Test returns None when param_key equals internal_key."""
+        input_df = pandas.DataFrame({
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+        config_dict = {}
+
+        result = _find_internal_col_source_name(
+            input_df, config_dict,
+            HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_SHORTHAND_KEY,
+            HOSTTYPE_COL_OPTIONS_KEY)
+
+        self.assertIsNone(result)
+
+    def test__find_internal_col_source_name_param_key_both_cols_raises(self):
+        """Test raises ValueError when both internal_key and param_key columns exist."""
+        input_df = pandas.DataFrame({
+            "host_type": ["human"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+        config_dict = {}
+
+        with self.assertRaisesRegex(ValueError, "contains both"):
+            _find_internal_col_source_name(
+                input_df, config_dict,
+                "host_type", HOSTTYPE_SHORTHAND_KEY,
+                HOSTTYPE_COL_OPTIONS_KEY)
+
+    def test__find_internal_col_source_name_param_key_not_in_df_raises(self):
+        """Test raises ValueError when param_key column not found in df."""
+        input_df = pandas.DataFrame({
+            "other_col": ["value"]
+        })
+        config_dict = {}
+
+        with self.assertRaisesRegex(ValueError, "not found in metadata"):
+            _find_internal_col_source_name(
+                input_df, config_dict,
+                "host_type", HOSTTYPE_SHORTHAND_KEY,
+                HOSTTYPE_COL_OPTIONS_KEY)
+
+    def test__find_internal_col_source_name_default_in_df(self):
+        """Test returns default column name when param_key is None and default exists in df."""
+        input_df = pandas.DataFrame({
+            "host_type": ["human"]
+        })
+        config_dict = {
+            HOSTTYPE_COL_OPTIONS_KEY: ["host_type"]
+        }
+
+        result = _find_internal_col_source_name(
+            input_df, config_dict,
+            None, HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY)
+
+        self.assertEqual("host_type", result)
+
+    def test__find_internal_col_source_name_no_param_no_default(self):
+        """Test returns None when param_key is None and no default column found."""
+        input_df = pandas.DataFrame({
+            "other_col": ["value"]
+        })
+        config_dict = {
+            HOSTTYPE_COL_OPTIONS_KEY: ["host_type"]
+        }
+
+        result = _find_internal_col_source_name(
+            input_df, config_dict,
+            None, HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY)
+
+        self.assertIsNone(result)
+
+    def test__find_internal_col_source_name_default_equals_internal_key(self):
+        """Test returns None when default column name equals internal_key."""
+        input_df = pandas.DataFrame({
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+        config_dict = {
+            HOSTTYPE_COL_OPTIONS_KEY: [HOSTTYPE_SHORTHAND_KEY]
+        }
+
+        result = _find_internal_col_source_name(
+            input_df, config_dict,
+            None, HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY)
+
+        self.assertIsNone(result)
+
+    def test__find_internal_col_source_name_default_both_cols_raises(self):
+        """Test raises ValueError when default column and internal_key both exist in df."""
+        input_df = pandas.DataFrame({
+            "host_type": ["human"],
+            HOSTTYPE_SHORTHAND_KEY: ["human"]
+        })
+        config_dict = {
+            HOSTTYPE_COL_OPTIONS_KEY: ["host_type"]
+        }
+
+        with self.assertRaisesRegex(ValueError, "contains both"):
+            _find_internal_col_source_name(
+                input_df, config_dict,
+                None, HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY)
