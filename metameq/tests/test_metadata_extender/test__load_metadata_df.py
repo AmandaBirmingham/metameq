@@ -57,7 +57,8 @@ class TestLoadMetadataDf(ExtenderTestBase):
         """Test that all columns are loaded as string dtype."""
         result = _load_metadata_df(self.TEST_METADATA_CSV_FP)
         for col in result.columns:
-            self.assertEqual("object", str(result[col].dtype))
+            # works for both legacy "object" dtype and newer "str"/"string" dtypes
+            self.assertTrue(pandas.api.types.is_string_dtype(result[col]))
 
     def test__load_metadata_df_tsv_matches_txt(self):
         """Test that TSV and TXT produce identical DataFrames."""
