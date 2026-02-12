@@ -7,6 +7,7 @@ from metameq.src.util import HOSTTYPE_SHORTHAND_KEY, SAMPLETYPE_SHORTHAND_KEY, \
 from metameq.src.metadata_configurator import build_full_flat_config_dict
 from metameq.src.metadata_extender import \
     write_extended_metadata, write_extended_metadata_from_df, \
+    write_validator_metadata, \
     get_reserved_cols, extend_metadata_df_from_yamls, \
     write_metadata_results, id_missing_cols, find_standard_cols, \
     find_nonstandard_cols, get_qc_failures, extend_metadata_df
@@ -31,7 +32,8 @@ __all__ = ["HOSTTYPE_SHORTHAND_KEY", "SAMPLETYPE_SHORTHAND_KEY",
            "merge_one_to_one_metadata", "find_common_col_names",
            "find_common_df_cols",
            "write_extended_metadata", "extend_metadata_df_from_yamls",
-           "write_extended_metadata_from_df", "write_metadata_results",
+           "write_extended_metadata_from_df", "write_validator_metadata",
+           "write_metadata_results",
            "get_reserved_cols", "id_missing_cols", "find_standard_cols",
            "find_nonstandard_cols", "get_qc_failures",
            "format_a_datetime", "standardize_input_sex",

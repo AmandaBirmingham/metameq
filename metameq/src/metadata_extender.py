@@ -242,7 +242,7 @@ def extend_metadata_df(
         study_specific_config_dict: Optional[Dict[str, Any]],
         study_specific_transformers_dict: Optional[Dict[str, Any]] = None,
         software_config_dict: Optional[Dict[str, Any]] = None,
-        stds_fp: Optional[str] = None, 
+        stds_fp: Optional[str] = None,
         hosttype_col_name: Optional[str] = None,
         sampletype_col_name: Optional[str] = None
 ) -> Tuple[pandas.DataFrame, pandas.DataFrame]:
@@ -292,29 +292,10 @@ def extend_metadata_df(
     full_flat_config_dict = build_full_flat_config_dict(
         study_specific_config_dict, software_config_dict, stds_fp)
 
-    # The metadata df must have metameq-specific host- and sample-type-shorthand columns,
-    # since these are used to determine which specific metadata to add for each sample.
-    # Let the user specify those if they want, but if they don't, check if the config
-    # specifies any possible other column names for these fields and if any of the specified
-    # options actually exist in the metadata (looking for them in the order specified in the
-    # yaml).  If an external name is exists, copy the alternate column to the explicit
-    # shorthand column name used internally, so the rest of the processing can proceed as normal.
-    needed_cols = [(HOSTTYPE_SHORTHAND_KEY, hosttype_col_name,  HOSTTYPE_COL_OPTIONS_KEY),
-                   (SAMPLETYPE_SHORTHAND_KEY, sampletype_col_name, SAMPLETYPE_COL_OPTIONS_KEY)]
-    for curr_internal_key, curr_param_key, curr_options_key in needed_cols:
-        specified_name = _find_internal_col_source_name(
-            raw_metadata_df, full_flat_config_dict,
-            curr_param_key, curr_internal_key, curr_options_key)
-        if specified_name:
-            raw_metadata_df[curr_internal_key] = raw_metadata_df[specified_name]
-
-    validate_required_columns_exist(
-        raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
-        "metadata missing required columns")
-
-    metadata_df, validation_msgs_df = _populate_metadata_df(
+    metadata_df, validation_msgs_df, _ = _extend_metadata_from_full_flat_config(
         raw_metadata_df, full_flat_config_dict,
-        study_specific_transformers_dict)
+        study_specific_transformers_dict,
+        hosttype_col_name, sampletype_col_name)
 
     return metadata_df, validation_msgs_df
 
@@ -371,6 +352,59 @@ def get_qc_failures(a_df: pandas.DataFrame) -> pandas.DataFrame:
     qc_fails_df = \
         a_df.loc[fails_qc_mask, :].copy()
     return qc_fails_df
+
+
+# Map QC note strings to the internal column key they relate to
+_QC_NOTE_TO_INTERNAL_KEY = {
+    "invalid host_type": HOSTTYPE_SHORTHAND_KEY,
+    "invalid sample_type": SAMPLETYPE_SHORTHAND_KEY
+}
+
+
+def _qc_failures_to_validation_msgs(
+        metadata_df: pandas.DataFrame,
+        col_name_mapping: Dict[str, str]) -> list:
+    """Convert QC failure rows into a list of validation message dicts.
+
+    Each QC failure row is converted into a validation message record
+    whose ``field_name`` uses the user-facing column name (from
+    *col_name_mapping*) rather than the internal shorthand name.
+
+    Parameters
+    ----------
+    metadata_df : pandas.DataFrame
+        The extended metadata DataFrame (must contain ``QC_NOTE_KEY``).
+    col_name_mapping : Dict[str, str]
+        Mapping from internal column keys to user-facing column names
+        (as returned by ``_extend_metadata_from_full_flat_config``).
+
+    Returns
+    -------
+    list
+        A list of dicts, each with keys ``sample_name``,
+        ``field_name``, ``field_value``, and ``error_message``
+        (a list with one string).
+    """
+    qc_failures_df = get_qc_failures(metadata_df)
+
+    records = []
+    for _, row in qc_failures_df.iterrows():
+        qc_note = row[QC_NOTE_KEY]
+        internal_key = _QC_NOTE_TO_INTERNAL_KEY.get(qc_note)
+        if internal_key is not None:
+            field_name = col_name_mapping.get(internal_key, internal_key)
+            field_value = row[internal_key]
+        else:
+            field_name = qc_note
+            field_value = None
+        records.append({
+            SAMPLE_NAME_KEY: row[SAMPLE_NAME_KEY],
+            "field_name": field_name,
+            "field_value": field_value,
+            "error_message": [qc_note]
+        })
+
+    return records
 
 
 def write_extended_metadata_from_df(
@@ -445,7 +479,7 @@ def write_extended_metadata(
     Parameters
     ----------
     raw_metadata_fp : str
-        Path to the raw metadata file (.csv, .txt, or .xlsx).
+        Path to the raw metadata file (.csv, .tsv, .txt, or .xlsx).
     study_specific_config_fp : str
         Path to the study-specific configuration YAML file.
     out_dir : str
@@ -472,19 +506,7 @@ def write_extended_metadata(
     ValueError
         If the input file extension is not recognized.
     """
-    # extract the extension from the raw_metadata_fp file path
-    extension = os.path.splitext(raw_metadata_fp)[1]
-    if extension == ".csv":
-        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, ",", str)
-    elif extension == ".txt":
-        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, "\t", str)
-    elif extension == ".xlsx":
-        # NB: this loads (only) the first sheet of the input excel file.
-        # If needed, can expand with pandas.read_excel sheet_name parameter.
-        raw_metadata_df = pandas.read_excel(raw_metadata_fp, dtype=str)
-    else:
-        raise ValueError("Unrecognized input file extension; "
-                         "must be .csv, .txt, or .xlsx")
+    raw_metadata_df = _load_metadata_df(raw_metadata_fp)
 
     # get the study-specific flat-host-type config dictionary from the input yaml file
     study_specific_config_dict = \
@@ -500,6 +522,59 @@ def write_extended_metadata(
 
     # for good measure, return the extended metadata DataFrame
     return extended_df
+
+
+def write_validator_metadata(
+        raw_metadata_fp: str,
+        full_flat_config_dict_fp: str,
+        out_dir: str,
+        out_name_base: str,
+        sep: str = "\t",
+        remove_internals: bool = True,
+        suppress_empty_fails: bool = False,
+        hosttype_col_name: Optional[str] = None,
+        sampletype_col_name: Optional[str] = None) -> None:
+    """Write extended metadata to files starting from input file paths to metadata and full flat config.
+
+    """
+    # load the metadata
+    raw_metadata_df = _load_metadata_df(raw_metadata_fp)
+
+    # load the full flat config dictionary from the input yaml file
+    full_flat_config_dict = extract_config_dict(full_flat_config_dict_fp)
+
+    # extend the metadata DataFrame using the study-specific flat-host-type config dictionary
+    metadata_df, validation_msgs_df, col_name_mapping = \
+        _extend_metadata_from_full_flat_config(
+            raw_metadata_df, full_flat_config_dict,
+            study_specific_transformers_dict=None,
+            hosttype_col_name=hosttype_col_name,
+            sampletype_col_name=sampletype_col_name)
+
+    # Convert QC failures to validation message records and combine
+    # with any cerberus validation messages
+    qc_validation_msgs = _qc_failures_to_validation_msgs(
+        metadata_df, col_name_mapping)
+    qc_validation_msgs_df = format_validation_msgs_as_df(
+        qc_validation_msgs)
+    combined_validation_msgs_df = pandas.concat(
+        [validation_msgs_df, qc_validation_msgs_df], ignore_index=True)
+    combined_validation_msgs_df.sort_values(
+        by=[SAMPLE_NAME_KEY, "field_name", "error_message"],
+        inplace=True)
+    combined_validation_msgs_df.reset_index(drop=True, inplace=True)
+
+    # Write the metadata output file, optionally stripping internal cols
+    # but keeping ALL rows (no QC-failure row removal)
+    output_df = metadata_df
+    if remove_internals:
+        output_df = _remove_internal_cols(metadata_df)
+    _write_df_to_file(output_df, out_dir, out_name_base, sep=sep)
+
+    # Write the combined validation messages file
+    output_validation_msgs(
+        combined_validation_msgs_df, out_dir, out_name_base,
+        sep=",", suppress_empty_fails=suppress_empty_fails)
 
 
 def write_metadata_results(
@@ -650,12 +725,12 @@ def _find_internal_col_source_name(
                 raise ValueError(
                     f"Specified {internal_key} column '{specified_name}' not found in metadata.")
             return specified_name
-        
+
     # note that if the specified column name is the same as the internal key, we don't need to do anything;
     # if the internal key doesn't exist in the metadata (already), later code will complain, so this
     # function doesn't need to worry about that case.
     return None
-                
+
 
 def _catch_nan_required_fields(metadata_df: pandas.DataFrame) -> pandas.DataFrame:
     """Error for NaNs in sample name, warn for NaNs in host- and sample-type- shorthand fields.
@@ -1091,6 +1166,58 @@ def _fill_na_if_default(
     return metadata_df
 
 
+def _write_df_to_file(
+        a_df: pandas.DataFrame,
+        out_dir: str,
+        out_base: str,
+        sep: str = "\t",
+        suffix: str = "") -> None:
+    """Write a DataFrame to a timestamped file.
+
+    Parameters
+    ----------
+    a_df : pandas.DataFrame
+        The DataFrame to write.
+    out_dir : str
+        Directory where the output file will be written.
+    out_base : str
+        Base name for the output file.
+    sep : str, default="\t"
+        Separator to use in the output file.
+    suffix : str, default=""
+        Suffix to append to the base name before the extension
+        (e.g., "_fails").
+    """
+    timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    extension = get_extension(sep)
+    out_fp = os.path.join(
+        out_dir, f"{timestamp_str}_{out_base}{suffix}.{extension}")
+    a_df.to_csv(out_fp, sep=sep, index=False)
+
+
+def _remove_internal_cols(
+        a_df: pandas.DataFrame,
+        internal_col_names: Optional[List[str]] = None) -> pandas.DataFrame:
+    """Remove internal columns from a DataFrame.
+
+    Parameters
+    ----------
+    a_df : pandas.DataFrame
+        The DataFrame to process.
+    internal_col_names : Optional[List[str]], default=None
+        List of internal column names to remove. If None, defaults to
+        INTERNAL_COL_KEYS.
+
+    Returns
+    -------
+    pandas.DataFrame
+        A copy of the DataFrame with internal columns removed.
+    """
+    if internal_col_names is None:
+        internal_col_names = INTERNAL_COL_KEYS
+    return a_df.drop(columns=internal_col_names)
+
+
 def _output_metadata_df_to_files(
         a_df: pandas.DataFrame,
         out_dir: str,
@@ -1119,35 +1246,33 @@ def _output_metadata_df_to_files(
     suppress_empty_fails : bool, default=False
         Whether to suppress empty failure files.
     """
-    timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    extension = get_extension(sep)
-
     # if we've been told to remove the qc fails and the internal columns
     if remove_internals_and_fails:
         # output a file of any qc failures
         qc_fails_df = get_qc_failures(a_df)
-        qc_fails_fp = os.path.join(
-            out_dir, f"{timestamp_str}_{out_base}_fails.csv")
         if qc_fails_df.empty:
             # unless we've been told to suppress empty files
             if not suppress_empty_fails:
                 # if there are no failures, create an empty file
                 # (not even header line) if there are no failures--bc it is easy to
                 # eyeball "zero bytes"
+                timestamp_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+                qc_fails_fp = os.path.join(
+                    out_dir, f"{timestamp_str}_{out_base}_fails.csv")
                 Path(qc_fails_fp).touch()
             # else, just do nothing
         else:
-            qc_fails_df.to_csv(qc_fails_fp, sep=",", index=False)
+            _write_df_to_file(qc_fails_df, out_dir, out_base,
+                              sep=",", suffix="_fails")
 
         # then remove the qc fails and the internal columns from the metadata
         # TODO: I'd like to avoid repeating this mask here + in get_qc_failures
         fails_qc_mask = a_df[QC_NOTE_KEY] != ""
         a_df = a_df.loc[~fails_qc_mask, :].copy()
-        a_df = a_df.drop(columns=internal_col_names)
+        a_df = _remove_internal_cols(a_df, internal_col_names)
 
     # output the metadata
-    out_fp = os.path.join(out_dir, f"{timestamp_str}_{out_base}.{extension}")
-    a_df.to_csv(out_fp, sep=sep, index=False)
+    _write_df_to_file(a_df, out_dir, out_base, sep=sep)
 
 
 def _reorder_df(a_df: pandas.DataFrame, internal_col_names: List[str]) -> pandas.DataFrame:
@@ -1182,3 +1307,111 @@ def _reorder_df(a_df: pandas.DataFrame, internal_col_names: List[str]) -> pandas
     col_names.insert(0, col_names.pop(col_names.index(SAMPLE_NAME_KEY)))
     output_df = working_df.loc[:, col_names].copy()
     return output_df
+
+
+def _load_metadata_df(raw_metadata_fp: str) -> pandas.DataFrame:
+    """Load a metadata file into a DataFrame based on its file extension.
+
+    Parameters
+    ----------
+    raw_metadata_fp : str
+        Path to the raw metadata file (.csv, .tsv, .txt, or .xlsx).
+
+    Returns
+    -------
+    pandas.DataFrame
+        The loaded metadata DataFrame with all columns as strings.
+
+    Raises
+    ------
+    ValueError
+        If the input file extension is not recognized.
+    """
+    extension = os.path.splitext(raw_metadata_fp)[1]
+    if extension == ".csv":
+        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, ",", str)
+    elif extension in (".txt", ".tsv"):
+        raw_metadata_df = load_df_with_best_fit_encoding(raw_metadata_fp, "\t", str)
+    elif extension == ".xlsx":
+        # NB: this loads (only) the first sheet of the input excel file.
+        # If needed, can expand with pandas.read_excel sheet_name parameter.
+        raw_metadata_df = pandas.read_excel(raw_metadata_fp, dtype=str)
+    else:
+        raise ValueError("Unrecognized input file extension; "
+                         "must be .csv, .tsv, .txt, or .xlsx")
+    return raw_metadata_df
+
+
+def _extend_metadata_from_full_flat_config(
+        raw_metadata_df: pandas.DataFrame,
+        full_flat_config_dict: Dict[str, Any],
+        study_specific_transformers_dict: Optional[Dict[str, Any]],
+        hosttype_col_name: Optional[str],
+        sampletype_col_name: Optional[str]) -> Tuple[pandas.DataFrame, pandas.DataFrame, Dict[str, str]]:
+    """Resolve shorthand columns and populate a metadata DataFrame using a full flat config.
+
+    The metadata df must have metameq-specific host- and sample-type-shorthand columns,
+    since these are used to determine which specific metadata to add for each sample.
+    If not already present under their internal names, this function checks for alternate
+    column names (from the caller or from the config) and copies them into the internal
+    shorthand columns before populating the metadata.
+
+    Parameters
+    ----------
+    raw_metadata_df : pandas.DataFrame
+        The raw metadata DataFrame to extend.
+    full_flat_config_dict : Dict[str, Any]
+        Fully combined flat-host-type config dictionary.
+    study_specific_transformers_dict : Optional[Dict[str, Any]]
+        Dictionary of custom transformers for this study (only).
+    hosttype_col_name : Optional[str]
+        Name of the column in raw_metadata_df that contains host type
+        values. If provided, its values are copied into the internal
+        ``hosttype_shorthand`` column before processing. If None, the
+        function checks the config's ``hosttype_col_options`` list for a
+        matching column in the DataFrame.
+    sampletype_col_name : Optional[str]
+        Name of the column in raw_metadata_df that contains sample type
+        values. If provided, its values are copied into the internal
+        ``sampletype_shorthand`` column before processing. If None, the
+        function checks the config's ``sampletype_col_options`` list for
+        a matching column in the DataFrame.
+
+    Returns
+    -------
+    Tuple[pandas.DataFrame, pandas.DataFrame, Dict[str, str]]
+        A tuple containing:
+            - The extended metadata DataFrame
+            - A DataFrame containing validation messages
+            - A mapping from internal column keys to the user-facing
+              column names (e.g. ``{"hosttype_shorthand": "host_type"}``)
+
+    Raises
+    ------
+    ValueError
+        If required columns are missing from the metadata, if a specified
+        column name is not found in the DataFrame, or if both the internal
+        shorthand column and the specified alternate column exist.
+    """
+    col_name_mapping = {}
+    needed_cols = [(HOSTTYPE_SHORTHAND_KEY, hosttype_col_name, HOSTTYPE_COL_OPTIONS_KEY),
+                   (SAMPLETYPE_SHORTHAND_KEY, sampletype_col_name, SAMPLETYPE_COL_OPTIONS_KEY)]
+    for curr_internal_key, curr_param_key, curr_options_key in needed_cols:
+        specified_name = _find_internal_col_source_name(
+            raw_metadata_df, full_flat_config_dict,
+            curr_param_key, curr_internal_key, curr_options_key)
+        if specified_name:
+            raw_metadata_df[curr_internal_key] = raw_metadata_df[specified_name]
+            col_name_mapping[curr_internal_key] = specified_name
+        else:
+            col_name_mapping[curr_internal_key] = curr_internal_key
+
+    validate_required_columns_exist(
+        raw_metadata_df, REQUIRED_RAW_METADATA_FIELDS,
+        "metadata missing required columns")
+
+    metadata_df, validation_msgs_df = _populate_metadata_df(
+        raw_metadata_df, full_flat_config_dict,
+        study_specific_transformers_dict)
+
+    return metadata_df, validation_msgs_df, col_name_mapping

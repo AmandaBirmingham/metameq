@@ -1,0 +1,4 @@
+sample_name	host_field	qiita_sample_type	sample_type
+sample1	not provided	not provided	not provided
+sample2	host_value	stool	stool
+sample3	mouse_host_value	cecum	cecum

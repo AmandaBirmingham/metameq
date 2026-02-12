@@ -1,0 +1,3 @@
+sample_name,field_name,field_value,error_message
+sample1,hosttype_shorthand,bad1,invalid host_type
+sample2,hosttype_shorthand,bad2,invalid host_type

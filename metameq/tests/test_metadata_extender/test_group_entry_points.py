@@ -333,6 +333,7 @@ class TestWriteExtendedMetadataFromDf(ExtenderTestBase):
             expected_validation_df = pandas.DataFrame({
                 "sample_name": ["sample1", "sample1"],
                 "field_name": ["restricted_field", "restricted_field"],
+                "field_value": ["invalid_value", "invalid_value"],
                 "error_message": [
                     "unallowed value invalid_value",
                     "value does not match regex '^allowed_.*$'"
@@ -653,6 +654,7 @@ class TestWriteExtendedMetadata(ExtenderTestBase):
             expected_validation_df = pandas.DataFrame({
                 "sample_name": ["sample1"],
                 "field_name": ["restricted_field"],
+                "field_value": ["invalid_value"],
                 "error_message": ["unallowed value invalid_value"]
             })
             assert_frame_equal(expected_validation_df, validation_df)
