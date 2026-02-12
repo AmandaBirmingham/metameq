@@ -183,6 +183,13 @@ host_type_specific_metadata:
             is_phi: false
             required: true
             type: string
+          host_subject_id:
+            empty: false
+            field_desc: A label that applies to all samples belonging to one subject or one
+              sample
+            is_phi: false
+            required: true
+            type: string
           latitude:
             anyof:
               - max: 90.00
@@ -322,13 +329,6 @@ host_type_specific_metadata:
               host_scientific_name:
                 empty: false
                 field_desc: host scientific name e.g. Homo sapiens
-                is_phi: false
-                required: true
-                type: string
-              host_subject_id:
-                empty: false
-                field_desc: A label that applies to all samples belonging to one subject or one
-                  sample
                 is_phi: false
                 required: true
                 type: string
