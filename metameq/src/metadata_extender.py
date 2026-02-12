@@ -102,27 +102,37 @@ def get_reserved_cols(
 def get_default_column_name(
         col_options_key: str,
         raw_metadata_df: pandas.DataFrame,
-        config_dict: Dict[str, Any] = None) -> Optional[str]:
-    """Get the specified type of column name from the metadata DataFrame based on possible options.
+        config_dict: Optional[Dict[str, Any]]) -> Optional[str]:
+    """Find a column name in the metadata by checking a list of candidate names from the config.
+
+    Looks up ``col_options_key`` in the config dict to get an ordered list of
+    candidate column names, then returns the first one that exists in the
+    metadata DataFrame. If no candidate matches, returns None.
 
     Parameters
     ----------
     col_options_key : str
-        Key in the config dict that holds the list of possible column names to check.
+        Key in the config dict whose value is a list of candidate column names
+        to check (e.g. ``hosttype_col_options``).
     raw_metadata_df : pandas.DataFrame
-        The metadata DataFrame to check.
-    config_dict : Dict[str, Any], default=None
-        Configuration dictionary. If provided, may contain a list of possible
-        column names under the key specified by col_options_key.
-        If None, defaults to values from the main config.yml file.
+        The metadata DataFrame whose columns are checked for matches.
+    config_dict : Optional[Dict[str, Any]]
+        Configuration dictionary that may contain a list of candidate column
+        names under ``col_options_key``. If None, the default config.yml
+        packaged with metameq is loaded and used instead.
+
     Returns
     -------
     Optional[str]
-        The specified column name found in the DataFrame, or None if not found.
+        The first matching column name found in the DataFrame, or None if no
+        candidate column name is present in the DataFrame (or if the candidate
+        list is empty/missing from the config).
     """
     found_name = None
 
-    if not config_dict:
+    # check None instead of falsy because an empty list of options is a valid value
+    # that should prevent using the default config dict
+    if config_dict is None:
         config_dict = extract_config_dict(None)
     col_options = config_dict.get(col_options_key)
     if col_options:

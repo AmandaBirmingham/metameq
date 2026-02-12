@@ -1210,7 +1210,7 @@ class TestFlattenErrorMessage(TestCase):
 
         self.assertEqual(
             ["no definitions validate",
-             "anyof definition 0: unallowed value invalid; "
+             "anyof definition 0: unallowed value invalid; " +
              "anyof definition 1: must be of integer type"],
             result)
 
@@ -1506,7 +1506,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
             "field_name": ["status", "status"],
             "field_value": ["invalid", "invalid"],
             "error_message": [
-                "anyof definition 0: unallowed value invalid; "
+                "anyof definition 0: unallowed value invalid; " +
                 "anyof definition 1: must be of integer type",
                 "no definitions validate"
             ]
@@ -1537,7 +1537,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
             "field_name": ["status", "status", "status"],
             "field_value": ["invalid", "invalid", "invalid"],
             "error_message": [
-                "anyof definition 0: unallowed value invalid; "
+                "anyof definition 0: unallowed value invalid; " +
                 "anyof definition 1: must be of integer type",
                 "no definitions validate",
                 "value does not match regex '^[0-9]+'"
