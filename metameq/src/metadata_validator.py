@@ -83,8 +83,9 @@ def validate_metadata_df(metadata_df, sample_type_full_metadata_fields_dict):
     -------
     list
         A list of dictionaries containing validation errors. Each dictionary
-        contains SAMPLE_NAME_KEY, "field_name", and "error_message" keys.
-        Returns an empty list if all rows pass validation.
+        contains SAMPLE_NAME_KEY, "field_name", "field_value", and
+        "error_message" keys.  Returns an empty list if all rows pass
+        validation.
     """
     config = _make_cerberus_schema(sample_type_full_metadata_fields_dict)
 
@@ -194,15 +195,16 @@ def format_validation_msgs_as_df(validation_msgs):
     ----------
     validation_msgs : list
         A list of dictionaries, each containing SAMPLE_NAME_KEY,
-        "field_name", and "error_message" keys, where "error_message"
-        is a list of error strings.
+        "field_name", "field_value", and "error_message" keys, where
+        "error_message" is a list of error strings.
 
     Returns
     -------
     pandas.DataFrame
-        A DataFrame with columns SAMPLE_NAME_KEY, "field_name", and
-        "error_message" (a single string per row), sorted by
-        SAMPLE_NAME_KEY then "field_name" then "error_message".
+        A DataFrame with columns SAMPLE_NAME_KEY, "field_name",
+        "field_value", and "error_message" (a single string per row),
+        sorted by SAMPLE_NAME_KEY then "field_name" then
+        "error_message".
     """
     flattened_rows = []
     for msg in validation_msgs:
@@ -210,12 +212,14 @@ def format_validation_msgs_as_df(validation_msgs):
             flattened_rows.append({
                 SAMPLE_NAME_KEY: msg[SAMPLE_NAME_KEY],
                 "field_name": msg["field_name"],
+                "field_value": msg.get("field_value"),
                 "error_message": err
             })
 
     result_df = pandas.DataFrame(
         flattened_rows,
-        columns=[SAMPLE_NAME_KEY, "field_name", "error_message"])
+        columns=[SAMPLE_NAME_KEY, "field_name", "field_value",
+                 "error_message"])
     result_df.sort_values(
         by=[SAMPLE_NAME_KEY, "field_name", "error_message"],
         inplace=True)
@@ -398,6 +402,8 @@ def _generate_validation_msg(typed_metadata_df, config):
         A list of dictionaries, where each dictionary contains:
         - SAMPLE_NAME_KEY: The sample name for the row with the error
         - "field_name": The name of the field that failed validation
+        - "field_value": The value that failed validation (None if the
+          field is missing from the row)
         - "error_message": The validation error message(s) from cerberus as a list of strings
         Returns an empty list if all rows pass validation.
     """
@@ -413,6 +419,7 @@ def _generate_validation_msg(typed_metadata_df, config):
                 validation_msgs.append({
                     SAMPLE_NAME_KEY: curr_sample_name,
                     "field_name": curr_field_name,
+                    "field_value": curr_row.get(curr_field_name),
                     "error_message": curr_err_msg})
             # next error for curr row
         # endif row is not valid

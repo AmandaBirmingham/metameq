@@ -825,6 +825,7 @@ class TestGenerateValidationMsg(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1"],
             "field_name": ["age"],
+            "field_value": ["not_an_integer"],
             "error_message": [["must be of integer type"]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
@@ -848,6 +849,7 @@ class TestGenerateValidationMsg(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1", "sample1"],
             "field_name": ["age", "count"],
+            "field_value": ["not_an_integer", "also_not_an_integer"],
             "error_message": [["must be of integer type"], ["must be of integer type"]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
@@ -869,6 +871,7 @@ class TestGenerateValidationMsg(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1", "sample2"],
             "field_name": ["age", "age"],
+            "field_value": ["not_an_integer", "also_not_an_integer"],
             "error_message": [["must be of integer type"], ["must be of integer type"]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
@@ -906,6 +909,7 @@ class TestGenerateValidationMsg(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1"],
             "field_name": ["required_field"],
+            "field_value": [None],
             "error_message": [["required field"]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
@@ -931,6 +935,7 @@ class TestGenerateValidationMsg(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1"],
             "field_name": ["date_field"],
+            "field_value": ["not a date"],
             "error_message": [[
                 "Must be a valid date",
                 "value does not match regex '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'"
@@ -961,6 +966,7 @@ class TestGenerateValidationMsg(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1"],
             "field_name": ["status"],
+            "field_value": ["invalid"],
             "error_message": [[
                 "no definitions validate",
                 {"anyof definition 0": ["unallowed value invalid"],
@@ -1099,6 +1105,7 @@ class TestValidateMetadataDf(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1"],
             "field_name": ["status"],
+            "field_value": ["invalid_status"],
             "error_message": [["unallowed value invalid_status"]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
@@ -1120,6 +1127,7 @@ class TestValidateMetadataDf(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1"],
             "field_name": ["status"],
+            "field_value": ["invalid_status"],
             "error_message": [["unallowed value invalid_status"]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
@@ -1141,6 +1149,7 @@ class TestValidateMetadataDf(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1"],
             "field_name": ["code"],
+            "field_value": ["abc"],
             "error_message": [["value does not match regex '^[0-9]+$'"]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
@@ -1163,6 +1172,7 @@ class TestValidateMetadataDf(TestCase):
         expected_df = pd.DataFrame({
             "sample_name": ["sample1"],
             "field_name": ["collection_date"],
+            "field_value": [future_date],
             "error_message": [["Date cannot be in the future"]]
         })
         pd.testing.assert_frame_equal(expected_df, result_df)
@@ -1276,7 +1286,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
 
         self.assertIsInstance(result, pd.DataFrame)
         self.assertEqual(
-            ["sample_name", "field_name", "error_message"],
+            ["sample_name", "field_name", "field_value", "error_message"],
             list(result.columns))
         self.assertEqual(0, len(result))
 
@@ -1286,6 +1296,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
             {
                 "sample_name": "sample1",
                 "field_name": "age",
+                "field_value": "not_an_integer",
                 "error_message": ["must be of integer type"]
             }
         ]
@@ -1295,6 +1306,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
         expected = pd.DataFrame({
             "sample_name": ["sample1"],
             "field_name": ["age"],
+            "field_value": ["not_an_integer"],
             "error_message": ["must be of integer type"]
         })
         pd.testing.assert_frame_equal(expected, result)
@@ -1305,6 +1317,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
             {
                 "sample_name": "sample1",
                 "field_name": "date_field",
+                "field_value": "not a date",
                 "error_message": [
                     "Must be a valid date",
                     "value does not match regex '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'"
@@ -1317,6 +1330,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
         expected = pd.DataFrame({
             "sample_name": ["sample1", "sample1"],
             "field_name": ["date_field", "date_field"],
+            "field_value": ["not a date", "not a date"],
             "error_message": [
                 "Must be a valid date",
                 "value does not match regex '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'"
@@ -1330,11 +1344,13 @@ class TestFormatValidationMsgsAsDf(TestCase):
             {
                 "sample_name": "sample1",
                 "field_name": "age",
+                "field_value": "abc",
                 "error_message": ["must be of integer type"]
             },
             {
                 "sample_name": "sample1",
                 "field_name": "count",
+                "field_value": "xyz",
                 "error_message": ["must be of integer type"]
             }
         ]
@@ -1344,6 +1360,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
         expected = pd.DataFrame({
             "sample_name": ["sample1", "sample1"],
             "field_name": ["age", "count"],
+            "field_value": ["abc", "xyz"],
             "error_message": [
                 "must be of integer type",
                 "must be of integer type"
@@ -1357,11 +1374,13 @@ class TestFormatValidationMsgsAsDf(TestCase):
             {
                 "sample_name": "sample1",
                 "field_name": "age",
+                "field_value": "abc",
                 "error_message": ["must be of integer type"]
             },
             {
                 "sample_name": "sample2",
                 "field_name": "age",
+                "field_value": "def",
                 "error_message": ["must be of integer type"]
             }
         ]
@@ -1371,6 +1390,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
         expected = pd.DataFrame({
             "sample_name": ["sample1", "sample2"],
             "field_name": ["age", "age"],
+            "field_value": ["abc", "def"],
             "error_message": [
                 "must be of integer type",
                 "must be of integer type"
@@ -1384,21 +1404,25 @@ class TestFormatValidationMsgsAsDf(TestCase):
             {
                 "sample_name": "sample_z",
                 "field_name": "beta_field",
+                "field_value": "vz-beta",
                 "error_message": ["error z-beta"]
             },
             {
                 "sample_name": "sample_a",
                 "field_name": "gamma_field",
+                "field_value": "va-gamma",
                 "error_message": ["error a-gamma"]
             },
             {
                 "sample_name": "sample_a",
                 "field_name": "alpha_field",
+                "field_value": "va-alpha",
                 "error_message": ["error a-alpha"]
             },
             {
                 "sample_name": "sample_z",
                 "field_name": "alpha_field",
+                "field_value": "vz-alpha",
                 "error_message": ["error z-alpha"]
             }
         ]
@@ -1410,6 +1434,8 @@ class TestFormatValidationMsgsAsDf(TestCase):
                 "sample_a", "sample_a", "sample_z", "sample_z"],
             "field_name": [
                 "alpha_field", "gamma_field", "alpha_field", "beta_field"],
+            "field_value": [
+                "va-alpha", "va-gamma", "vz-alpha", "vz-beta"],
             "error_message": [
                 "error a-alpha", "error a-gamma",
                 "error z-alpha", "error z-beta"]
@@ -1422,16 +1448,19 @@ class TestFormatValidationMsgsAsDf(TestCase):
             {
                 "sample_name": "sample_b",
                 "field_name": "field_x",
+                "field_value": "vb-x",
                 "error_message": ["error 2", "error 1"]
             },
             {
                 "sample_name": "sample_a",
                 "field_name": "field_y",
+                "field_value": "va-y",
                 "error_message": ["error 5", "error 3"]
             },
             {
                 "sample_name": "sample_a",
                 "field_name": "field_x",
+                "field_value": "va-x",
                 "error_message": ["error 4"]
             }
         ]
@@ -1445,6 +1474,9 @@ class TestFormatValidationMsgsAsDf(TestCase):
             "field_name": [
                 "field_x", "field_y", "field_y",
                 "field_x", "field_x"],
+            "field_value": [
+                "va-x", "va-y", "va-y",
+                "vb-x", "vb-x"],
             "error_message": [
                 "error 4", "error 3", "error 5",
                 "error 1", "error 2"]
@@ -1458,6 +1490,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
             {
                 "sample_name": "sample1",
                 "field_name": "status",
+                "field_value": "invalid",
                 "error_message": [
                     "no definitions validate",
                     {"anyof definition 0": ["unallowed value invalid"],
@@ -1471,6 +1504,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
         expected = pd.DataFrame({
             "sample_name": ["sample1", "sample1"],
             "field_name": ["status", "status"],
+            "field_value": ["invalid", "invalid"],
             "error_message": [
                 "anyof definition 0: unallowed value invalid; "
                 "anyof definition 1: must be of integer type",
@@ -1486,6 +1520,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
             {
                 "sample_name": "sample1",
                 "field_name": "status",
+                "field_value": "invalid",
                 "error_message": [
                     "no definitions validate",
                     "value does not match regex '^[0-9]+'",
@@ -1500,6 +1535,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
         expected = pd.DataFrame({
             "sample_name": ["sample1", "sample1", "sample1"],
             "field_name": ["status", "status", "status"],
+            "field_value": ["invalid", "invalid", "invalid"],
             "error_message": [
                 "anyof definition 0: unallowed value invalid; "
                 "anyof definition 1: must be of integer type",
@@ -1516,6 +1552,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
             {
                 "sample_name": "sample1",
                 "field_name": "age",
+                "field_value": "bad",
                 "error_message": ["a string error", 42]
             }
         ]
@@ -1525,6 +1562,7 @@ class TestFormatValidationMsgsAsDf(TestCase):
         expected = pd.DataFrame({
             "sample_name": ["sample1", "sample1"],
             "field_name": ["age", "age"],
+            "field_value": ["bad", "bad"],
             "error_message": ["42", "a string error"]
         })
         pd.testing.assert_frame_equal(expected, result)
