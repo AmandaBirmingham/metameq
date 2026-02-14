@@ -571,9 +571,6 @@ def _construct_sample_type_metadata_fields_dict(
         # get the base's sample type dict and add this sample type's
         # info on top of it
         base_sample_dict = host_sample_types_config_dict[sample_type_base]
-        if list(base_sample_dict.keys()) != [METADATA_FIELDS_KEY]:
-            raise ValueError(f"Base sample type '{sample_type_base}' "
-                             f"must only have metadata fields")
         sample_type_specific_dict_metadata = update_wip_metadata_dict(
             deepcopy_dict(base_sample_dict[METADATA_FIELDS_KEY]),
             sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}))
@@ -647,7 +644,8 @@ def _resolve_sample_type_aliases_and_bases(
 def build_full_flat_config_dict(
         study_specific_config_dict: Optional[Dict[str, Any]] = None,
         software_config_dict: Optional[Dict[str, Any]] = None,
-        stds_fp: Optional[str] = None
+        stds_fp: Optional[str] = None,
+        exclude_internals: bool = False
 ) -> Dict[str, Any]:
     """Build a complete flattened configuration dictionary.
 
@@ -668,6 +666,10 @@ def build_full_flat_config_dict(
     stds_fp : Optional[str], default=None
         Path to standards dictionary file. If None, the default standards
         config pulled from the standards.yml file will be used.
+    exclude_internals : bool, default=False
+        If True, remove host types whose names begin with an underscore,
+        and from remaining hosts remove sample types whose names begin
+        with an underscore.
 
     Returns
     -------
@@ -701,6 +703,29 @@ def build_full_flat_config_dict(
         full_nested_hosts_dict, None)
     full_flat_config_dict = deepcopy_dict(full_nested_hosts_dict)
     full_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = full_flat_hosts_dict
+
+    if exclude_internals:
+        # identify all host types whose names begin with an underscore
+        internal_host_types = [
+            host_type for host_type in
+            full_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY]
+            if host_type.startswith("_")]
+        # now del all those hosts out of the full flat config dict
+        for host_type in internal_host_types:
+            del full_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY][host_type]
+
+        # for each, identify and del any sample types whose names begin with an underscore
+        for host_type, host_type_dict in \
+                full_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY].items():
+            if SAMPLE_TYPE_SPECIFIC_METADATA_KEY in host_type_dict:
+                internal_sample_types = [
+                    sample_type for sample_type in 
+                    host_type_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY].keys()
+                    if sample_type.startswith("_")]
+                for sample_type in internal_sample_types:
+                    del full_flat_config_dict[
+                        HOST_TYPE_SPECIFIC_METADATA_KEY][host_type][
+                            SAMPLE_TYPE_SPECIFIC_METADATA_KEY][sample_type]
 
     return full_flat_config_dict
 

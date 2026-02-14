@@ -2017,3 +2017,295 @@ class TestBuildFullFlatConfigDict(ConfiguratorTestBase):
         }
 
         self.assertEqual(expected, result)
+
+    def test_build_full_flat_config_dict_exclude_internals_with_study_config(self):
+        """Test exclude_internals=True with study config removes underscore entries.
+
+        test_standards_w_internals.yml has _internal host and _debug sample type
+        added to the same structure as test_standards.yml. With exclude_internals=True
+        and a study config that adds custom_field to human, the output should match
+        the with-study output from test_standards.yml exactly.
+        """
+        software_config = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False
+        }
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "custom_field": {
+                                DEFAULT_KEY: "custom_value",
+                                TYPE_KEY: "string"
+                            }
+                        },
+                        SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                            "stool": {
+                                METADATA_FIELDS_KEY: {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_W_INTERNALS_FP,
+            exclude_internals=True)
+
+        expected = {
+            DEFAULT_KEY: "software_default",
+            LEAVE_REQUIREDS_BLANK_KEY: True,
+            OVERWRITE_NON_NANS_KEY: False,
+            METADATA_TRANSFORMERS_KEY: {
+                PRE_TRANSFORMERS_KEY: {
+                    "collection_date": {
+                        "sources": ["collection_timestamp"],
+                        "function": "transform_date_to_formatted_date"
+                    }
+                }
+            },
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "base": {
+                    DEFAULT_KEY: "software_default",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    }
+                },
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "human": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "custom_field": {
+                            DEFAULT_KEY: "custom_value",
+                            TYPE_KEY: "string"
+                        },
+                        "description": {
+                            DEFAULT_KEY: "human sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "human",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "blood": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "custom_field": {
+                                    DEFAULT_KEY: "custom_value",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["blood"],
+                                    DEFAULT_KEY: "blood",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        },
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_product": {
+                                    DEFAULT_KEY: "UBERON:feces",
+                                    TYPE_KEY: "string"
+                                },
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "custom_field": {
+                                    DEFAULT_KEY: "custom_value",
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "human sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "human",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "mouse": {
+                    DEFAULT_KEY: "not provided",
+                    LEAVE_REQUIREDS_BLANK_KEY: True,
+                    OVERWRITE_NON_NANS_KEY: False,
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            DEFAULT_KEY: "host associated sample",
+                            TYPE_KEY: "string"
+                        },
+                        "host_common_name": {
+                            DEFAULT_KEY: "mouse",
+                            TYPE_KEY: "string"
+                        },
+                        "sample_name": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string",
+                            "unique": True
+                        },
+                        "sample_type": {
+                            REQUIRED_KEY: True,
+                            TYPE_KEY: "string"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "stool": {
+                            METADATA_FIELDS_KEY: {
+                                "body_site": {
+                                    DEFAULT_KEY: "gut",
+                                    TYPE_KEY: "string"
+                                },
+                                "cage_id": {
+                                    REQUIRED_KEY: False,
+                                    TYPE_KEY: "string"
+                                },
+                                "description": {
+                                    DEFAULT_KEY: "host associated sample",
+                                    TYPE_KEY: "string"
+                                },
+                                "host_common_name": {
+                                    DEFAULT_KEY: "mouse",
+                                    TYPE_KEY: "string"
+                                },
+                                QIITA_SAMPLE_TYPE: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    TYPE_KEY: "string"
+                                },
+                                "sample_name": {
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string",
+                                    "unique": True
+                                },
+                                SAMPLE_TYPE_KEY: {
+                                    ALLOWED_KEY: ["stool"],
+                                    DEFAULT_KEY: "stool",
+                                    REQUIRED_KEY: True,
+                                    TYPE_KEY: "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        self.assertEqual(expected, result)
