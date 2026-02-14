@@ -21,7 +21,7 @@ from metameq.src.util import \
     HOST_TYPE_SPECIFIC_METADATA_KEY, \
     STUDY_SPECIFIC_METADATA_KEY
 from metameq.src.metadata_extender import \
-    get_extended_metadata_from_df_and_yaml, \
+    extend_metadata_df_from_yamls, \
     write_extended_metadata_from_df, \
     write_extended_metadata, \
     _get_study_specific_config
@@ -29,8 +29,8 @@ from metameq.tests.test_metadata_extender.conftest import \
     ExtenderTestBase
 
 
-class TestGetExtendedMetadataFromDfAndYaml(ExtenderTestBase):
-    def test_get_extended_metadata_from_df_and_yaml_with_config(self):
+class TestExtendMetadataDfFromYamls(ExtenderTestBase):
+    def test_extend_metadata_df_from_yamls_with_config(self):
         """Test extending metadata with a study-specific YAML config file."""
         input_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
@@ -38,7 +38,7 @@ class TestGetExtendedMetadataFromDfAndYaml(ExtenderTestBase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
         })
 
-        result_df, validation_msgs_df = get_extended_metadata_from_df_and_yaml(
+        result_df, validation_msgs_df = extend_metadata_df_from_yamls(
             input_df, self.TEST_STUDY_CONFIG_FP, self.TEST_STDS_FP)
 
         expected_df = pandas.DataFrame({
@@ -58,7 +58,7 @@ class TestGetExtendedMetadataFromDfAndYaml(ExtenderTestBase):
         assert_frame_equal(expected_df, result_df)
         self.assertTrue(validation_msgs_df.empty)
 
-    def test_get_extended_metadata_from_df_and_yaml_none_config(self):
+    def test_extend_metadata_df_from_yamls_none_config(self):
         """Test extending metadata with None for study_specific_config_fp."""
         input_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
@@ -66,7 +66,7 @@ class TestGetExtendedMetadataFromDfAndYaml(ExtenderTestBase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
         })
 
-        result_df, validation_msgs_df = get_extended_metadata_from_df_and_yaml(
+        result_df, validation_msgs_df = extend_metadata_df_from_yamls(
             input_df, None, self.TEST_STDS_FP)
 
         expected_df = pandas.DataFrame({
@@ -84,7 +84,7 @@ class TestGetExtendedMetadataFromDfAndYaml(ExtenderTestBase):
         assert_frame_equal(expected_df, result_df)
         self.assertTrue(validation_msgs_df.empty)
 
-    def test_get_extended_metadata_from_df_and_yaml_invalid_host_type(self):
+    def test_extend_metadata_df_from_yamls_invalid_host_type(self):
         """Test that invalid host types are flagged with QC note."""
         input_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1", "sample2"],
@@ -92,7 +92,7 @@ class TestGetExtendedMetadataFromDfAndYaml(ExtenderTestBase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool", "stool"]
         })
 
-        result_df, validation_msgs_df = get_extended_metadata_from_df_and_yaml(
+        result_df, validation_msgs_df = extend_metadata_df_from_yamls(
             input_df, self.TEST_STUDY_CONFIG_FP, self.TEST_STDS_FP)
 
         expected_df = pandas.DataFrame({
@@ -333,6 +333,7 @@ class TestWriteExtendedMetadataFromDf(ExtenderTestBase):
             expected_validation_df = pandas.DataFrame({
                 "sample_name": ["sample1", "sample1"],
                 "field_name": ["restricted_field", "restricted_field"],
+                "field_value": ["invalid_value", "invalid_value"],
                 "error_message": [
                     "unallowed value invalid_value",
                     "value does not match regex '^allowed_.*$'"
@@ -653,6 +654,7 @@ class TestWriteExtendedMetadata(ExtenderTestBase):
             expected_validation_df = pandas.DataFrame({
                 "sample_name": ["sample1"],
                 "field_name": ["restricted_field"],
+                "field_value": ["invalid_value"],
                 "error_message": ["unallowed value invalid_value"]
             })
             assert_frame_equal(expected_validation_df, validation_df)

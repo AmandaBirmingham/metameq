@@ -1,0 +1,3 @@
+sample_name	host_field	host_type	qiita_sample_type	sample_type
+sample1	not provided	unknown_host	not provided	not provided
+sample2	host_value	human	stool	stool

@@ -2,7 +2,7 @@
 "overwrite_non_nans": true
 "study_specific_metadata":
   "host_type_specific_metadata":
-    ebi_submittable:
+    _ebi submittable:
       metadata_fields:
         country:
           allowed:

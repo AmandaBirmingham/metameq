@@ -91,7 +91,7 @@ METAMEQ can also be imported and used as a Python library within your own code. 
 The primary functions for programmatic use are:
 
 - **`write_extended_metadata_from_df`**: Extend metadata from a pandas DataFrame and write results to files
-- **`get_extended_metadata_from_df_and_yaml`**: Extend metadata and return DataFrames without writing to disk
+- **`extend_metadata_df_from_yamls`**: Extend metadata and return DataFrames without writing to disk
 - **`extract_config_dict`**: Load and extract configuration from YAML files
 
 ### Basic API Example

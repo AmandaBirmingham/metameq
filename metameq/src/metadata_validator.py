@@ -83,8 +83,9 @@ def validate_metadata_df(metadata_df, sample_type_full_metadata_fields_dict):
     -------
     list
         A list of dictionaries containing validation errors. Each dictionary
-        contains SAMPLE_NAME_KEY, "field_name", and "error_message" keys.
-        Returns an empty list if all rows pass validation.
+        contains SAMPLE_NAME_KEY, "field_name", "field_value", and
+        "error_message" keys.  Returns an empty list if all rows pass
+        validation.
     """
     config = _make_cerberus_schema(sample_type_full_metadata_fields_dict)
 
@@ -147,6 +148,42 @@ def output_validation_msgs(validation_msgs_df, out_dir, out_base, sep="\t",
         validation_msgs_df.to_csv(out_fp, sep=sep, index=False)
 
 
+def _flatten_error_message(error_message):
+    """Flatten a cerberus error message list into a list of strings.
+
+    Cerberus anyof errors produce a list like
+    ``["no definitions validate", {"anyof definition 0": [...], ...}]``.
+    This function converts each item independently to a string: plain
+    strings are kept as-is, dicts are converted to a human-readable
+    string of their contents, and any other types are converted via
+    ``str()``.
+
+    Parameters
+    ----------
+    error_message : list
+        A list of error items as returned by cerberus, where each item is
+        either a string or a dict mapping definition names to error lists.
+
+    Returns
+    -------
+    list of str
+        A list where every element is a string.
+    """
+    result = []
+    for item in error_message:
+        if isinstance(item, str):
+            result.append(item)
+        elif isinstance(item, dict):
+            detail_parts = []
+            for key in sorted(item.keys()):
+                msgs = item[key]
+                detail_parts.append(f"{key}: {', '.join(str(m) for m in msgs)}")
+            result.append("; ".join(detail_parts))
+        else:
+            result.append(str(item))
+    return result
+
+
 def format_validation_msgs_as_df(validation_msgs):
     """Format validation messages into a more human-readable DataFrame.
 
@@ -159,28 +196,31 @@ def format_validation_msgs_as_df(validation_msgs):
     ----------
     validation_msgs : list
         A list of dictionaries, each containing SAMPLE_NAME_KEY,
-        "field_name", and "error_message" keys, where "error_message"
-        is a list of error strings.
+        "field_name", "field_value", and "error_message" keys, where
+        "error_message" is a list of error strings.
 
     Returns
     -------
     pandas.DataFrame
-        A DataFrame with columns SAMPLE_NAME_KEY, "field_name", and
-        "error_message" (a single string per row), sorted by
-        SAMPLE_NAME_KEY then "field_name" then "error_message".
+        A DataFrame with columns SAMPLE_NAME_KEY, "field_name",
+        "field_value", and "error_message" (a single string per row),
+        sorted by SAMPLE_NAME_KEY then "field_name" then
+        "error_message".
     """
     flattened_rows = []
     for msg in validation_msgs:
-        for err in msg["error_message"]:
+        for err in _flatten_error_message(msg["error_message"]):
             flattened_rows.append({
                 SAMPLE_NAME_KEY: msg[SAMPLE_NAME_KEY],
                 "field_name": msg["field_name"],
+                "field_value": msg.get("field_value"),
                 "error_message": err
             })
 
     result_df = pandas.DataFrame(
         flattened_rows,
-        columns=[SAMPLE_NAME_KEY, "field_name", "error_message"])
+        columns=[SAMPLE_NAME_KEY, "field_name", "field_value",
+                 "error_message"])
     result_df.sort_values(
         by=[SAMPLE_NAME_KEY, "field_name", "error_message"],
         inplace=True)
@@ -363,6 +403,8 @@ def _generate_validation_msg(typed_metadata_df, config):
         A list of dictionaries, where each dictionary contains:
         - SAMPLE_NAME_KEY: The sample name for the row with the error
         - "field_name": The name of the field that failed validation
+        - "field_value": The value that failed validation (None if the
+          field is missing from the row)
         - "error_message": The validation error message(s) from cerberus as a list of strings
         Returns an empty list if all rows pass validation.
     """
@@ -378,6 +420,7 @@ def _generate_validation_msg(typed_metadata_df, config):
                 validation_msgs.append({
                     SAMPLE_NAME_KEY: curr_sample_name,
                     "field_name": curr_field_name,
+                    "field_value": curr_row.get(curr_field_name),
                     "error_message": curr_err_msg})
             # next error for curr row
         # endif row is not valid
