@@ -9,6 +9,98 @@ taxon_id_formats: &taxon_id_formats
   - regex: ^\d+$
     type: string
   - *ebi_null_vals_all
+
+# Reusable field definitions for commonly repeated values
+empo_4_animal_secretion: &empo_4_animal_secretion
+  allowed:
+    - Animal secretion (non-saline)
+  default: Animal secretion (non-saline)
+  type: string
+empo_4_animal_corpus: &empo_4_animal_corpus
+  allowed:
+    - Animal corpus (non-saline)
+  default: Animal corpus (non-saline)
+  type: string
+env_biome_urban: &env_biome_urban
+  allowed:
+    - urban biome
+  default: urban biome
+  type: string
+env_material_organic: &env_material_organic
+  allowed:
+    - organic material
+  default: organic material
+  type: string
+env_material_mucus: &env_material_mucus
+  allowed:
+    - mucus material
+  default: mucus material
+  type: string
+env_material_bodily_fluid: &env_material_bodily_fluid
+  allowed:
+    - bodily fluid material
+  default: bodily fluid material
+  type: string
+env_material_fecal: &env_material_fecal
+  allowed:
+    - fecal material
+  default: fecal material
+  type: string
+host_body_habitat_gi: &host_body_habitat_gi
+  allowed:
+    - UBERON:gastrointestinal system
+  default: UBERON:gastrointestinal system
+  type: string
+host_body_product_mucus: &host_body_product_mucus
+  allowed:
+    - UBERON:mucus
+  default: UBERON:mucus
+  type: string
+qiita_skin: &qiita_skin
+  allowed:
+    - skin
+  default: skin
+  type: string
+qiita_skin_of_arm: &qiita_skin_of_arm
+  allowed:
+    - skin of arm
+  default: skin of arm
+  type: string
+qiita_skin_of_hand: &qiita_skin_of_hand
+  allowed:
+    - skin of hand
+  default: skin of hand
+  type: string
+qiita_skin_of_head: &qiita_skin_of_head
+  allowed:
+    - skin of head
+  default: skin of head
+  type: string
+qiita_skin_of_external_ear: &qiita_skin_of_external_ear
+  allowed:
+    - skin of external ear
+  default: skin of external ear
+  type: string
+qiita_skin_of_foot: &qiita_skin_of_foot
+  allowed:
+    - skin of foot
+  default: skin of foot
+  type: string
+qiita_skin_of_face: &qiita_skin_of_face
+  allowed:
+    - skin of face
+  default: skin of face
+  type: string
+qiita_skin_of_trunk: &qiita_skin_of_trunk
+  allowed:
+    - skin of trunk
+  default: skin of trunk
+  type: string
+host_body_site_skin_of_hand: &host_body_site_skin_of_hand
+  allowed:
+    - UBERON:skin of hand
+  default: UBERON:skin of hand
+  type: string
 "metadata_transformers":
   "pre_transformers":
     # right now there is an inconsistency in representation in the standards:
@@ -42,7 +134,7 @@ host_type_specific_metadata:
         required: true
         type: string
     host_type_specific_metadata:
-      ebi_submittable:
+      _ebi submittable:
         "default": "not provided"
         metadata_fields:
           anonymized_name:
@@ -290,7 +382,7 @@ host_type_specific_metadata:
 #            required: true
 #            type: string
         host_type_specific_metadata:
-          host_associated:
+          _host associated:
             metadata_fields:
               empo_1:
                 allowed:
@@ -371,7 +463,7 @@ host_type_specific_metadata:
                 is_phi: false
                 required: false
             host_type_specific_metadata:
-              host_associated_non_saline:
+              _host associated non saline:
                 metadata_fields:
                   empo_2:
                     allowed:
@@ -379,7 +471,7 @@ host_type_specific_metadata:
                     default: Host-associated (non-saline)
                     type: string
                 host_type_specific_metadata:
-                  animal_non_saline:
+                  _animal non saline:
                     metadata_fields:
                       empo_3:
                         allowed:
@@ -440,9 +532,9 @@ host_type_specific_metadata:
                         is_phi: false
                         required: true
                     host_type_specific_metadata:
-                      vertebrate:
+                      _vertebrate:
                         sample_type_specific_metadata:
-                          colon content:
+                          _intestinal content:
                             metadata_fields:
                               env_material:
                                 allowed:
@@ -459,11 +551,6 @@ host_type_specific_metadata:
                                   - UBERON:lumen of gut
                                 default: UBERON:lumen of gut
                                 type: string
-                              host_body_site:
-                                allowed:
-                                  - UBERON:colon
-                                default: UBERON:colon
-                                type: string
                               scientific_name:
                                 allowed:
                                   - gut metagenome
@@ -474,18 +561,17 @@ host_type_specific_metadata:
                                   - 749906
                                 default: 749906
                                 type: integer
-                          colon mucosa:
+                          colon content:
+                            base_type: "_intestinal content"
                             metadata_fields:
-                              env_material:
+                              host_body_site:
                                 allowed:
-                                  - intestine environment
-                                default: intestine environment
+                                  - UBERON:colon
+                                default: UBERON:colon
                                 type: string
-                              host_body_habitat:
-                                allowed:
-                                  - UBERON:gastrointestinal system
-                                default: UBERON:gastrointestinal system
-                                type: string
+                          colon mucosa:
+                            base_type: "_intestinal content"
+                            metadata_fields:
                               host_body_product:
                                 allowed:
                                   - UBERON:colon mucosa
@@ -496,17 +582,7 @@ host_type_specific_metadata:
                                   - UBERON:colon
                                 default: UBERON:colon
                                 type: string
-                              scientific_name:
-                                allowed:
-                                  - gut metagenome
-                                default: gut metagenome
-                                type: string
-                              taxon_id:
-                                allowed:
-                                  - 749906
-                                default: 749906
-                                type: integer
-                          saliva:
+                          _oral:
                             metadata_fields:
                               empo_4:
                                 allowed:
@@ -543,27 +619,34 @@ host_type_specific_metadata:
                                   - 1227552
                                 default: 1227552
                                 type: integer
-                          serum:
+                          saliva:
+                            base_type: "_oral"
+                          blood:
                             metadata_fields:
+                              empo_4:
+                                allowed:
+                                  - Animal secretion (non-saline)
+                                default: Animal secretion (non-saline)
+                                type: string
                               env_material:
                                 allowed:
-                                  - blood
-                                default: blood
+                                  - blood material
+                                default: blood material
                                 type: string
                               host_body_habitat:
                                 allowed:
                                   - UBERON:blood
                                 default: UBERON:blood
                                 type: string
-                              host_body_product:
-                                allowed:
-                                  - UBERON:serum
-                                default: UBERON:serum
-                                type: string
                               host_body_site:
                                 allowed:
-                                  - UBERON:blood plasma
-                                default: UBERON:blood plasma
+                                  - UBERON:blood
+                                default: UBERON:blood
+                                type: string
+                              host_body_product:
+                                allowed:
+                                  - UBERON:blood
+                                default: UBERON:blood
                                 type: string
                               scientific_name:
                                 allowed:
@@ -575,6 +658,37 @@ host_type_specific_metadata:
                                   - 1676987
                                 default: 1676987
                                 type: integer
+                          serum:
+                            base_type: "blood"
+                            metadata_fields:
+                              env_material:
+                                allowed:
+                                  - blood plasma material
+                                default: blood plasma material
+                                type: string
+                              host_body_product:
+                                allowed:
+                                  - UBERON:serum
+                                default: UBERON:serum
+                                type: string
+                              host_body_site:
+                                allowed:
+                                  - UBERON:blood plasma
+                                default: UBERON:blood plasma
+                                type: string
+                          plasma:
+                            base_type: "blood"
+                            metadata_fields:
+                              env_material:
+                                allowed:
+                                  - blood plasma material
+                                default: blood plasma material
+                                type: string
+                              host_body_product:
+                                allowed:
+                                  - UBERON:blood plasma
+                                default: UBERON:blood plasma
+                                type: string
                           skin:
                             metadata_fields:
                               empo_4:
@@ -607,17 +721,20 @@ host_type_specific_metadata:
                                   - 1338477
                                 default: 1338477
                                 type: integer
+                          _respiratory:
+                            metadata_fields:
+                              host_body_habitat:
+                                allowed:
+                                  - UBERON:respiratory system
+                                default: UBERON:respiratory system
+                                type: string
                           sputum:
+                            base_type: "_respiratory"
                             metadata_fields:
                               env_material:
                                 allowed:
                                   - bodily fluid material
                                 default: bodily fluid material
-                                type: string
-                              host_body_habitat:
-                                allowed:
-                                  - UBERON:respiratory system
-                                default: UBERON:respiratory system
                                 type: string
                               host_body_product:
                                 allowed:
@@ -647,11 +764,7 @@ host_type_specific_metadata:
                                   - Animal distal gut (non-saline)
                                 default: Animal distal gut (non-saline)
                                 type: string
-                              env_material:
-                                allowed:
-                                  - fecal material
-                                default: fecal material
-                                type: string
+                              env_material: *env_material_fecal
                               host_body_habitat:
                                 allowed:
                                   - UBERON:feces
@@ -678,7 +791,7 @@ host_type_specific_metadata:
                                 default: 1861841
                                 type: integer
                           tongue:
-                            alias: saliva
+                            base_type: "_oral"
                           urine:
                             metadata_fields:
                               env_material:
@@ -713,12 +826,8 @@ host_type_specific_metadata:
                         host_type_specific_metadata:
                           human:
                             metadata_fields:
-                              env_biome:
-                                # is urban really the only biome for humans?
-                                allowed:
-                                  - urban biome
-                                default: urban biome
-                                type: string
+                              # is urban really the only biome for humans?
+                              env_biome: *env_biome_urban
                               env_feature:
                                 allowed:
                                   - human-associated habitat
@@ -802,6 +911,16 @@ host_type_specific_metadata:
                                   this sample (human studies)
                                 is_phi: false
                                 required: false
+                              scientific_name:
+                                allowed:
+                                  - human metagenome
+                                default: human metagenome
+                                type: string
+                              taxon_id:
+                                allowed:
+                                  - 646099
+                                default: 646099
+                                type: integer
                             sample_type_specific_metadata:
                               antecubital crease:
                                 alias: "antecubital fossa"
@@ -814,11 +933,7 @@ host_type_specific_metadata:
                                       - UBERON:elbow
                                     default: UBERON:elbow
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of arm"
-                                    default: "skin of arm"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_arm
                               axilla skin:
                                 base_type: "skin"
                                 metadata_fields:
@@ -835,7 +950,7 @@ host_type_specific_metadata:
                               back:
                                 alias: "skin of back"
                               buccal mucosa:
-                                base_type: "saliva"
+                                base_type: "_oral"
                                 metadata_fields:
                                   host_body_site:
                                     allowed:
@@ -857,6 +972,8 @@ host_type_specific_metadata:
                               face:
                                 alias: "skin of face"
                               feces:
+                                base_type: "_gut"
+                              _gut:
                                 metadata_fields:
                                   env_package:
                                     allowed:
@@ -872,6 +989,599 @@ host_type_specific_metadata:
                                     allowed:
                                       - 408170
                                     default: 408170
+                                    type: integer
+                              colon content:
+                                base_type: "_gut"
+                              colon mucosa:
+                                base_type: "_gut"
+                              anal swab:
+                                base_type: "_gut"
+                                metadata_fields:
+                                  env_material: *env_material_fecal
+                                  host_body_habitat: *host_body_habitat_gi
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:anus
+                                    default: UBERON:anus
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:feces
+                                    default: UBERON:feces
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - anal swab
+                                    default: anal swab
+                                    type: string
+                              rectal swab:
+                                base_type: "_gut"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:rectum
+                                    default: UBERON:rectum
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - rectal swab
+                                    default: rectal swab
+                                    type: string
+                              meconium:
+                                base_type: "_gut"
+                                metadata_fields:
+                                  env_material: *env_material_fecal
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:meconium
+                                    default: UBERON:meconium
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:meconium
+                                    default: UBERON:meconium
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:meconium
+                                    default: UBERON:meconium
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - meconium
+                                    default: meconium
+                                    type: string
+                              blood:
+                                metadata_fields:
+                                  scientific_name:
+                                    allowed:
+                                      - human blood metagenome
+                                    default: human blood metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 1504969
+                                    default: 1504969
+                                    type: integer
+                              plasma:
+                                base_type: "blood"
+                              serum:
+                                base_type: "blood"
+                              _oral:
+                                metadata_fields:
+                                  scientific_name:
+                                    allowed:
+                                      - human oral metagenome
+                                    default: human oral metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 447426
+                                    default: 447426
+                                    type: integer
+                                  env_package:
+                                    allowed:
+                                      - human-oral
+                                    default: human-oral
+                                    type: string
+                              saliva:
+                                base_type: "_oral"
+                              # TODO: clarify the relationship between this
+                              # "tongue saliva" sample type and the vertebrate-level
+                              # "tongue" alias (which points to "_oral"). Are these
+                              # the same thing? If so, this entry may be redundant
+                              # or the alias should point here instead.
+                              tongue saliva:
+                                base_type: "_oral"
+                                metadata_fields:
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:tongue
+                                    default: UBERON:tongue
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - saliva
+                                    default: saliva
+                                    type: string
+                              dental plaque:
+                                base_type: "_oral"
+                                metadata_fields:
+                                  env_material: *env_material_organic
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:tooth
+                                    default: UBERON:tooth
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:dental plaque
+                                    default: UBERON:dental plaque
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - dental plaque
+                                    default: dental plaque
+                                    type: string
+                              oropharynx mucus:
+                                base_type: "_oral"
+                                metadata_fields:
+                                  env_package:
+                                    allowed:
+                                      - human-associated
+                                    default: human-associated
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:oropharynx
+                                    default: UBERON:oropharynx
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - oropharynx
+                                    default: oropharynx
+                                    type: string
+                              _lung:
+                                base_type: "_respiratory"
+                                metadata_fields:
+                                  scientific_name:
+                                    allowed:
+                                      - human lung metagenome
+                                    default: human lung metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 433733
+                                    default: 433733
+                                    type: integer
+                              bronchoalveolar lavage fluid:
+                                base_type: "_lung"
+                                metadata_fields:
+                                  env_material: *env_material_mucus
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:bronchus
+                                    default: UBERON:bronchus
+                                    type: string
+                                  host_body_product: *host_body_product_mucus
+                                  qiita_sample_type:
+                                    allowed:
+                                      - bronchoalveolar lavage fluid
+                                    default: bronchoalveolar lavage fluid
+                                    type: string
+                              lung tissue:
+                                base_type: "_lung"
+                                metadata_fields:
+                                  env_material: *env_material_bodily_fluid
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:lung
+                                    default: UBERON:lung
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:bodily fluid material
+                                    default: UBERON:bodily fluid material
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - lung
+                                    default: lung
+                                    type: string
+                              sputum:
+                                base_type: "_lung"
+                                metadata_fields:
+                                  scientific_name:
+                                    allowed:
+                                      - human sputum metagenome
+                                    default: human sputum metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 2517771
+                                    default: 2517771
+                                    type: integer
+                                  env_material: *env_material_mucus
+                                  qiita_sample_type:
+                                    allowed:
+                                      - sputum
+                                    default: sputum
+                                    type: string
+                              vaginal mucus:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_secretion
+                                  env_material: *env_material_mucus
+                                  env_package:
+                                    allowed:
+                                      - human-vaginal
+                                    default: human-vaginal
+                                    type: string
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:genitourinary system
+                                    default: UBERON:genitourinary system
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:vagina
+                                    default: UBERON:vagina
+                                    type: string
+                                  host_body_product: *host_body_product_mucus
+                                  scientific_name:
+                                    allowed:
+                                      - human vaginal metagenome
+                                    default: human vaginal metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 1632839
+                                    default: 1632839
+                                    type: integer
+                                  qiita_sample_type:
+                                    allowed:
+                                      - vaginal mucus
+                                    default: vaginal mucus
+                                    type: string
+                              nasal mucus:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_secretion
+                                  env_material: *env_material_mucus
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:nasopharynx
+                                    default: UBERON:nasopharynx
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:nose
+                                    default: UBERON:nose
+                                    type: string
+                                  host_body_product: *host_body_product_mucus
+                                  scientific_name:
+                                    allowed:
+                                      - human nasopharyngeal metagenome
+                                    default: human nasopharyngeal metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 1131769
+                                    default: 1131769
+                                    type: integer
+                                  qiita_sample_type:
+                                    allowed:
+                                      - nasal mucus
+                                    default: nasal mucus
+                                    type: string
+                              ear wax:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_secretion
+                                  env_material:
+                                    allowed:
+                                      - ear wax material
+                                    default: ear wax material
+                                    type: string
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:ear
+                                    default: UBERON:ear
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:external auditory meatus
+                                    default: UBERON:external auditory meatus
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:ear wax
+                                    default: UBERON:ear wax
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - ear wax
+                                    default: ear wax
+                                    type: string
+                              finger nail:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_corpus
+                                  env_material: *env_material_organic
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:hand
+                                    default: UBERON:hand
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:digit
+                                    default: UBERON:digit
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:nail
+                                    default: UBERON:nail
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - finger nail
+                                    default: finger nail
+                                    type: string
+                              breast milk:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_secretion
+                                  env_material:
+                                    allowed:
+                                      - breast milk material
+                                    default: breast milk material
+                                    type: string
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:breast
+                                    default: UBERON:breast
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:mammary gland
+                                    default: UBERON:mammary gland
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:milk
+                                    default: UBERON:milk
+                                    type: string
+                                  scientific_name:
+                                    allowed:
+                                      - human milk metagenome
+                                    default: human milk metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 1633571
+                                    default: 1633571
+                                    type: integer
+                                  qiita_sample_type:
+                                    allowed:
+                                      - breast milk
+                                    default: breast milk
+                                    type: string
+                              breast tissue:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_corpus
+                                  env_material: *env_material_organic
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:breast
+                                    default: UBERON:breast
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:mammary gland
+                                    default: UBERON:mammary gland
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:tissue
+                                    default: UBERON:tissue
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - breast
+                                    default: breast
+                                    type: string
+                              mesenteric fat:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_corpus
+                                  env_material: *env_material_organic
+                                  host_body_habitat: *host_body_habitat_gi
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:mesenteric fat pad
+                                    default: UBERON:mesenteric fat pad
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:adipose tissue
+                                    default: UBERON:adipose tissue
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - mesenteric fat
+                                    default: mesenteric fat
+                                    type: string
+                              cerebrospinal fluid:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_secretion
+                                  env_material:
+                                    allowed:
+                                      - cerebrospinal fluid material
+                                    default: cerebrospinal fluid material
+                                    type: string
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:central nervous system
+                                    default: UBERON:central nervous system
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:cerebrospinal fluid
+                                    default: UBERON:cerebrospinal fluid
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:cerebrospinal fluid
+                                    default: UBERON:cerebrospinal fluid
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - cerebrospinal fluid
+                                    default: cerebrospinal fluid
+                                    type: string
+                              csf:
+                                alias: "cerebrospinal fluid"
+                              menstrual fluid:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_secretion
+                                  env_material: *env_material_bodily_fluid
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:menstrual fluid
+                                    default: UBERON:menstrual fluid
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:menstrual fluid
+                                    default: UBERON:menstrual fluid
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:menstrual fluid
+                                    default: UBERON:menstrual fluid
+                                    type: string
+                                  scientific_name:
+                                    allowed:
+                                      - human reproductive system metagenome
+                                    default: human reproductive system metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 1842734
+                                    default: 1842734
+                                    type: integer
+                                  qiita_sample_type:
+                                    allowed:
+                                      - menstrual fluid
+                                    default: menstrual fluid
+                                    type: string
+                              bladder mucosa:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_corpus
+                                  env_material: *env_material_organic
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:genitourinary system
+                                    default: UBERON:genitourinary system
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:urinary bladder
+                                    default: UBERON:urinary bladder
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:mucosa of urinary bladder
+                                    default: UBERON:mucosa of urinary bladder
+                                    type: string
+                                  scientific_name:
+                                    allowed:
+                                      - human urinary tract metagenome
+                                    default: human urinary tract metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 2516875
+                                    default: 2516875
+                                    type: integer
+                                  qiita_sample_type:
+                                    allowed:
+                                      - bladder mucosa
+                                    default: bladder mucosa
+                                    type: string
+                              rib:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_corpus
+                                  env_material:
+                                    allowed:
+                                      - bone element environment
+                                    default: bone element environment
+                                    type: string
+                                  env_feature:
+                                    allowed:
+                                      - research facility
+                                    default: research facility
+                                    type: string
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:skeletal system
+                                    default: UBERON:skeletal system
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:rib
+                                    default: UBERON:rib
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:bone element
+                                    default: UBERON:bone element
+                                    type: string
+                                  scientific_name:
+                                    allowed:
+                                      - human skeleton metagenome
+                                    default: human skeleton metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 1892068
+                                    default: 1892068
+                                    type: integer
+                                  qiita_sample_type:
+                                    allowed:
+                                      - bone or bone decomposing
+                                    default: bone or bone decomposing
+                                    type: string
+                              unspecified human sample:
+                                metadata_fields:
+                                  empo_4: *empo_4_animal_corpus
+                                  env_material: *env_material_organic
+                                  host_body_habitat:
+                                    allowed:
+                                      - UBERON:multicellular organism
+                                    default: UBERON:multicellular organism
+                                    type: string
+                                  host_body_site:
+                                    allowed:
+                                      - UBERON:multicellular organism
+                                    default: UBERON:multicellular organism
+                                    type: string
+                                  host_body_product:
+                                    allowed:
+                                      - UBERON:multicellular organism
+                                    default: UBERON:multicellular organism
+                                    type: string
+                                  qiita_sample_type:
+                                    allowed:
+                                      - unspecified human sample
+                                    default: unspecified human sample
+                                    type: string
+                              urine:
+                                metadata_fields:
+                                  scientific_name:
+                                    allowed:
+                                      - human urinary tract metagenome
+                                    default: human urinary tract metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 2516875
+                                    default: 2516875
                                     type: integer
                               forehead:
                                 alias: "skin of forehead"
@@ -898,11 +1608,7 @@ host_type_specific_metadata:
                                       - UBERON:heel
                                     default: UBERON:heel
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of foot"
-                                    default: "skin of foot"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_foot
                               hypothenar palm:
                                 alias: "skin of palm of manus"
                               inguinal crease:
@@ -917,21 +1623,13 @@ host_type_specific_metadata:
                                       - UBERON:manual digit
                                     default: UBERON:manual digit
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of hand"
-                                    default: "skin of hand"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_hand
                               manubrium:
                                 alias: "skin of manubrium of sternum"
                               nail of pedal digit:
                                 base_type: "skin"
                                 metadata_fields:
-                                  env_material:
-                                    allowed:
-                                      - organic material
-                                    default: organic material
-                                    type: string
+                                  env_material: *env_material_organic
                                   env_package:
                                     allowed:
                                       - human-associated
@@ -962,11 +1660,7 @@ host_type_specific_metadata:
                                       - "UBERON:external nose"
                                     default: "UBERON:external nose"
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of face"
-                                    default: "skin of face"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_face
                               occiput:
                                 alias: "skin of occiput"
                               oral mucosa:
@@ -983,11 +1677,7 @@ host_type_specific_metadata:
                                       - UBERON:pedal digit skin
                                     default: UBERON:pedal digit skin
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of foot"
-                                    default: "skin of foot"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_foot
                               popliteal area:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1015,28 +1705,7 @@ host_type_specific_metadata:
                                       - UBERON:retroauricular area
                                     default: UBERON:retroauricular area
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of external ear"
-                                    default: "skin of external ear"
-                                    type: string
-                              saliva:
-                                metadata_fields:
-                                  env_package:
-                                    allowed:
-                                      - human-oral
-                                    default: human-oral
-                                    type: string
-                                  scientific_name:
-                                    allowed:
-                                      - human oral metagenome
-                                    default: human oral metagenome
-                                    type: string
-                                  taxon_id:
-                                    allowed:
-                                      - 447426
-                                    default: 447426
-                                    type: integer
+                                  qiita_sample_type: *qiita_skin_of_external_ear
                               scalp:
                                 alias: "skin of scalp"
                               skin:
@@ -1064,11 +1733,7 @@ host_type_specific_metadata:
                                       - "UBERON:skin of back"
                                     default: "UBERON:skin of back"
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of trunk"
-                                    default: "skin of trunk"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_trunk
                               skin of breast:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1077,11 +1742,7 @@ host_type_specific_metadata:
                                       - UBERON:breast
                                     default: UBERON:breast
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin"
-                                    default: "skin"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin
                               skin of cheek:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1090,11 +1751,7 @@ host_type_specific_metadata:
                                       - UBERON:cheek
                                     default: UBERON:cheek
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of head"
-                                    default: "skin of head"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_head
                               skin of elbow:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1103,11 +1760,7 @@ host_type_specific_metadata:
                                       - UBERON:elbow
                                     default: UBERON:elbow
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of arm"
-                                    default: "skin of arm"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_arm
                               skin of external ear:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1116,11 +1769,7 @@ host_type_specific_metadata:
                                       - UBERON:ear
                                     default: UBERON:ear
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of external ear"
-                                    default: "skin of external ear"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_external_ear
                               skin of external ear canal:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1129,11 +1778,7 @@ host_type_specific_metadata:
                                       - UBERON:external acoustic meatus
                                     default: UBERON:external acoustic meatus
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of external ear"
-                                    default: "skin of external ear"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_external_ear
                               skin of face:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1142,11 +1787,7 @@ host_type_specific_metadata:
                                       - UBERON:face
                                     default: UBERON:face
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of face"
-                                    default: "skin of face"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_face
                               skin of forearm:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1155,11 +1796,7 @@ host_type_specific_metadata:
                                       - UBERON:skin of forearm
                                     default: UBERON:skin of forearm
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of arm"
-                                    default: "skin of arm"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_arm
                               # TODO: for ABTX, the qiita_sample_type for skin of forehead is "skin",
                               #  but for TRPCA it is given as "skin of forehead"; why?
                               skin of forehead:
@@ -1172,24 +1809,12 @@ host_type_specific_metadata:
                                       - UBERON:skin of forehead
                                     default: UBERON:skin of forehead
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin"
-                                    default: "skin"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin
                               skin of hand:
                                 base_type: "skin"
                                 metadata_fields:
-                                  host_body_site:
-                                    allowed:
-                                      - UBERON:skin of hand
-                                    default: UBERON:skin of hand
-                                    type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin"
-                                    default: "skin"
-                                    type: string
+                                  host_body_site: *host_body_site_skin_of_hand
+                                  qiita_sample_type: *qiita_skin
                               skin of inguinal fold:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1224,11 +1849,7 @@ host_type_specific_metadata:
                                       - UBERON:surface of occiput
                                     default: UBERON:surface of occiput
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of head"
-                                    default: "skin of head"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_head
                               skin of palm of hypothenar manus:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1237,11 +1858,9 @@ host_type_specific_metadata:
                                       - UBERON:hypothenar eminence
                                     default: UBERON:hypothenar eminence
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of hand"
-                                    default: "skin of hand"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_hand
+                              skin of palm:
+                                alias: "skin of palm of manus"
                               skin of palm of manus :
                                 base_type: "skin"
                                 metadata_fields:
@@ -1250,11 +1869,7 @@ host_type_specific_metadata:
                                       - UBERON:palmar part of manus
                                     default: UBERON:palmar part of manus
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of hand"
-                                    default: "skin of hand"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_hand
                               skin of scalp:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1263,11 +1878,7 @@ host_type_specific_metadata:
                                       - UBERON:scalp
                                     default: UBERON:scalp
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of head"
-                                    default: "skin of head"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_head
                               skin of umbilical area:
                                 base_type: "skin"
                                 metadata_fields:
@@ -1276,11 +1887,7 @@ host_type_specific_metadata:
                                       - UBERON:umbilicus
                                     default: UBERON:umbilicus
                                     type: string
-                                  qiita_sample_type:
-                                    allowed:
-                                      - "skin of trunk"
-                                    default: "skin of trunk"
-                                    type: string
+                                  qiita_sample_type: *qiita_skin_of_trunk
                               thigh:
                                 alias: "upper leg skin"
                               toe web space:
@@ -1306,11 +1913,7 @@ host_type_specific_metadata:
                                 alias: "skin of forearm"
                           mouse:
                             metadata_fields:
-                              env_biome:
-                                allowed:
-                                  - urban biome
-                                default: urban biome
-                                type: string
+                              env_biome: *env_biome_urban
                               host_age_units:
                                 allowed:
                                   - weeks
@@ -1336,7 +1939,112 @@ host_type_specific_metadata:
                                   - g
                                 default: g
                                 type: string
-          free_living:
+                              scientific_name:
+                                allowed:
+                                  - mouse metagenome
+                                default: mouse metagenome
+                                type: string
+                              taxon_id:
+                                allowed:
+                                  - 1441287
+                                default: 1441287
+                                type: integer
+                            sample_type_specific_metadata:
+                              feces:
+                                metadata_fields:
+                                  scientific_name:
+                                    allowed:
+                                      - mouse gut metagenome
+                                    default: mouse gut metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 410661
+                                    default: 410661
+                                    type: integer
+                              skin of forepaw:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site: *host_body_site_skin_of_hand
+                          rat:
+                            metadata_fields:
+                              env_biome: *env_biome_urban
+                              host_common_name:
+                                allowed:
+                                  - rat
+                                default: rat
+                                type: string
+                              host_scientific_name:
+                                allowed:
+                                  - Rattus norvegicus
+                                default: Rattus norvegicus
+                                type: string
+                              host_taxid:
+                                allowed:
+                                  - '10116'
+                                default: '10116'
+                                type: string
+                              host_weight_units:
+                                allowed:
+                                  - g
+                                default: g
+                                type: string
+                              scientific_name:
+                                allowed:
+                                  - rat metagenome
+                                default: rat metagenome
+                                type: string
+                              taxon_id:
+                                allowed:
+                                  - 1427740
+                                default: 1427740
+                                type: integer
+                            sample_type_specific_metadata:
+                              # TODO: clarify whether rat blood should use
+                              # "rat metagenome" (1427740) as scientific_name/taxon_id
+                              # or inherit the vertebrate-level default
+                              # "blood metagenome" (1676987). Currently overriding
+                              # because the source spreadsheet specifies rat metagenome.
+                              blood:
+                                metadata_fields:
+                                  scientific_name:
+                                    allowed:
+                                      - rat metagenome
+                                    default: rat metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 1427740
+                                    default: 1427740
+                                    type: integer
+                          dog:
+                            metadata_fields:
+                              host_common_name:
+                                allowed:
+                                  - dog
+                                default: dog
+                                type: string
+                              host_scientific_name:
+                                allowed:
+                                  - Canis lupus familiaris
+                                default: Canis lupus familiaris
+                                type: string
+                              host_taxid:
+                                allowed:
+                                  - '9615'
+                                default: '9615'
+                                type: string
+                              host_weight_units:
+                                allowed:
+                                  - kg
+                                default: kg
+                                type: string
+                            sample_type_specific_metadata:
+                              skin of forepaw:
+                                base_type: "skin"
+                                metadata_fields:
+                                  host_body_site: *host_body_site_skin_of_hand
+          _free living:
             metadata_fields:
               empo_1:
                 allowed:
@@ -1344,7 +2052,7 @@ host_type_specific_metadata:
                 default: Free-living
                 type: string
             host_type_specific_metadata:
-              free_living_non_saline:
+              _free living non saline:
                 metadata_fields:
                   empo_2:
                     allowed:
@@ -1352,7 +2060,7 @@ host_type_specific_metadata:
                     default: Free-living (non-saline)
                     type: string
                 host_type_specific_metadata:
-                  aqueous_non_saline:
+                  _aqueous non saline:
                     metadata_fields:
                       empo_3:
                         allowed:
@@ -1360,21 +2068,21 @@ host_type_specific_metadata:
                         default: Aqueous (non-saline)
                         type: string
                     host_type_specific_metadata:
-                      aerosol_non_saline:
+                      aerosol non saline:
                         metadata_fields:
                           empo_4:
                             allowed:
                               - Aerosol (non-saline)
                             default: Aerosol (non-saline)
                             type: string
-                      aqueous_surface_non_saline:
+                      aqueous surface non saline:
                         metadata_fields:
                           empo_4:
                             allowed:
                               - Surface (non-saline)
                             default: Surface (non-saline)
                             type: string
-                      water_non_saline:
+                      water non saline:
                         metadata_fields:
                           empo_4:
                             allowed:
@@ -1420,11 +2128,7 @@ host_type_specific_metadata:
                                     type: string
                           waste water:
                             metadata_fields:
-                              env_biome:
-                                allowed:
-                                  - urban biome
-                                default: urban biome
-                                type: string
+                              env_biome: *env_biome_urban
                               env_material:
                                 allowed:
                                 - waste water
@@ -1445,7 +2149,7 @@ host_type_specific_metadata:
                                   - 527639
                                 default: 527639
                                 type: integer
-                  solid_non_saline:
+                  _solid non saline:
                     metadata_fields:
                       empo_3:
                         allowed:
@@ -1453,21 +2157,21 @@ host_type_specific_metadata:
                         default: Solid (non-saline)
                         type: string
                     host_type_specific_metadata:
-                      sediment_non_saline:
+                      sediment non saline:
                         metadata_fields:
                           empo_4:
                             allowed:
                               - Sediment (non-saline)
                             default: Sediment (non-saline)
                             type: string
-                      soil_non_saline:
+                      soil non saline:
                         metadata_fields:
                           empo_4:
                             allowed:
                               - Soil (non-saline)
                             default: Soil (non-saline)
                             type: string
-                      solid_surface_non_saline:
+                      _solid surface non saline:
                         metadata_fields:
                           empo_4:
                             allowed:
@@ -1477,11 +2181,7 @@ host_type_specific_metadata:
                         host_type_specific_metadata:
                           control surface:
                             metadata_fields:
-                              env_biome:
-                                allowed:
-                                  - urban biome
-                                default: urban biome
-                                type: string
+                              env_biome: *env_biome_urban
                               env_feature:
                                 allowed:
                                   - research facility
@@ -1529,6 +2229,86 @@ host_type_specific_metadata:
                                       - control swab
                                     default: control swab
                                     type: string
+              _free living saline:
+                metadata_fields:
+                  empo_2:
+                    allowed:
+                      - Free-living (saline)
+                    default: Free-living (saline)
+                    type: string
+                host_type_specific_metadata:
+                  _aqueous saline:
+                    metadata_fields:
+                      empo_3:
+                        allowed:
+                          - Aqueous (saline)
+                        default: Aqueous (saline)
+                        type: string
+                    host_type_specific_metadata:
+                      water saline:
+                        metadata_fields:
+                          empo_4:
+                            allowed:
+                              - Water (saline)
+                            default: Water (saline)
+                            type: string
+                          env_biome:
+                            allowed:
+                              - marine biome
+                            default: marine biome
+                            type: string
+                          env_package:
+                            allowed:
+                              - water
+                            default: water
+                            type: string
+                        sample_type_specific_metadata:
+                          sea water:
+                            metadata_fields:
+                              env_feature:
+                                allowed:
+                                  - ocean
+                                default: ocean
+                                type: string
+                              env_material:
+                                allowed:
+                                  - ocean water
+                                default: ocean water
+                                type: string
+                              scientific_name:
+                                allowed:
+                                  - seawater metagenome
+                                default: seawater metagenome
+                                type: string
+                              taxon_id:
+                                allowed:
+                                  - 1561972
+                                default: 1561972
+                                type: integer
+                          sea water filter:
+                            base_type: "sea water"
+                          estuarine water filter:
+                            metadata_fields:
+                              env_feature:
+                                allowed:
+                                  - river
+                                default: river
+                                type: string
+                              env_material:
+                                allowed:
+                                  - estuarine water
+                                default: estuarine water
+                                type: string
+                              scientific_name:
+                                allowed:
+                                  - estuary metagenome
+                                default: estuary metagenome
+                                type: string
+                              taxon_id:
+                                allowed:
+                                  - 1649191
+                                default: 1649191
+                                type: integer
           control:
             default: "not applicable"
             metadata_fields:
@@ -1559,7 +2339,7 @@ host_type_specific_metadata:
                 type: integer
             host_type_specific_metadata:
               # NB: control surfaces are actually under free-living!
-              sterile_water_blank:
+              sterile water blank:
                 metadata_fields:
                   empo_2:
                     allowed:
