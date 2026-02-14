@@ -9,6 +9,8 @@ from metameq.src.util import \
 class ConfiguratorTestBase(TestCase):
     TEST_DIR = path.dirname(path.dirname(__file__))
     TEST_STDS_FP = path.join(TEST_DIR, "data/test_standards.yml")
+    TEST_STDS_W_INTERNALS_FP = path.join(
+        TEST_DIR, "data/test_standards_w_internals.yml")
 
     NESTED_STDS_DICT = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
