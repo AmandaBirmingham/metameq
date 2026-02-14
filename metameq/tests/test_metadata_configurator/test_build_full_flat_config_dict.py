@@ -36,9 +36,9 @@ class TestBuildFullFlatConfigDict(ConfiguratorTestBase):
         hosts_dict = result[HOST_TYPE_SPECIFIC_METADATA_KEY]
         self.assertIsInstance(hosts_dict, dict)
 
-        # Should have "base" host type with sample_name metadata field
-        self.assertIn("base", hosts_dict)
-        base_host = hosts_dict["base"]
+        # Should have "_base" host type with sample_name metadata field
+        self.assertIn("_base", hosts_dict)
+        base_host = hosts_dict["_base"]
         self.assertIn(METADATA_FIELDS_KEY, base_host)
         self.assertIn("sample_name", base_host[METADATA_FIELDS_KEY])
 

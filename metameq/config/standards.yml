@@ -119,7 +119,7 @@ host_body_site_skin_of_hand: &host_body_site_skin_of_hand
       function: "transform_format_field_as_int"
       overwrite_non_nans: true
 host_type_specific_metadata:
-  base:
+  _base:
     metadata_fields:
       sample_name:
         empty: false
