@@ -175,8 +175,9 @@ def _flatten_error_message(error_message):
             result.append(item)
         elif isinstance(item, dict):
             detail_parts = []
-            for key, msgs in item.items():
-                detail_parts.append(f"{key}: {', '.join(msgs)}")
+            for key in sorted(item.keys()):
+                msgs = item[key]
+                detail_parts.append(f"{key}: {', '.join(str(m) for m in msgs)}")
             result.append("; ".join(detail_parts))
         else:
             result.append(str(item))
