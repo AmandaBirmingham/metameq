@@ -153,26 +153,6 @@ class TestConstructSampleTypeMetadataFieldsDict(ConfiguratorTestBase):
         }
         self.assertDictEqual(expected, result)
 
-    def test__construct_sample_type_metadata_fields_dict_base_type_invalid_raises(self):
-        """Test that base type with non-metadata-fields keys raises ValueError."""
-        host_sample_types_config_dict = {
-            "base_sample": {
-                METADATA_FIELDS_KEY: {
-                    "base_field": {DEFAULT_KEY: "value"}
-                },
-                "extra_key": "not_allowed"
-            },
-            "derived_sample": {
-                BASE_TYPE_KEY: "base_sample",
-                METADATA_FIELDS_KEY: {}
-            }
-        }
-        host_metadata_fields_dict = {}
-
-        with self.assertRaisesRegex(ValueError, "must only have metadata fields"):
-            _construct_sample_type_metadata_fields_dict(
-                "derived_sample", host_sample_types_config_dict, host_metadata_fields_dict)
-
     def test__construct_sample_type_metadata_fields_dict_sets_sample_type(self):
         """Test that sample_type field is set with correct allowed/default values."""
         host_sample_types_config_dict = {

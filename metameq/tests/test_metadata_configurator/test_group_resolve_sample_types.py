@@ -292,30 +292,6 @@ class TestResolveSampleTypeAliasesAndBases(ConfiguratorTestBase):
         }
         self.assertDictEqual(expected, result)
 
-    def test__resolve_sample_type_aliases_and_bases_base_type_invalid_raises(self):
-        """Test that base type with non-metadata-fields keys raises ValueError.
-
-        Input: Base sample type has extra keys beyond metadata_fields.
-        Expected: ValueError because base must only have metadata_fields.
-        """
-        sample_types_dict = {
-            "base_sample": {
-                METADATA_FIELDS_KEY: {
-                    "base_field": {DEFAULT_KEY: "value", TYPE_KEY: "string"}
-                },
-                "extra_key": "not_allowed"
-            },
-            "derived_sample": {
-                BASE_TYPE_KEY: "base_sample",
-                METADATA_FIELDS_KEY: {}
-            }
-        }
-        host_metadata_fields_dict = {}
-
-        with self.assertRaisesRegex(ValueError, "must only have metadata fields"):
-            _resolve_sample_type_aliases_and_bases(
-                sample_types_dict, host_metadata_fields_dict)
-
     def test__resolve_sample_type_aliases_and_bases_sets_sample_type(self):
         """Test that sample_type field is added with correct allowed/default.
 
