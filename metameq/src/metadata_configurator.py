@@ -560,7 +560,11 @@ def _construct_sample_type_metadata_fields_dict(
         sample_type_for_metadata = sample_type_alias
         sample_type_specific_dict = \
             host_sample_types_config_dict[sample_type_alias]
-        if METADATA_FIELDS_KEY not in sample_type_specific_dict:
+        # note that sample_type_specific_dict is now the dict for
+        # the alias sample type, not the original naive sample type;
+        # if IT has an alias, that would mean we are trying
+        # to chain aliases, which is not allowed.
+        if ALIAS_KEY in sample_type_specific_dict:
             raise ValueError(f"May not chain aliases "
                              f"('{sample_type}' to '{sample_type_alias}')")
     # endif sample type is an alias
@@ -568,9 +572,24 @@ def _construct_sample_type_metadata_fields_dict(
     # if the sample type has a base type
     sample_type_base = sample_type_specific_dict.get(BASE_TYPE_KEY)
     if sample_type_base:
-        # get the base's sample type dict and add this sample type's
-        # info on top of it
+        # if the base type is the same as the current sample type,
+        # that is circular and not allowed
+        if sample_type_base == sample_type:
+            raise ValueError(f"Sample type '{sample_type}' has itself as its base type.")
+
+        # get the base's sample type dict
         base_sample_dict = host_sample_types_config_dict[sample_type_base]
+
+        # if the base sample type dict ALSO has a (different) base type,
+        # that is not allowed
+        base_sample_base = base_sample_dict.get(BASE_TYPE_KEY)
+        if base_sample_base:
+            raise ValueError(f"Sample type '{sample_type}' has base type "
+                             f"'{sample_type_base}', which has base type "
+                             f"'{base_sample_base}'."
+                             f" Chained base types are not allowed.")
+
+        # add this sample type's info on top of the base type's info
         sample_type_specific_dict_metadata = update_wip_metadata_dict(
             deepcopy_dict(base_sample_dict[METADATA_FIELDS_KEY]),
             sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}))
@@ -719,7 +738,7 @@ def build_full_flat_config_dict(
                 full_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY].items():
             if SAMPLE_TYPE_SPECIFIC_METADATA_KEY in host_type_dict:
                 internal_sample_types = [
-                    sample_type for sample_type in 
+                    sample_type for sample_type in
                     host_type_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY].keys()
                     if sample_type.startswith("_")]
                 for sample_type in internal_sample_types:
