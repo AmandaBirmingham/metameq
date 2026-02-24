@@ -81,6 +81,31 @@ class TestExtractConfigDict(UtilTestBase):
         with self.assertRaises(Exception):
             extract_config_dict(invalid_yaml_path)
 
+    def test_extract_config_dict_keys_to_remove_present(self):
+        """Test that specified top-level keys are removed from loaded config."""
+        config_fp = path.join(self.TEST_DIR, "data/test_config.yml")
+        obs = extract_config_dict(
+            config_fp, keys_to_remove=["metadata_transformers"])
+        self.assertNotIn("metadata_transformers", obs)
+        self.assertIn("host_type_specific_metadata", obs)
+
+    def test_extract_config_dict_keys_to_remove_absent(self):
+        """Test that removing a non-existent key is silently ignored."""
+        config_fp = path.join(self.TEST_DIR, "data/test_config.yml")
+        obs = extract_config_dict(
+            config_fp, keys_to_remove=["nonexistent_key"])
+        self.assertDictEqual(self.TEST_CONFIG_DICT, obs)
+
+    def test_extract_config_dict_keys_to_remove_mixed(self):
+        """Test removing a mix of present and absent keys."""
+        config_fp = path.join(self.TEST_DIR, "data/test_config.yml")
+        obs = extract_config_dict(
+            config_fp,
+            keys_to_remove=["metadata_transformers", "nonexistent_key"])
+        self.assertNotIn("metadata_transformers", obs)
+        self.assertNotIn("nonexistent_key", obs)
+        self.assertIn("host_type_specific_metadata", obs)
+
 
 class TestExtractYamlDict(UtilTestBase):
     def test_extract_yaml_dict(self):
@@ -91,14 +116,6 @@ class TestExtractYamlDict(UtilTestBase):
 
 
 class TestExtractStdsConfig(UtilTestBase):
-    def test_extract_stds_config(self):
-        """Test extracting standards configuration with default settings.
-
-        Verifies that the extracted config contains expected standard keys.
-        """
-        obs = extract_stds_config(None)
-        self.assertIn("ebi_null_vals_all", obs)
-
     def test_extract_stds_config_default_path(self):
         """Test extracting standards configuration using default path.
 
@@ -108,6 +125,11 @@ class TestExtractStdsConfig(UtilTestBase):
         config = extract_stds_config(None)
         self.assertIsInstance(config, dict)
         self.assertIn("host_type_specific_metadata", config)
+
+    def test_extract_stds_config_removes_reusable_definitions(self):
+        """Test that _reusable_definitions key is removed from standards config."""
+        config = extract_stds_config(None)
+        self.assertNotIn("_reusable_definitions", config)
 
     def test_extract_stds_config_custom_path(self):
         """Test extracting standards configuration using a custom path."""

@@ -29,6 +29,7 @@ LEAVE_REQUIREDS_BLANK_KEY = "leave_requireds_blank"
 OVERWRITE_NON_NANS_KEY = "overwrite_non_nans"
 HOSTTYPE_COL_OPTIONS_KEY = "hosttype_column_options"
 SAMPLETYPE_COL_OPTIONS_KEY = "sampletype_column_options"
+REUSABLE_DEFINITIONS_KEY = "_reusable_definitions"
 
 # internal code keys
 HOSTTYPE_SHORTHAND_KEY = "hosttype_shorthand"
@@ -59,7 +60,8 @@ GLOBAL_SETTINGS_KEYS = [
 
 
 def extract_config_dict(
-        config_fp: Union[str, None]) -> dict:
+        config_fp: Union[str, None],
+        keys_to_remove: Optional[List[str]] = None) -> dict:
     """Extract configuration dictionary from a YAML file.
 
     If no config file path is provided, looks for config.yml in the grandparent
@@ -70,6 +72,9 @@ def extract_config_dict(
     config_fp : Union[str, None]
         Path to the configuration YAML file. If None, will look for config.yml
         in the "config" module of the package.
+    keys_to_remove : Optional[List[str]]
+        Top-level keys to remove from the loaded dictionary. Keys that
+        do not exist in the dictionary are silently ignored.
 
     Returns
     -------
@@ -89,6 +94,9 @@ def extract_config_dict(
 
     # read in config file
     config_dict = extract_yaml_dict(config_fp)
+    if keys_to_remove:
+        for key in keys_to_remove:
+            config_dict.pop(key, None)
     return config_dict
 
 
@@ -144,7 +152,8 @@ def extract_stds_config(stds_fp: Union[str, None]) -> dict:
     if not stds_fp:
         config_dir = files(CONFIG_MODULE_PATH)
         stds_fp = config_dir.joinpath("standards.yml")
-    return extract_config_dict(stds_fp)
+    return extract_config_dict(
+        stds_fp, keys_to_remove=[REUSABLE_DEFINITIONS_KEY])
 
 
 def deepcopy_dict(input_dict: dict) -> dict:

@@ -1,106 +1,118 @@
-ebi_null_vals_all: &ebi_null_vals_all
-  allowed:
-    - "not collected" 
-    - "not provided"
-    - "restricted access"
-    - "not applicable"
-  type: string
-taxon_id_formats: &taxon_id_formats
-  - regex: ^\d+$
+# Reusable field definitions -- not accessed directly by code,
+# exist only to define YAML anchors for use elsewhere in this file.
+_reusable_definitions:
+  ebi_null_vals_all: &ebi_null_vals_all
+    allowed:
+      - "not collected"
+      - "not provided"
+      - "restricted access"
+      - "not applicable"
     type: string
-  - *ebi_null_vals_all
+  taxon_id_formats: &taxon_id_formats
+    - regex: ^\d+$
+      type: string
+    - *ebi_null_vals_all
+  empo_4_animal_secretion: &empo_4_animal_secretion
+    allowed:
+      - Animal secretion (non-saline)
+    default: Animal secretion (non-saline)
+    type: string
+  empo_4_animal_corpus: &empo_4_animal_corpus
+    allowed:
+      - Animal corpus (non-saline)
+    default: Animal corpus (non-saline)
+    type: string
+  empo_4_animal_distal_gut: &empo_4_animal_distal_gut
+    allowed:
+      - Animal distal gut (non-saline)
+    default: Animal distal gut (non-saline)
+    type: string
+  env_biome_urban: &env_biome_urban
+    allowed:
+      - urban biome
+    default: urban biome
+    type: string
+  env_material_organic: &env_material_organic
+    allowed:
+      - organic material
+    default: organic material
+    type: string
+  env_material_mucus: &env_material_mucus
+    allowed:
+      - mucus material
+    default: mucus material
+    type: string
+  env_material_bodily_fluid: &env_material_bodily_fluid
+    allowed:
+      - bodily fluid material
+    default: bodily fluid material
+    type: string
+  env_material_fecal: &env_material_fecal
+    allowed:
+      - fecal material
+    default: fecal material
+    type: string
+  host_body_habitat_gi: &host_body_habitat_gi
+    allowed:
+      - UBERON:gastrointestinal system
+    default: UBERON:gastrointestinal system
+    type: string
+  host_body_habitat_respiratory_system: &host_body_habitat_respiratory_system
+    allowed:
+      - UBERON:respiratory system
+    default: UBERON:respiratory system
+    type: string
+  host_body_product_mucus: &host_body_product_mucus
+    allowed:
+      - UBERON:mucus
+    default: UBERON:mucus
+    type: string
+  qiita_skin: &qiita_skin
+    allowed:
+      - skin
+    default: skin
+    type: string
+  qiita_skin_of_arm: &qiita_skin_of_arm
+    allowed:
+      - skin of arm
+    default: skin of arm
+    type: string
+  qiita_skin_of_hand: &qiita_skin_of_hand
+    allowed:
+      - skin of hand
+    default: skin of hand
+    type: string
+  qiita_skin_of_head: &qiita_skin_of_head
+    allowed:
+      - skin of head
+    default: skin of head
+    type: string
+  qiita_skin_of_external_ear: &qiita_skin_of_external_ear
+    allowed:
+      - skin of external ear
+    default: skin of external ear
+    type: string
+  qiita_skin_of_foot: &qiita_skin_of_foot
+    allowed:
+      - skin of foot
+    default: skin of foot
+    type: string
+  qiita_skin_of_face: &qiita_skin_of_face
+    allowed:
+      - skin of face
+    default: skin of face
+    type: string
+  qiita_skin_of_trunk: &qiita_skin_of_trunk
+    allowed:
+      - skin of trunk
+    default: skin of trunk
+    type: string
+  host_body_site_skin_of_hand: &host_body_site_skin_of_hand
+    allowed:
+      - UBERON:skin of hand
+    default: UBERON:skin of hand
+    type: string
 
-# Reusable field definitions for commonly repeated values
-empo_4_animal_secretion: &empo_4_animal_secretion
-  allowed:
-    - Animal secretion (non-saline)
-  default: Animal secretion (non-saline)
-  type: string
-empo_4_animal_corpus: &empo_4_animal_corpus
-  allowed:
-    - Animal corpus (non-saline)
-  default: Animal corpus (non-saline)
-  type: string
-env_biome_urban: &env_biome_urban
-  allowed:
-    - urban biome
-  default: urban biome
-  type: string
-env_material_organic: &env_material_organic
-  allowed:
-    - organic material
-  default: organic material
-  type: string
-env_material_mucus: &env_material_mucus
-  allowed:
-    - mucus material
-  default: mucus material
-  type: string
-env_material_bodily_fluid: &env_material_bodily_fluid
-  allowed:
-    - bodily fluid material
-  default: bodily fluid material
-  type: string
-env_material_fecal: &env_material_fecal
-  allowed:
-    - fecal material
-  default: fecal material
-  type: string
-host_body_habitat_gi: &host_body_habitat_gi
-  allowed:
-    - UBERON:gastrointestinal system
-  default: UBERON:gastrointestinal system
-  type: string
-host_body_product_mucus: &host_body_product_mucus
-  allowed:
-    - UBERON:mucus
-  default: UBERON:mucus
-  type: string
-qiita_skin: &qiita_skin
-  allowed:
-    - skin
-  default: skin
-  type: string
-qiita_skin_of_arm: &qiita_skin_of_arm
-  allowed:
-    - skin of arm
-  default: skin of arm
-  type: string
-qiita_skin_of_hand: &qiita_skin_of_hand
-  allowed:
-    - skin of hand
-  default: skin of hand
-  type: string
-qiita_skin_of_head: &qiita_skin_of_head
-  allowed:
-    - skin of head
-  default: skin of head
-  type: string
-qiita_skin_of_external_ear: &qiita_skin_of_external_ear
-  allowed:
-    - skin of external ear
-  default: skin of external ear
-  type: string
-qiita_skin_of_foot: &qiita_skin_of_foot
-  allowed:
-    - skin of foot
-  default: skin of foot
-  type: string
-qiita_skin_of_face: &qiita_skin_of_face
-  allowed:
-    - skin of face
-  default: skin of face
-  type: string
-qiita_skin_of_trunk: &qiita_skin_of_trunk
-  allowed:
-    - skin of trunk
-  default: skin of trunk
-  type: string
-host_body_site_skin_of_hand: &host_body_site_skin_of_hand
-  allowed:
-    - UBERON:skin of hand
-  default: UBERON:skin of hand
-  type: string
 "metadata_transformers":
   "pre_transformers":
     # right now there is an inconsistency in representation in the standards:
@@ -536,6 +548,7 @@ host_type_specific_metadata:
                         sample_type_specific_metadata:
                           _intestinal content:
                             metadata_fields:
+                              empo_4: *empo_4_animal_distal_gut
                               env_material:
                                 allowed:
                                   - intestine environment
@@ -711,6 +724,11 @@ host_type_specific_metadata:
                                   - UBERON:sebum
                                 default: UBERON:sebum
                                 type: string
+                              host_body_site:
+                                allowed:
+                                  - UBERON:skin
+                                default: UBERON:skin
+                                type: string
                               scientific_name:
                                 allowed:
                                   - skin metagenome
@@ -721,21 +739,15 @@ host_type_specific_metadata:
                                   - 1338477
                                 default: 1338477
                                 type: integer
-                          _respiratory:
-                            metadata_fields:
-                              host_body_habitat:
-                                allowed:
-                                  - UBERON:respiratory system
-                                default: UBERON:respiratory system
-                                type: string
                           sputum:
-                            base_type: "_respiratory"
                             metadata_fields:
+                              empo_4: *empo_4_animal_secretion
                               env_material:
                                 allowed:
                                   - bodily fluid material
                                 default: bodily fluid material
                                 type: string
+                              host_body_habitat: *host_body_habitat_respiratory_system
                               host_body_product:
                                 allowed:
                                   - UBERON:sputum
@@ -759,11 +771,7 @@ host_type_specific_metadata:
                           # TODO: is this the correct level to introduce feces?
                           feces:
                             metadata_fields:
-                              empo_4:
-                                allowed:
-                                  - Animal distal gut (non-saline)
-                                default: Animal distal gut (non-saline)
-                                type: string
+                              empo_4: *empo_4_animal_distal_gut
                               env_material: *env_material_fecal
                               host_body_habitat:
                                 allowed:
@@ -794,6 +802,7 @@ host_type_specific_metadata:
                             base_type: "_oral"
                           urine:
                             metadata_fields:
+                              empo_4: *empo_4_animal_secretion
                               env_material:
                                 allowed:
                                   - urine material
@@ -922,6 +931,36 @@ host_type_specific_metadata:
                                 default: 646099
                                 type: integer
                             sample_type_specific_metadata:
+                              _gut:
+                                metadata_fields: &human_gut__env_pkg__sci_name__tax_id
+                                  env_package:
+                                    allowed:
+                                      - human-gut
+                                    default: human-gut
+                                    type: string
+                                  scientific_name:
+                                    allowed:
+                                      - human gut metagenome
+                                    default: human gut metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 408170
+                                    default: 408170
+                                    type: integer
+                              _lung:
+                                metadata_fields: &human_lung__host_body_habitat__sci_name__tax_id
+                                  host_body_habitat: *host_body_habitat_respiratory_system
+                                  scientific_name:
+                                    allowed:
+                                      - human lung metagenome
+                                    default: human lung metagenome
+                                    type: string
+                                  taxon_id:
+                                    allowed:
+                                      - 433733
+                                    default: 433733
+                                    type: integer
                               antecubital crease:
                                 alias: "antecubital fossa"
                               antecubital fossa:
@@ -972,31 +1011,17 @@ host_type_specific_metadata:
                               face:
                                 alias: "skin of face"
                               feces:
-                                base_type: "_gut"
-                              _gut:
                                 metadata_fields:
-                                  env_package:
-                                    allowed:
-                                      - human-gut
-                                    default: human-gut
-                                    type: string
-                                  scientific_name:
-                                    allowed:
-                                      - human gut metagenome
-                                    default: human gut metagenome
-                                    type: string
-                                  taxon_id:
-                                    allowed:
-                                      - 408170
-                                    default: 408170
-                                    type: integer
+                                  <<: *human_gut__env_pkg__sci_name__tax_id
                               colon content:
-                                base_type: "_gut"
-                              colon mucosa:
-                                base_type: "_gut"
-                              anal swab:
-                                base_type: "_gut"
                                 metadata_fields:
+                                  <<: *human_gut__env_pkg__sci_name__tax_id
+                              colon mucosa:
+                                metadata_fields:
+                                  <<: *human_gut__env_pkg__sci_name__tax_id
+                              anal swab:
+                                metadata_fields:
+                                  <<: *human_gut__env_pkg__sci_name__tax_id
                                   env_material: *env_material_fecal
                                   host_body_habitat: *host_body_habitat_gi
                                   host_body_site:
@@ -1015,8 +1040,10 @@ host_type_specific_metadata:
                                     default: anal swab
                                     type: string
                               rectal swab:
-                                base_type: "_gut"
+                                base_type: "_intestinal content"
                                 metadata_fields:
+                                  <<: *human_gut__env_pkg__sci_name__tax_id
+                                  env_material: *env_material_fecal
                                   host_body_site:
                                     allowed:
                                       - UBERON:rectum
@@ -1028,9 +1055,9 @@ host_type_specific_metadata:
                                     default: rectal swab
                                     type: string
                               meconium:
-                                base_type: "_gut"
+                                base_type: "feces"
                                 metadata_fields:
-                                  env_material: *env_material_fecal
+                                  <<: *human_gut__env_pkg__sci_name__tax_id
                                   host_body_habitat:
                                     allowed:
                                       - UBERON:meconium
@@ -1141,22 +1168,10 @@ host_type_specific_metadata:
                                       - oropharynx
                                     default: oropharynx
                                     type: string
-                              _lung:
-                                base_type: "_respiratory"
-                                metadata_fields:
-                                  scientific_name:
-                                    allowed:
-                                      - human lung metagenome
-                                    default: human lung metagenome
-                                    type: string
-                                  taxon_id:
-                                    allowed:
-                                      - 433733
-                                    default: 433733
-                                    type: integer
                               bronchoalveolar lavage fluid:
-                                base_type: "_lung"
                                 metadata_fields:
+                                  <<: *human_lung__host_body_habitat__sci_name__tax_id
+                                  empo_4: *empo_4_animal_secretion
                                   env_material: *env_material_mucus
                                   host_body_site:
                                     allowed:
@@ -1170,8 +1185,9 @@ host_type_specific_metadata:
                                     default: bronchoalveolar lavage fluid
                                     type: string
                               lung tissue:
-                                base_type: "_lung"
                                 metadata_fields:
+                                  <<: *human_lung__host_body_habitat__sci_name__tax_id
+                                  empo_4: *empo_4_animal_corpus
                                   env_material: *env_material_bodily_fluid
                                   host_body_site:
                                     allowed:
@@ -1189,8 +1205,8 @@ host_type_specific_metadata:
                                     default: lung
                                     type: string
                               sputum:
-                                base_type: "_lung"
                                 metadata_fields:
+                                  <<: *human_lung__host_body_habitat__sci_name__tax_id
                                   scientific_name:
                                     allowed:
                                       - human sputum metagenome
