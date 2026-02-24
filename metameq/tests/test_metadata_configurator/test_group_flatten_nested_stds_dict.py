@@ -978,11 +978,10 @@ class TestFlattenNestedStdsDict(ConfiguratorTestBase):
             you really are getting the whole package of its metadata fields from
             all levels of its own hierarchy, not just the fields defined directly on
             the closest definition of the base type itself.
-        (c) Fields defined anywhere in the hierarchy of the name ancestors or the 
+        (c) Fields defined anywhere in the hierarchy of the name ancestors or the
             base type ancestors  that are not re-defined anywhere else
             are carried through to the child.
 
-        
         """
         input_dict = {
             HOST_TYPE_SPECIFIC_METADATA_KEY: {
@@ -993,6 +992,11 @@ class TestFlattenNestedStdsDict(ConfiguratorTestBase):
                             TYPE_KEY: "string",
                             DEFAULT_KEY: "host_val"
                         }
+                    },
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_biome",
+                        ALLOWED_KEY: ["host_biome"]
                     },
                     SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
                         "stool": {
@@ -1101,8 +1105,9 @@ class TestFlattenNestedStdsDict(ConfiguratorTestBase):
                             DEFAULT_KEY: "human_val"},
                         # env_biome is not defined in human stool
                         # but is defined in the name ancestor
-                        # (host-associated stool) and the base_type
-                        # (intestinial content stool at human level).
+                        # (host-associated stool), the base_type
+                        # (intestinial content stool at human level),
+                        # and the host type (host);
                         # the name ancestor's value wins.
                         "env_biome": {
                             TYPE_KEY: "string",
@@ -1123,7 +1128,7 @@ class TestFlattenNestedStdsDict(ConfiguratorTestBase):
                             TYPE_KEY: "string",
                             DEFAULT_KEY: "host_stool_only_val"
                         },
-                        # fields from the base type's ancestor 
+                        # fields from the base type's ancestor
                         # (host-associated intestinal content)
                         # that are not re-defined anywhere else are carried
                         # through to the child with that base type (human stool).
@@ -1198,6 +1203,207 @@ class TestFlattenNestedStdsDict(ConfiguratorTestBase):
 
         self.assertDictEqual(expected_human, result["human"])
 
+    def test_flatten_nested_stds_dict_different_base_type_at_lower_level(self):
+        """Test when a sample type has base_type at an internal level and is
+        redefined with a DIFFERENT base_type at a lower level.
+
+        host_associated defines stool with base_type="generic_stool_a".
+        Human (child) redefines stool with base_type="generic_stool_b".
+
+        Finding: the child's base_type replaces the ancestor's base_type.
+        During the combine phase, both ancestor and child stool have
+        metadata_fields, so they merge; the child's base_type overwrites
+        the ancestor's (line 444-445 of metadata_configurator). During
+        resolution, only generic_stool_b's fields are used as the base
+        for human stool--generic_stool_a's fields do not contribute.
+        However, the ancestor stool's directly-defined metadata_fields
+        (not from its base_type, which hasn't been resolved yet at
+        combine time) ARE carried through to the child.
+        """
+        input_dict = {
+            HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                "host_associated": {
+                    DEFAULT_KEY: "not provided",
+                    METADATA_FIELDS_KEY: {
+                        "host_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "host_val"
+                        }
+                    },
+                    SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                        "generic_stool_a": {
+                            METADATA_FIELDS_KEY: {
+                                "env_biome": {
+                                    TYPE_KEY: "string",
+                                    DEFAULT_KEY: "biome_from_a",
+                                    ALLOWED_KEY: ["biome_from_a"]
+                                },
+                                "field_unique_to_a": {
+                                    TYPE_KEY: "string",
+                                    DEFAULT_KEY: "a_only_val"
+                                }
+                            }
+                        },
+                        "stool": {
+                            BASE_TYPE_KEY: "generic_stool_a",
+                            METADATA_FIELDS_KEY: {
+                                "stool_specific_field": {
+                                    TYPE_KEY: "string",
+                                    DEFAULT_KEY: "ancestor_stool_val"
+                                }
+                            }
+                        }
+                    },
+                    HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                        "human": {
+                            METADATA_FIELDS_KEY: {
+                                "human_field": {
+                                    TYPE_KEY: "string",
+                                    DEFAULT_KEY: "human_val"
+                                }
+                            },
+                            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                                "generic_stool_b": {
+                                    METADATA_FIELDS_KEY: {
+                                        "env_biome": {
+                                            TYPE_KEY: "string",
+                                            DEFAULT_KEY: "biome_from_b",
+                                            ALLOWED_KEY: ["biome_from_b"]
+                                        },
+                                        "field_unique_to_b": {
+                                            TYPE_KEY: "string",
+                                            DEFAULT_KEY: "b_only_val"
+                                        }
+                                    }
+                                },
+                                "stool": {
+                                    BASE_TYPE_KEY: "generic_stool_b",
+                                    METADATA_FIELDS_KEY: {
+                                        "human_stool_field": {
+                                            TYPE_KEY: "string",
+                                            DEFAULT_KEY: "human_stool_val"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        expected_human = {
+            DEFAULT_KEY: "not provided",
+            METADATA_FIELDS_KEY: {
+                "host_field": {
+                    TYPE_KEY: "string", DEFAULT_KEY: "host_val"},
+                "human_field": {
+                    TYPE_KEY: "string", DEFAULT_KEY: "human_val"}
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "host_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "host_val"},
+                        "human_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "human_val"},
+                        # env_biome comes from generic_stool_b (the
+                        # child's base_type), NOT generic_stool_a (the
+                        # ancestor's base_type), because the child's
+                        # base_type replaced the ancestor's.
+                        "env_biome": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "biome_from_b",
+                            ALLOWED_KEY: ["biome_from_b"]},
+                        # field_unique_to_b comes from generic_stool_b
+                        "field_unique_to_b": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "b_only_val"},
+                        # field_unique_to_a does NOT appear because
+                        # generic_stool_a is no longer the base_type
+                        # for human stool.
+
+                        # stool_specific_field from ancestor stool's
+                        # directly-defined metadata_fields IS carried
+                        # through (it was merged during combine phase
+                        # before base_type resolution).
+                        "stool_specific_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "ancestor_stool_val"},
+                        "human_stool_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "human_stool_val"},
+                        SAMPLE_TYPE_KEY: {
+                            ALLOWED_KEY: ["stool"],
+                            DEFAULT_KEY: "stool",
+                            TYPE_KEY: "string"},
+                        QIITA_SAMPLE_TYPE: {
+                            ALLOWED_KEY: ["stool"],
+                            DEFAULT_KEY: "stool",
+                            TYPE_KEY: "string"}
+                    }
+                },
+                # generic_stool_a is inherited from host_associated
+                "generic_stool_a": {
+                    METADATA_FIELDS_KEY: {
+                        "host_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "host_val"},
+                        "human_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "human_val"},
+                        "env_biome": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "biome_from_a",
+                            ALLOWED_KEY: ["biome_from_a"]},
+                        "field_unique_to_a": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "a_only_val"},
+                        SAMPLE_TYPE_KEY: {
+                            ALLOWED_KEY: ["generic_stool_a"],
+                            DEFAULT_KEY: "generic_stool_a",
+                            TYPE_KEY: "string"},
+                        QIITA_SAMPLE_TYPE: {
+                            ALLOWED_KEY: ["generic_stool_a"],
+                            DEFAULT_KEY: "generic_stool_a",
+                            TYPE_KEY: "string"}
+                    }
+                },
+                # generic_stool_b is defined at the human level
+                "generic_stool_b": {
+                    METADATA_FIELDS_KEY: {
+                        "host_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "host_val"},
+                        "human_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "human_val"},
+                        "env_biome": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "biome_from_b",
+                            ALLOWED_KEY: ["biome_from_b"]},
+                        "field_unique_to_b": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "b_only_val"},
+                        SAMPLE_TYPE_KEY: {
+                            ALLOWED_KEY: ["generic_stool_b"],
+                            DEFAULT_KEY: "generic_stool_b",
+                            TYPE_KEY: "string"},
+                        QIITA_SAMPLE_TYPE: {
+                            ALLOWED_KEY: ["generic_stool_b"],
+                            DEFAULT_KEY: "generic_stool_b",
+                            TYPE_KEY: "string"}
+                    }
+                }
+            }
+        }
+
+        result = flatten_nested_stds_dict(input_dict, None)
+
+        self.maxDiff = None
+        self.assertDictEqual(expected_human, result["human"])
 
     def test_flatten_nested_stds_dict_preserves_sample_types(self):
         """Test that sample_type_specific_metadata is correctly inherited through nesting."""
