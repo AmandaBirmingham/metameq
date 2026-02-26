@@ -1,6 +1,7 @@
 "default": "not applicable"
 "leave_requireds_blank": false
 "overwrite_non_nans": false
+"host_overrides_ancestor_sample_type": false
 "hosttype_column_options":
   - "host_common_name"
 "sampletype_column_options":

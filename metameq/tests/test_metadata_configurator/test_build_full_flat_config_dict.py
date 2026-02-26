@@ -15,7 +15,8 @@ from metameq.src.util import \
     QIITA_SAMPLE_TYPE, \
     HOSTTYPE_COL_OPTIONS_KEY, \
     SAMPLETYPE_COL_OPTIONS_KEY, \
-    STUDY_SPECIFIC_METADATA_KEY
+    STUDY_SPECIFIC_METADATA_KEY, \
+    HOST_OVERRIDES_ANCESTOR_SAMPLE_TYPE_KEY
 from metameq.src.metadata_configurator import \
     build_full_flat_config_dict
 from metameq.tests.test_metadata_configurator.conftest import \
@@ -1774,6 +1775,7 @@ class TestBuildFullFlatConfigDict(ConfiguratorTestBase):
             DEFAULT_KEY: "not applicable",
             LEAVE_REQUIREDS_BLANK_KEY: False,
             OVERWRITE_NON_NANS_KEY: False,
+            HOST_OVERRIDES_ANCESTOR_SAMPLE_TYPE_KEY: False,
             HOSTTYPE_COL_OPTIONS_KEY: ["host_common_name"],
             SAMPLETYPE_COL_OPTIONS_KEY: ["sample_type"],
             # Transformers from test_standards.yml
@@ -2309,3 +2311,82 @@ class TestBuildFullFlatConfigDict(ConfiguratorTestBase):
             }
         }
         self.assertEqual(expected, result)
+
+    def test_build_full_flat_config_dict_host_overrides_false_preserves_inherited(self):
+        """Test that override=False preserves inherited sample type fields.
+
+        When host_overrides_ancestor_sample_type is False (default), a
+        study-config host-level field that conflicts with an inherited
+        sample type field does NOT override it: the inherited sample type
+        value is preserved in the final flattened output.
+
+        test_standards.yml: host_associated > stool has body_site="gut".
+        Study config gives human a host-level body_site="whole body".
+        With override=False, human > stool > body_site should stay "gut".
+        """
+        software_config = {
+            HOST_OVERRIDES_ANCESTOR_SAMPLE_TYPE_KEY: False,
+        }
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "body_site": {
+                                DEFAULT_KEY: "whole body",
+                                TYPE_KEY: "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_FP)
+
+        human_stool = result[HOST_TYPE_SPECIFIC_METADATA_KEY][
+            "human"][SAMPLE_TYPE_SPECIFIC_METADATA_KEY][
+            "stool"][METADATA_FIELDS_KEY]
+
+        # Inherited sample type body_site="gut" is preserved
+        self.assertEqual("gut", human_stool["body_site"][DEFAULT_KEY])
+
+    def test_build_full_flat_config_dict_host_overrides_true_overrides_inherited(self):
+        """Test that override=True lets host-level fields override inherited ones.
+
+        When host_overrides_ancestor_sample_type is True, a study-config
+        host-level field that conflicts with an inherited sample type field
+        DOES override it in the final flattened output.
+
+        test_standards.yml: host_associated > stool has body_site="gut".
+        Study config gives human a host-level body_site="whole body".
+        With override=True, human > stool > body_site should be "whole body".
+        """
+        software_config = {
+            HOST_OVERRIDES_ANCESTOR_SAMPLE_TYPE_KEY: True,
+        }
+        study_config = {
+            STUDY_SPECIFIC_METADATA_KEY: {
+                HOST_TYPE_SPECIFIC_METADATA_KEY: {
+                    "human": {
+                        METADATA_FIELDS_KEY: {
+                            "body_site": {
+                                DEFAULT_KEY: "whole body",
+                                TYPE_KEY: "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        result = build_full_flat_config_dict(
+            study_config, software_config, self.TEST_STDS_FP)
+
+        human_stool = result[HOST_TYPE_SPECIFIC_METADATA_KEY][
+            "human"][SAMPLE_TYPE_SPECIFIC_METADATA_KEY][
+            "stool"][METADATA_FIELDS_KEY]
+
+        # Host-level body_site="whole body" overrides inherited "gut"
+        self.assertEqual("whole body", human_stool["body_site"][DEFAULT_KEY])

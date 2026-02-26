@@ -258,8 +258,8 @@ class TestExtendMetadataFromFullFlatConfig(ExtenderTestBase):
                 input_df, self.BASIC_FLAT_CONFIG, None,
                 "nonexistent_col", None)
 
-    def test_col_name_conflict_raises(self):
-        """Test that both internal and alternate columns raises ValueError."""
+    def test_col_name_conflict_warns_and_uses_internal_key(self):
+        """Test that both internal and alternate columns warns and uses internal key."""
         input_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
             HOSTTYPE_SHORTHAND_KEY: ["human"],
@@ -267,10 +267,15 @@ class TestExtendMetadataFromFullFlatConfig(ExtenderTestBase):
             SAMPLETYPE_SHORTHAND_KEY: ["stool"]
         })
 
-        with self.assertRaisesRegex(ValueError, "contains both"):
-            _extend_metadata_from_full_flat_config(
-                input_df, self.BASIC_FLAT_CONFIG, None,
-                "host_type", None)
+        with self.assertLogs("metameq.src.metadata_extender", level="WARNING") as cm:
+            result_df, validation_msgs_df, col_name_mapping = \
+                _extend_metadata_from_full_flat_config(
+                    input_df, self.BASIC_FLAT_CONFIG, None,
+                    "host_type", None)
+
+        self.assertTrue(any("contains both" in msg for msg in cm.output))
+        self.assertEqual(HOSTTYPE_SHORTHAND_KEY,
+                         col_name_mapping[HOSTTYPE_SHORTHAND_KEY])
 
     def test_unknown_host_type(self):
         """Test that unknown host type adds QC note."""

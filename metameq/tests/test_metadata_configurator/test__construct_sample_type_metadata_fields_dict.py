@@ -109,6 +109,53 @@ class TestConstructSampleTypeMetadataFieldsDict(ConfiguratorTestBase):
             _construct_sample_type_metadata_fields_dict(
                 "feces", host_sample_types_config_dict, host_metadata_fields_dict)
 
+    def test__construct_sample_type_metadata_fields_dict_chained_base_type_raises(self):
+        """Test that chained base types raise ValueError."""
+        host_sample_types_config_dict = {
+            "grandparent": {
+                METADATA_FIELDS_KEY: {
+                    "gp_field": {DEFAULT_KEY: "gp_val"}
+                }
+            },
+            "parent": {
+                BASE_TYPE_KEY: "grandparent",
+                METADATA_FIELDS_KEY: {
+                    "parent_field": {DEFAULT_KEY: "parent_val"}
+                }
+            },
+            "child": {
+                BASE_TYPE_KEY: "parent",
+                METADATA_FIELDS_KEY: {
+                    "child_field": {DEFAULT_KEY: "child_val"}
+                }
+            }
+        }
+        host_metadata_fields_dict = {}
+
+        with self.assertRaisesRegex(
+                ValueError, "Chained base types are not allowed"):
+            _construct_sample_type_metadata_fields_dict(
+                "child", host_sample_types_config_dict,
+                host_metadata_fields_dict)
+
+    def test__construct_sample_type_metadata_fields_dict_self_referential_base_raises(self):
+        """Test that a sample type referencing itself as base raises ValueError."""
+        host_sample_types_config_dict = {
+            "stool": {
+                BASE_TYPE_KEY: "stool",
+                METADATA_FIELDS_KEY: {
+                    "stool_field": {DEFAULT_KEY: "stool_val"}
+                }
+            }
+        }
+        host_metadata_fields_dict = {}
+
+        with self.assertRaisesRegex(
+                ValueError, "has itself as its base type"):
+            _construct_sample_type_metadata_fields_dict(
+                "stool", host_sample_types_config_dict,
+                host_metadata_fields_dict)
+
     def test__construct_sample_type_metadata_fields_dict_with_base_type(self):
         """Test that base type fields are inherited and overlaid."""
         host_sample_types_config_dict = {

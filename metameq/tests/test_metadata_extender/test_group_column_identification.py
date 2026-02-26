@@ -551,19 +551,22 @@ class TestFindInternalColSourceName(ExtenderTestBase):
 
         self.assertIsNone(result)
 
-    def test__find_internal_col_source_name_param_key_both_cols_raises(self):
-        """Test raises ValueError when both internal_key and param_key columns exist."""
+    def test__find_internal_col_source_name_param_key_both_cols_warns(self):
+        """Test warns and returns None when both internal_key and param_key columns exist."""
         input_df = pandas.DataFrame({
             "host_type": ["human"],
             HOSTTYPE_SHORTHAND_KEY: ["human"]
         })
         config_dict = {}
 
-        with self.assertRaisesRegex(ValueError, "contains both"):
-            _find_internal_col_source_name(
+        with self.assertLogs("metameq.src.metadata_extender", level="WARNING") as cm:
+            result = _find_internal_col_source_name(
                 input_df, config_dict,
                 "host_type", HOSTTYPE_SHORTHAND_KEY,
                 HOSTTYPE_COL_OPTIONS_KEY)
+
+        self.assertIsNone(result)
+        self.assertTrue(any("contains both" in msg for msg in cm.output))
 
     def test__find_internal_col_source_name_param_key_not_in_df_raises(self):
         """Test raises ValueError when param_key column not found in df."""
@@ -623,8 +626,8 @@ class TestFindInternalColSourceName(ExtenderTestBase):
 
         self.assertIsNone(result)
 
-    def test__find_internal_col_source_name_default_both_cols_raises(self):
-        """Test raises ValueError when default column and internal_key both exist in df."""
+    def test__find_internal_col_source_name_default_both_cols_warns(self):
+        """Test warns and returns None when default column and internal_key both exist in df."""
         input_df = pandas.DataFrame({
             "host_type": ["human"],
             HOSTTYPE_SHORTHAND_KEY: ["human"]
@@ -633,7 +636,10 @@ class TestFindInternalColSourceName(ExtenderTestBase):
             HOSTTYPE_COL_OPTIONS_KEY: ["host_type"]
         }
 
-        with self.assertRaisesRegex(ValueError, "contains both"):
-            _find_internal_col_source_name(
+        with self.assertLogs("metameq.src.metadata_extender", level="WARNING") as cm:
+            result = _find_internal_col_source_name(
                 input_df, config_dict,
                 None, HOSTTYPE_SHORTHAND_KEY, HOSTTYPE_COL_OPTIONS_KEY)
+
+        self.assertIsNone(result)
+        self.assertTrue(any("contains both" in msg for msg in cm.output))

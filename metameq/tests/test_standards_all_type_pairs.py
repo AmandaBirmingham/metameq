@@ -9,6 +9,7 @@ To regenerate the golden files after an intentional standards change:
     pytest metameq/tests/test_standards_all_type_pairs.py --update-golden
 """
 
+import glob
 import os
 import pandas
 import pytest
@@ -108,3 +109,22 @@ def test_extend_type_pair(host_type, sample_type, update_golden):
     expected_df = pandas.read_csv(golden_fp, dtype=str, keep_default_na=False)
 
     assert_frame_equal(result_df, expected_df)
+
+
+def test_no_stale_golden_files():
+    """Fail if the golden directory contains CSVs that don't correspond to any
+    current (host_type, sample_type) pair.  This catches leftovers from
+    removed type pairs without requiring --update-golden."""
+    expected_filenames = {
+        f"{_make_pair_id(h, s)}.csv" for h, s in _ALL_PAIRS
+    }
+    actual_filenames = {
+        os.path.basename(fp)
+        for fp in glob.glob(os.path.join(GOLDEN_DIR, "*.csv"))
+    }
+    stale = sorted(actual_filenames - expected_filenames)
+    assert not stale, (
+        "Stale golden files found (no matching type pair in standards):\n"
+        + "\n".join(f"  {f}" for f in stale)
+        + "\nRun with --update-golden to regenerate."
+    )

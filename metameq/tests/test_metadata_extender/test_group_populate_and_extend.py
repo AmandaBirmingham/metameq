@@ -1006,8 +1006,8 @@ class TestExtendMetadataDf(ExtenderTestBase):
                 input_df, study_config, None, None, self.TEST_STDS_FP,
                 hosttype_col_name="nonexistent_col")
 
-    def test_extend_metadata_df_col_name_conflicts_raises(self):
-        """Test that both internal and alternate columns existing raises ValueError."""
+    def test_extend_metadata_df_col_name_conflicts_warns_and_uses_internal_key(self):
+        """Test that both internal and alternate columns warns and uses internal key."""
         input_df = pandas.DataFrame({
             SAMPLE_NAME_KEY: ["sample1"],
             HOSTTYPE_SHORTHAND_KEY: ["human"],
@@ -1016,7 +1016,9 @@ class TestExtendMetadataDf(ExtenderTestBase):
         })
         study_config = {}
 
-        with self.assertRaisesRegex(ValueError, "contains both"):
-            extend_metadata_df(
+        with self.assertLogs("metameq.src.metadata_extender", level="WARNING") as cm:
+            result_df, validation_msgs_df = extend_metadata_df(
                 input_df, study_config, None, None, self.TEST_STDS_FP,
                 hosttype_col_name="host_type")
+
+        self.assertTrue(any("contains both" in msg for msg in cm.output))

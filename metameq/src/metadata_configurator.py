@@ -5,12 +5,14 @@ from metameq.src.util import METADATA_TRANSFORMERS_KEY, extract_config_dict, ext
     HOST_TYPE_SPECIFIC_METADATA_KEY, \
     SAMPLE_TYPE_SPECIFIC_METADATA_KEY, ALIAS_KEY, BASE_TYPE_KEY, \
     DEFAULT_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
-    SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, GLOBAL_SETTINGS_KEYS
+    SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, GLOBAL_SETTINGS_KEYS, \
+    HOST_OVERRIDES_ANCESTOR_SAMPLE_TYPE_KEY
 
 
 def combine_stds_and_study_config(
         study_config_dict: Dict[str, Any],
-        stds_fp: Optional[str] = None) \
+        stds_fp: Optional[str] = None,
+        host_overrides_ancestor_sample_type: bool = False) \
         -> Dict[str, Any]:
     """Combine standards and study-specific configuration dictionaries.
 
@@ -27,6 +29,9 @@ def combine_stds_and_study_config(
         and other top-level configuration keys.
     stds_fp : Optional[str], default=None
         Path to standards dictionary file.
+    host_overrides_ancestor_sample_type : bool, default=False
+        If True, host-level metadata fields override inherited ancestor
+        sample-type-level metadata fields during combining.
 
     Returns
     -------
@@ -45,7 +50,8 @@ def combine_stds_and_study_config(
     study_flat_dict = study_config_dict_local.pop(STUDY_SPECIFIC_METADATA_KEY, {})
 
     combined_host_types_dict = _make_combined_stds_and_study_host_type_dicts(
-        study_flat_dict, stds_nested_dict)
+        study_flat_dict, stds_nested_dict,
+        host_overrides_ancestor_sample_type)
 
     combined_transformers_dict = _combine_metadata_transformers_dicts(
         stds_nested_dict, study_config_dict_local)
@@ -217,7 +223,8 @@ def update_wip_metadata_dict(
 
 def _make_combined_stds_and_study_host_type_dicts(
         flat_study_dict: Dict[str, Any],
-        parent_host_stds_nested_dict: Dict[str, Any]) \
+        parent_host_stds_nested_dict: Dict[str, Any],
+        host_overrides_ancestor_sample_type: bool = False) \
         -> Dict[str, Any]:
     """Combine standards and study-specific host type dictionaries.
 
@@ -236,6 +243,9 @@ def _make_combined_stds_and_study_host_type_dicts(
         only the contents of the STUDY_SPECIFIC_METADATA_KEY section thereof.
     parent_host_stds_nested_dict : Dict[str, Any]
         Parent (previous host)-level standards nested dictionary.
+    host_overrides_ancestor_sample_type : bool, default=False
+        If True, host-level metadata fields override inherited ancestor
+        sample-type-level metadata fields during combining.
 
     Returns
     -------
@@ -269,7 +279,8 @@ def _make_combined_stds_and_study_host_type_dicts(
             curr_host_type_wip_nested_dict = \
                 _combine_base_and_added_host_type(
                     curr_host_type_stds_nested_dict,
-                    study_host_types_dict[curr_host_type])
+                    study_host_types_dict[curr_host_type],
+                    host_overrides_ancestor_sample_type)
         # endif the host type isn't/is in the study dict
 
         # recurse into the next level--depth first search.
@@ -277,7 +288,8 @@ def _make_combined_stds_and_study_host_type_dicts(
         curr_host_type_sub_host_dict = \
             _make_combined_stds_and_study_host_type_dicts(
                 flat_study_dict,
-                curr_host_type_stds_nested_dict)
+                curr_host_type_stds_nested_dict,
+                host_overrides_ancestor_sample_type)
         if curr_host_type_sub_host_dict:
             curr_host_type_wip_nested_dict[HOST_TYPE_SPECIFIC_METADATA_KEY] = \
                 curr_host_type_sub_host_dict
@@ -294,7 +306,8 @@ def _make_combined_stds_and_study_host_type_dicts(
 
 def _combine_base_and_added_host_type(
         host_type_base_dict: Dict[str, Any],
-        host_type_add_dict: Dict[str, Any]) -> Dict[str, Any]:
+        host_type_add_dict: Dict[str, Any],
+        host_overrides_ancestor_sample_type: bool = False) -> Dict[str, Any]:
     """Combine base and additional host type configurations.
 
     Parameters
@@ -303,6 +316,9 @@ def _combine_base_and_added_host_type(
         Base host type configuration dictionary.
     host_type_add_dict : Dict[str, Any]
         Additional host type configuration to incorporate.
+    host_overrides_ancestor_sample_type : bool, default=False
+        If True, host-level metadata fields override inherited ancestor
+        sample-type-level metadata fields during combining.
 
     Returns
     -------
@@ -336,7 +352,8 @@ def _combine_base_and_added_host_type(
     curr_host_wip_sample_types_dict = \
         _combine_base_and_added_sample_type_specific_metadata(
             host_type_wip_nested_dict,
-            host_type_add_dict)
+            host_type_add_dict,
+            host_overrides_ancestor_sample_type)
 
     # if we got back a non-empty dictionary of sample types,
     # add it to the wip for this host type dict
@@ -383,9 +400,55 @@ def _combine_base_and_added_metadata_fields(
     return host_type_wip_metadata_fields_dict
 
 
+def _apply_host_overrides_to_inherited_sample_types(
+        wip_sample_types_dict: Dict[str, Any],
+        host_metadata_fields_dict: Dict[str, Any]) -> Dict[str, Any]:
+    """Layer host-level metadata fields onto all inherited base sample types.
+
+    For each sample type in the work-in-progress dictionary that has its own
+    metadata_fields, layer the host-level metadata fields on top so that
+    host-level values take priority over ancestral sample-type-level values
+    where they overlap.
+
+    Sample types that are aliases or base_type-only entries (i.e., those
+    without a metadata_fields key) are skipped; they will inherit the
+    host fields later when resolved to their targets.
+
+    Parameters
+    ----------
+    wip_sample_types_dict : Dict[str, Any]
+        Work-in-progress sample types dictionary.
+    host_metadata_fields_dict : Dict[str, Any]
+        Host-level metadata fields to layer onto each sample type.
+
+    Returns
+    -------
+    Dict[str, Any]
+        Updated sample types dictionary with host fields layered onto
+        sample types that have metadata_fields.
+    """
+    output_sample_types_dict = deepcopy_dict(wip_sample_types_dict)
+
+    for curr_base_sample_type_dict in output_sample_types_dict.values():
+        # skip alias and base_type-only entries; they will inherit
+        # host fields when resolved to their targets
+        if METADATA_FIELDS_KEY not in curr_base_sample_type_dict:
+            continue
+
+        curr_base_sample_type_metadata_fields_dict = \
+            curr_base_sample_type_dict[METADATA_FIELDS_KEY]
+        curr_base_sample_type_dict[METADATA_FIELDS_KEY] = \
+            update_wip_metadata_dict(
+                curr_base_sample_type_metadata_fields_dict,
+                host_metadata_fields_dict)
+
+    return output_sample_types_dict
+
+
 def _combine_base_and_added_sample_type_specific_metadata(
         host_type_base_dict: Dict[str, Any],
-        host_type_add_dict: Dict[str, Any]) -> Dict[str, Any]:
+        host_type_add_dict: Dict[str, Any],
+        current_host_overrides_ancestor_sample_type: bool = False) -> Dict[str, Any]:
     """Combine just sample type specific metadata from base and additional host type dictionaries.
 
     Parameters
@@ -410,10 +473,18 @@ def _combine_base_and_added_sample_type_specific_metadata(
         host_type_base_dict.get(
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {}))
 
+    if current_host_overrides_ancestor_sample_type:
+        curr_host_wip_sample_types_dict = \
+            _apply_host_overrides_to_inherited_sample_types(
+                curr_host_wip_sample_types_dict,
+                host_type_add_dict.get(METADATA_FIELDS_KEY, {}))
+    # endif the current host overrides ancestor sample type flag is true
+
     # loop over the sample types in the add dict
     curr_host_add_sample_types_dict = \
         host_type_add_dict.get(
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY, {})
+
     for curr_sample_type, curr_sample_type_add_dict \
             in curr_host_add_sample_types_dict.items():
 
@@ -560,7 +631,11 @@ def _construct_sample_type_metadata_fields_dict(
         sample_type_for_metadata = sample_type_alias
         sample_type_specific_dict = \
             host_sample_types_config_dict[sample_type_alias]
-        if METADATA_FIELDS_KEY not in sample_type_specific_dict:
+        # note that sample_type_specific_dict is now the dict for
+        # the alias sample type, not the original naive sample type;
+        # if IT has an alias, that would mean we are trying
+        # to chain aliases, which is not allowed.
+        if ALIAS_KEY in sample_type_specific_dict:
             raise ValueError(f"May not chain aliases "
                              f"('{sample_type}' to '{sample_type_alias}')")
     # endif sample type is an alias
@@ -568,9 +643,24 @@ def _construct_sample_type_metadata_fields_dict(
     # if the sample type has a base type
     sample_type_base = sample_type_specific_dict.get(BASE_TYPE_KEY)
     if sample_type_base:
-        # get the base's sample type dict and add this sample type's
-        # info on top of it
+        # if the base type is the same as the current sample type,
+        # that is circular and not allowed
+        if sample_type_base == sample_type:
+            raise ValueError(f"Sample type '{sample_type}' has itself as its base type.")
+
+        # get the base's sample type dict
         base_sample_dict = host_sample_types_config_dict[sample_type_base]
+
+        # if the base sample type dict ALSO has a (different) base type,
+        # that is not allowed
+        base_sample_base = base_sample_dict.get(BASE_TYPE_KEY)
+        if base_sample_base:
+            raise ValueError(f"Sample type '{sample_type}' has base type "
+                             f"'{sample_type_base}', which has base type "
+                             f"'{base_sample_base}'."
+                             f" Chained base types are not allowed.")
+
+        # add this sample type's info on top of the base type's info
         sample_type_specific_dict_metadata = update_wip_metadata_dict(
             deepcopy_dict(base_sample_dict[METADATA_FIELDS_KEY]),
             sample_type_specific_dict.get(METADATA_FIELDS_KEY, {}))
@@ -690,11 +780,18 @@ def build_full_flat_config_dict(
     software_plus_study_flat_config_dict = \
         software_config_dict | software_plus_study_flat_config_dict
 
+    # extract the host_overrides_ancestor_sample_type setting from the
+    # merged config (software defaults + study overrides)
+    host_overrides_ancestor_sample_type = \
+        software_plus_study_flat_config_dict.get(
+            HOST_OVERRIDES_ANCESTOR_SAMPLE_TYPE_KEY, False)
+
     # combine the software+study flat-host-type config's host type specific info
     # with the standards nested-host-type config's host type specific info
     # to get a full combined, nested dictionary starting from HOST_TYPE_SPECIFIC_METADATA_KEY
     full_nested_hosts_dict = combine_stds_and_study_config(
-        software_plus_study_flat_config_dict, stds_fp)
+        software_plus_study_flat_config_dict, stds_fp,
+        host_overrides_ancestor_sample_type)
 
     full_nested_hosts_dict = _push_global_settings_into_top_host(
             full_nested_hosts_dict)
@@ -719,7 +816,7 @@ def build_full_flat_config_dict(
                 full_flat_config_dict[HOST_TYPE_SPECIFIC_METADATA_KEY].items():
             if SAMPLE_TYPE_SPECIFIC_METADATA_KEY in host_type_dict:
                 internal_sample_types = [
-                    sample_type for sample_type in 
+                    sample_type for sample_type in
                     host_type_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY].keys()
                     if sample_type.startswith("_")]
                 for sample_type in internal_sample_types:
