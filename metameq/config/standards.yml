@@ -1855,7 +1855,7 @@ host_type_specific_metadata:
                                   <<: *mouse_gut__sci_name__tax_id
                               feces:
                                 metadata_fields:
-                                  <<: *mouse_gut__sci_name__tax_id 
+                                  <<: *mouse_gut__sci_name__tax_id
                               skin:
                                 metadata_fields: &mouse_skin__sci_name__tax_id
                                   scientific_name:
