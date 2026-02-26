@@ -7,6 +7,7 @@ from metameq.src.util import \
     ALLOWED_KEY, \
     BASE_TYPE_KEY
 from metameq.src.metadata_configurator import \
+    _apply_host_overrides_to_inherited_sample_types, \
     _combine_base_and_added_metadata_fields, \
     _combine_base_and_added_host_type, \
     _combine_base_and_added_sample_type_specific_metadata
@@ -612,3 +613,798 @@ class TestCombineBaseAndAddedSampleTypeSpecificMetadata(ConfiguratorTestBase):
 
         result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
         self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_overrides_alias_entry_preserved(self):
+        """Test that when current_host_overrides_ancestor_sample_type=True,
+        alias entries in the base are left unchanged while sample types
+        with metadata_fields get host-level fields layered on top
+        (overriding on overlap).
+
+        The alias will inherit the host fields later when it is resolved
+        to its target (which already has the host fields applied).
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "env_biome": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "ancestor_biome",
+                            ALLOWED_KEY: ["ancestor_biome"]
+                        },
+                        "stool_only_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "stool_only_val"
+                        }
+                    }
+                },
+                "fe": {
+                    ALIAS_KEY: "stool"
+                }
+            }
+        }
+
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                # overlaps with stool's env_biome; host should win
+                "env_biome": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "host_biome",
+                    ALLOWED_KEY: ["host_biome"]
+                }
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    # host value overrides ancestor sample type value
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_biome",
+                        ALLOWED_KEY: ["host_biome"]
+                    },
+                    # non-overlapping field preserved from base
+                    "stool_only_field": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "stool_only_val"
+                    }
+                }
+            },
+            # alias entry is unchanged -- no METADATA_FIELDS_KEY added
+            "fe": {
+                ALIAS_KEY: "stool"
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict,
+            current_host_overrides_ancestor_sample_type=True)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_overrides_base_type_only_entry_preserved(self):
+        """Test that when current_host_overrides_ancestor_sample_type=True,
+        base_type-only entries (no metadata_fields) in the base are left
+        unchanged while sample types with metadata_fields get host-level
+        fields layered on top (overriding on overlap).
+
+        The base_type entry will inherit the host fields later when it is
+        resolved to its target (which already has the host fields applied).
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "generic_stool": {
+                    METADATA_FIELDS_KEY: {
+                        "env_biome": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "base_biome",
+                            ALLOWED_KEY: ["base_biome"]
+                        },
+                        "generic_only_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "generic_only_val"
+                        }
+                    }
+                },
+                "special_stool": {
+                    BASE_TYPE_KEY: "generic_stool"
+                }
+            }
+        }
+
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                # overlaps with generic_stool's env_biome; host should win
+                "env_biome": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "host_biome",
+                    ALLOWED_KEY: ["host_biome"]
+                }
+            }
+        }
+
+        expected = {
+            "generic_stool": {
+                METADATA_FIELDS_KEY: {
+                    # host value overrides base sample type value
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_biome",
+                        ALLOWED_KEY: ["host_biome"]
+                    },
+                    # non-overlapping field preserved from base
+                    "generic_only_field": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "generic_only_val"
+                    }
+                }
+            },
+            # base_type-only entry is unchanged -- no METADATA_FIELDS_KEY added
+            "special_stool": {
+                BASE_TYPE_KEY: "generic_stool"
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict,
+            current_host_overrides_ancestor_sample_type=True)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_overrides_host_fields_override(self):
+        """Test core overriding behavior: when
+        current_host_overrides_ancestor_sample_type=True, the add_dict's
+        host-level metadata_fields override the base_dict's
+        sample-type-level metadata_fields where they overlap.
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "ancestor_stool_desc",
+                            ALLOWED_KEY: ["ancestor_stool_desc"]
+                        }
+                    }
+                }
+            }
+        }
+
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                "description": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "host_desc",
+                    ALLOWED_KEY: ["host_desc"]
+                }
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    # host value wins over ancestor sample type value
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_desc",
+                        ALLOWED_KEY: ["host_desc"]
+                    }
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict,
+            current_host_overrides_ancestor_sample_type=True)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_overrides_no_overlap_merges_both(self):
+        """Test that when there is no field overlap between the host
+        metadata and the ancestor sample type metadata, both are present
+        in the result.
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "env_biome": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "stool_biome"
+                        }
+                    }
+                }
+            }
+        }
+
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                "host_only_field": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "host_val"
+                }
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "stool_biome"
+                    },
+                    "host_only_field": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_val"
+                    }
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict,
+            current_host_overrides_ancestor_sample_type=True)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_overrides_applies_to_all_base_sample_types(self):
+        """Test that the host-level metadata fields are layered into
+        every base sample type that has metadata_fields, not just one.
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "stool_desc"
+                        }
+                    }
+                },
+                "urine": {
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "urine_desc"
+                        }
+                    }
+                }
+            }
+        }
+
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                "description": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "host_desc"
+                }
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_desc"
+                    }
+                }
+            },
+            "urine": {
+                METADATA_FIELDS_KEY: {
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_desc"
+                    }
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict,
+            current_host_overrides_ancestor_sample_type=True)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_overrides_empty_base_sample_types(self):
+        """Test that when the base has no sample_type_specific_metadata,
+        the overriding loop has nothing to iterate and the result is empty.
+        """
+        base_dict = {}
+
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                "host_field": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "host_val"
+                }
+            }
+        }
+
+        expected = {}
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict,
+            current_host_overrides_ancestor_sample_type=True)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_overrides_empty_add_metadata_fields(self):
+        """Test that when add_dict has no host-level metadata_fields,
+        the base sample types' metadata remain unchanged.
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "env_biome": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "stool_biome"
+                        }
+                    }
+                }
+            }
+        }
+
+        add_dict = {}
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "stool_biome"
+                    }
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict,
+            current_host_overrides_ancestor_sample_type=True)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_overrides_combined_with_add_sample_types(self):
+        """Test that both the overriding behavior (for inherited base sample
+        types) and the existing combining logic (for sample types in the
+        add dict) work correctly together.
+
+        Additionally, when a field appears in both the host-level metadata
+        and in an add-dict sample type's metadata, the sample-type-specific
+        value wins. The overriding step layers host fields onto inherited
+        sample types first, then the existing combine logic layers the add
+        dict's sample-type fields on top of that.
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "ancestor_val"
+                        },
+                        "base_only_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "base_only_val"
+                        }
+                    }
+                }
+            }
+        }
+
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                # overlaps with ancestor stool's description
+                "description": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "host_val"
+                }
+            },
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        # overlaps with host-level description;
+                        # add sample type should win over host
+                        "description": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "add_sample_type_val"
+                        },
+                        "stool_field": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "stool_add_val"
+                        }
+                    }
+                },
+                # new sample type only in add
+                "blood": {
+                    METADATA_FIELDS_KEY: {
+                        "volume": {TYPE_KEY: "number"}
+                    }
+                }
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    # add sample type value beats host value:
+                    # overriding put "host_val" on inherited stool, then
+                    # existing combine layered "add_sample_type_val" on top
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "add_sample_type_val"
+                    },
+                    # preserved from base (no overlap)
+                    "base_only_field": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "base_only_val"
+                    },
+                    # new from add sample type
+                    "stool_field": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "stool_add_val"
+                    }
+                }
+            },
+            # new sample type from add, as-is
+            "blood": {
+                METADATA_FIELDS_KEY: {
+                    "volume": {TYPE_KEY: "number"}
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict,
+            current_host_overrides_ancestor_sample_type=True)
+        self.assertDictEqual(expected, result)
+
+    def test__combine_base_and_added_sample_type_specific_metadata_overrides_false_preserves_existing_behavior(self):
+        """Test that when current_host_overrides_ancestor_sample_type=False
+        (the default), the add_dict's host-level metadata does NOT
+        override inherited sample type metadata. This is a regression
+        guard: the same scenario as the override test, but with False,
+        confirms the opposite outcome.
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "description": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "ancestor_stool_desc",
+                            ALLOWED_KEY: ["ancestor_stool_desc"]
+                        }
+                    }
+                }
+            }
+        }
+
+        add_dict = {
+            METADATA_FIELDS_KEY: {
+                "description": {
+                    TYPE_KEY: "string",
+                    DEFAULT_KEY: "host_desc",
+                    ALLOWED_KEY: ["host_desc"]
+                }
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    # ancestor sample type value preserved; host does NOT override
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "ancestor_stool_desc",
+                        ALLOWED_KEY: ["ancestor_stool_desc"]
+                    }
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict,
+            current_host_overrides_ancestor_sample_type=False)
+        self.assertDictEqual(expected, result)
+
+
+class TestApplyHostOverridesToInheritedSampleTypes(ConfiguratorTestBase):
+    def test__apply_host_overrides_to_inherited_sample_types_host_fields_override(self):
+        """Test that host metadata fields override sample type metadata
+        fields where they overlap.
+        """
+        wip_sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "ancestor_stool_desc",
+                        ALLOWED_KEY: ["ancestor_stool_desc"]
+                    }
+                }
+            }
+        }
+
+        host_metadata_fields_dict = {
+            "description": {
+                TYPE_KEY: "string",
+                DEFAULT_KEY: "host_desc",
+                ALLOWED_KEY: ["host_desc"]
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_desc",
+                        ALLOWED_KEY: ["host_desc"]
+                    }
+                }
+            }
+        }
+
+        result = _apply_host_overrides_to_inherited_sample_types(
+            wip_sample_types_dict, host_metadata_fields_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__apply_host_overrides_to_inherited_sample_types_no_overlap_merges_both(self):
+        """Test that when there is no field overlap, both host and sample
+        type fields are present in the result.
+        """
+        wip_sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "stool_biome"
+                    }
+                }
+            }
+        }
+
+        host_metadata_fields_dict = {
+            "host_only_field": {
+                TYPE_KEY: "string",
+                DEFAULT_KEY: "host_val"
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "stool_biome"
+                    },
+                    "host_only_field": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_val"
+                    }
+                }
+            }
+        }
+
+        result = _apply_host_overrides_to_inherited_sample_types(
+            wip_sample_types_dict, host_metadata_fields_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__apply_host_overrides_to_inherited_sample_types_applies_to_all(self):
+        """Test that host metadata fields are layered into every sample
+        type that has metadata_fields.
+        """
+        wip_sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "stool_desc"
+                    }
+                }
+            },
+            "urine": {
+                METADATA_FIELDS_KEY: {
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "urine_desc"
+                    }
+                }
+            }
+        }
+
+        host_metadata_fields_dict = {
+            "description": {
+                TYPE_KEY: "string",
+                DEFAULT_KEY: "host_desc"
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_desc"
+                    }
+                }
+            },
+            "urine": {
+                METADATA_FIELDS_KEY: {
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_desc"
+                    }
+                }
+            }
+        }
+
+        result = _apply_host_overrides_to_inherited_sample_types(
+            wip_sample_types_dict, host_metadata_fields_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__apply_host_overrides_to_inherited_sample_types_empty_wip(self):
+        """Test that when the wip dictionary is empty, the result is empty."""
+        wip_sample_types_dict = {}
+
+        host_metadata_fields_dict = {
+            "host_field": {
+                TYPE_KEY: "string",
+                DEFAULT_KEY: "host_val"
+            }
+        }
+
+        result = _apply_host_overrides_to_inherited_sample_types(
+            wip_sample_types_dict, host_metadata_fields_dict)
+        self.assertDictEqual({}, result)
+
+    def test__apply_host_overrides_to_inherited_sample_types_empty_host_fields(self):
+        """Test that when host metadata fields dict is empty, sample types
+        remain unchanged.
+        """
+        wip_sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "stool_biome"
+                    }
+                }
+            }
+        }
+
+        host_metadata_fields_dict = {}
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "stool_biome"
+                    }
+                }
+            }
+        }
+
+        result = _apply_host_overrides_to_inherited_sample_types(
+            wip_sample_types_dict, host_metadata_fields_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__apply_host_overrides_to_inherited_sample_types_alias_skipped(self):
+        """Test that alias entries are left unchanged; only sample types
+        with metadata_fields get host fields layered on.
+        """
+        wip_sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "ancestor_biome",
+                        ALLOWED_KEY: ["ancestor_biome"]
+                    }
+                }
+            },
+            "fe": {
+                ALIAS_KEY: "stool"
+            }
+        }
+
+        host_metadata_fields_dict = {
+            "env_biome": {
+                TYPE_KEY: "string",
+                DEFAULT_KEY: "host_biome",
+                ALLOWED_KEY: ["host_biome"]
+            }
+        }
+
+        expected = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_biome",
+                        ALLOWED_KEY: ["host_biome"]
+                    }
+                }
+            },
+            "fe": {
+                ALIAS_KEY: "stool"
+            }
+        }
+
+        result = _apply_host_overrides_to_inherited_sample_types(
+            wip_sample_types_dict, host_metadata_fields_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__apply_host_overrides_to_inherited_sample_types_base_type_only_skipped(self):
+        """Test that base_type-only entries (no metadata_fields) are left
+        unchanged; only sample types with metadata_fields get host fields
+        layered on.
+        """
+        wip_sample_types_dict = {
+            "generic_stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "base_biome",
+                        ALLOWED_KEY: ["base_biome"]
+                    }
+                }
+            },
+            "special_stool": {
+                BASE_TYPE_KEY: "generic_stool"
+            }
+        }
+
+        host_metadata_fields_dict = {
+            "env_biome": {
+                TYPE_KEY: "string",
+                DEFAULT_KEY: "host_biome",
+                ALLOWED_KEY: ["host_biome"]
+            }
+        }
+
+        expected = {
+            "generic_stool": {
+                METADATA_FIELDS_KEY: {
+                    "env_biome": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "host_biome",
+                        ALLOWED_KEY: ["host_biome"]
+                    }
+                }
+            },
+            "special_stool": {
+                BASE_TYPE_KEY: "generic_stool"
+            }
+        }
+
+        result = _apply_host_overrides_to_inherited_sample_types(
+            wip_sample_types_dict, host_metadata_fields_dict)
+        self.assertDictEqual(expected, result)
+
+    def test__apply_host_overrides_to_inherited_sample_types_does_not_modify_input(self):
+        """Test that the input wip_sample_types_dict is not modified."""
+        wip_sample_types_dict = {
+            "stool": {
+                METADATA_FIELDS_KEY: {
+                    "description": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "original_val"
+                    }
+                }
+            }
+        }
+
+        host_metadata_fields_dict = {
+            "description": {
+                TYPE_KEY: "string",
+                DEFAULT_KEY: "host_val"
+            }
+        }
+
+        _apply_host_overrides_to_inherited_sample_types(
+            wip_sample_types_dict, host_metadata_fields_dict)
+
+        # input should be unchanged
+        self.assertEqual(
+            "original_val",
+            wip_sample_types_dict["stool"][METADATA_FIELDS_KEY]
+            ["description"][DEFAULT_KEY])
