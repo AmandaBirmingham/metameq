@@ -728,9 +728,10 @@ def _find_internal_col_source_name(
     if specified_name:
         if specified_name != internal_key:
             if internal_key in raw_metadata_df.columns:
-                raise ValueError(f"Metadata contains both '{internal_key}' and "
-                                 f"'{specified_name}' columns, which are both specified as "
-                                 f"names for the {internal_key} field.")
+                logger.warning(
+                    f"Metadata contains both '{internal_key}' and "
+                    f"'{specified_name}' columns; using '{internal_key}'.")
+                return None
             if specified_name not in raw_metadata_df.columns:
                 raise ValueError(
                     f"Specified {internal_key} column '{specified_name}' not found in metadata.")
