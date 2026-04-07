@@ -199,12 +199,12 @@ host_type_specific_metadata:
             required: true
             type: string
           dna_extracted:
-            allowed:
-              - 'TRUE'
-              - 'FALSE'
-              - not collected
-              - not provided
-            type: string
+            anyof:
+              - allowed:
+                - 'TRUE'
+                - 'FALSE'
+                type: string
+              - *ebi_null_vals_all
             empty: false
             field_desc: Whether the DNA been extracted from the sample.
             is_phi: false
@@ -530,16 +530,15 @@ host_type_specific_metadata:
                         is_phi: false
                         required: true
                       sex:
-                        allowed:
-                          - female
-                          - male
-                          - neuter
-                          - hermaphrodite
-                          - not applicable
-                          - not collected
-                          - not provided
-                          - restricted access
-                        type: string
+                        anyof:
+                          - allowed:
+                            - female
+                            - male
+                            - intersex
+                            - neuter
+                            - hermaphrodite
+                            type: string
+                          - *ebi_null_vals_all
                         empty: false
                         is_phi: false
                         required: true
@@ -916,6 +915,18 @@ host_type_specific_metadata:
                                   this sample (human studies)
                                 is_phi: false
                                 required: false
+                              sex:
+                                allowed:
+                                  - female
+                                  - male
+                                  - intersex
+                                  - "not collected"
+                                  - "not provided"
+                                  - "restricted access"
+                                type: string
+                                empty: false
+                                is_phi: false
+                                required: true
                               scientific_name:
                                 allowed:
                                   - human metagenome
