@@ -540,13 +540,12 @@ class TestCombineBaseAndAddedSampleTypeSpecificMetadata(ConfiguratorTestBase):
         differs between base_dict and add_dict, the add_dict entry completely
         replaces the base_dict entry rather than attempting to combine them.
 
-        This test covers all possible type mismatch scenarios:
+        This test covers type mismatch scenarios where add overwrites base:
         - base has alias, add has metadata_fields
         - base has alias, add has base_type
         - base has metadata_fields, add has alias
         - base has metadata_fields, add has base_type
         - base has base_type, add has alias
-        - base has base_type, add has metadata_fields
         """
         base_dict = {
             SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
@@ -573,10 +572,6 @@ class TestCombineBaseAndAddedSampleTypeSpecificMetadata(ConfiguratorTestBase):
                 # base_type -> alias
                 "sample_base_to_alias": {
                     BASE_TYPE_KEY: "stool"
-                },
-                # base_type -> metadata_fields
-                "sample_base_to_metadata": {
-                    BASE_TYPE_KEY: "stool"
                 }
             }
         }
@@ -599,11 +594,6 @@ class TestCombineBaseAndAddedSampleTypeSpecificMetadata(ConfiguratorTestBase):
                 },
                 "sample_base_to_alias": {
                     ALIAS_KEY: "saliva"
-                },
-                "sample_base_to_metadata": {
-                    METADATA_FIELDS_KEY: {
-                        "new_field": {"type": "integer"}
-                    }
                 }
             }
         }
@@ -611,7 +601,71 @@ class TestCombineBaseAndAddedSampleTypeSpecificMetadata(ConfiguratorTestBase):
         # All entries should match add_dict exactly; base_dict is replaced
         expected = add_dict[SAMPLE_TYPE_SPECIFIC_METADATA_KEY]
 
-        result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
+        # Verify warnings are emitted for each mismatched definition type
+        with self.assertLogs("metameq.src.metadata_configurator", level="WARNING") as cm:
+            result = _combine_base_and_added_sample_type_specific_metadata(base_dict, add_dict)
+
+        self.assertDictEqual(expected, result)
+
+        # Each mismatched sample type should produce a warning
+        expected_transitions = {
+            "sample_alias_to_metadata": (ALIAS_KEY, METADATA_FIELDS_KEY),
+            "sample_alias_to_base": (ALIAS_KEY, BASE_TYPE_KEY),
+            "sample_metadata_to_alias": (METADATA_FIELDS_KEY, ALIAS_KEY),
+            "sample_metadata_to_base": (METADATA_FIELDS_KEY, BASE_TYPE_KEY),
+            "sample_base_to_alias": (BASE_TYPE_KEY, ALIAS_KEY),
+        }
+        self.assertEqual(len(expected_transitions), len(cm.output))
+        for sample_name, (from_type, to_type) in expected_transitions.items():
+            expected_msg = (
+                f"Overwriting sample_type '{sample_name}' "
+                f"{from_type} with {to_type}.")
+            self.assertTrue(
+                any(expected_msg in msg for msg in cm.output),
+                f"Expected warning containing '{expected_msg}' "
+                f"not found in {cm.output}")
+
+    def test__combine_base_and_added_sample_type_specific_metadata_base_type_plus_metadata_combines(self):
+        """Test that when base has base_type and add has metadata_fields,
+        the result retains base_type from base and adds metadata_fields
+        from add, rather than overwriting.
+        """
+        base_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    BASE_TYPE_KEY: "gut_sample"
+                }
+            }
+        }
+
+        add_dict = {
+            SAMPLE_TYPE_SPECIFIC_METADATA_KEY: {
+                "stool": {
+                    METADATA_FIELDS_KEY: {
+                        "collection_method": {
+                            TYPE_KEY: "string",
+                            DEFAULT_KEY: "swab"
+                        }
+                    }
+                }
+            }
+        }
+
+        # Result should contain both base_type and metadata_fields
+        expected = {
+            "stool": {
+                BASE_TYPE_KEY: "gut_sample",
+                METADATA_FIELDS_KEY: {
+                    "collection_method": {
+                        TYPE_KEY: "string",
+                        DEFAULT_KEY: "swab"
+                    }
+                }
+            }
+        }
+
+        result = _combine_base_and_added_sample_type_specific_metadata(
+            base_dict, add_dict)
         self.assertDictEqual(expected, result)
 
     def test__combine_base_and_added_sample_type_specific_metadata_overrides_alias_entry_preserved(self):

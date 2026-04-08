@@ -1,3 +1,4 @@
+import logging
 from typing import Dict, Optional, Any
 from metameq.src.util import METADATA_TRANSFORMERS_KEY, extract_config_dict, extract_stds_config, \
     deepcopy_dict, \
@@ -7,6 +8,10 @@ from metameq.src.util import METADATA_TRANSFORMERS_KEY, extract_config_dict, ext
     DEFAULT_KEY, ALLOWED_KEY, ANYOF_KEY, TYPE_KEY, \
     SAMPLE_TYPE_KEY, QIITA_SAMPLE_TYPE, GLOBAL_SETTINGS_KEYS, \
     HOST_OVERRIDES_ANCESTOR_SAMPLE_TYPE_KEY
+
+
+# Define a logger for this module
+logger = logging.getLogger(__name__)
 
 
 def combine_stds_and_study_config(
@@ -502,9 +507,10 @@ def _combine_base_and_added_sample_type_specific_metadata(
                     curr_sample_type_wip_dict)
         # end if sample type is in wip
 
-        # if the sample type is already in the wip, and it has metadata fields,
+        # if the sample type is already in the wip, and it has metadata fields or base,
         # and it has metadata fields in the add dict, combine metadata fields
-        if curr_sample_type_wip_def_type == METADATA_FIELDS_KEY \
+        if (curr_sample_type_wip_def_type == METADATA_FIELDS_KEY
+            or curr_sample_type_wip_def_type == BASE_TYPE_KEY) \
                 and curr_sample_type_add_def_type == METADATA_FIELDS_KEY:
 
             # first, add all non-metadata fields from the add dict to the wip;
@@ -518,7 +524,7 @@ def _combine_base_and_added_sample_type_specific_metadata(
             curr_sample_type_add_metadata_fields_dict = \
                 curr_sample_type_add_dict[METADATA_FIELDS_KEY]
             curr_sample_type_wip_metadata_fields_dict = \
-                curr_sample_type_wip_dict[METADATA_FIELDS_KEY]
+                curr_sample_type_wip_dict.get(METADATA_FIELDS_KEY, {})
             curr_sample_type_wip_metadata_fields_dict = (
                 update_wip_metadata_dict(
                     curr_sample_type_wip_metadata_fields_dict,
@@ -538,6 +544,10 @@ def _combine_base_and_added_sample_type_specific_metadata(
         # (alias vs metadata) in the two, just set the entry in the wip dict
         # to be the entry in the add dict.
         else:
+            if curr_sample_type_wip_def_type is not None:
+                logger.warning(
+                    f"Overwriting sample_type '{curr_sample_type}' "
+                    f"{curr_sample_type_wip_def_type} with {curr_sample_type_add_def_type}.")
             curr_host_wip_sample_types_dict[curr_sample_type] = \
                 curr_sample_type_add_dict
         # endif sample type is in wip and has metadata fields in both or not
