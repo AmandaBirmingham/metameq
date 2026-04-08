@@ -22,7 +22,7 @@ def root():
               help='separator of input file (default is tab); '
                    'not applicable to excel files')
 @click.option('--suppress_fails_files', is_flag=True,
-              help='suppress output of QC and validation error files if no'
+              help='suppress output of QC and validation error files if no '
                    'errors found.  Default is to output empty files.')
 def write_extended_metadata(metadata_file_path, config_fp,
                             out_dir, name_base, sep, suppress_fails_files):
