@@ -44,13 +44,15 @@ pip install -e .
 
 ## Basic Usage
 
-METAMEQ is run from the command line using the `metameq` command: 
+METAMEQ is run from the command line using the `metameq` command.
+
+### Extending Metadata
 
 ```bash
 metameq write-extended-metadata METADATA_FILE CONFIG_FILE NAME_BASE [OPTIONS]
 ```
 
-### Required Inputs
+#### Required Inputs
 
 1. **METADATA_FILE**: Path to your input metadata file containing sample information
    - Accepted formats: `.csv`, `.txt`, or `.xlsx`
@@ -63,13 +65,13 @@ metameq write-extended-metadata METADATA_FILE CONFIG_FILE NAME_BASE [OPTIONS]
 3. **NAME_BASE**: Base name suffix for output files
    - Used to generate output filenames, which will be <timestamp>_<basename>.<extension> (e.g., "2024-05-16_09-46-19_mymetadata.csv" for the name base "mymetadata")
 
-### Optional Parameters
+#### Optional Parameters
 
 - `--out_dir`: Output directory for generated files (default: current directory)
 - `--sep`: Separator character for text output files.  If ",", the output will be a `.csv` file, and if "\t" the output will be `.txt` file. "\t" is the default
 - `--suppress_fails_files`: Suppress empty QC and validation error files (default: outputs empty files even when no errors found)
 
-### Example
+#### Example
 
 ```bash
 metameq write-extended-metadata my_samples.xlsx config.yml my_study_name --out_dir ./output
@@ -82,6 +84,35 @@ This command will:
 - Output validation results and QC reports
 - Save all outputs to the `./output` directory with the suffix `my_study_name`
 
+### Validating with a Full Flat Config
+
+If you have a pre-built full flat configuration dictionary (as a YAML file), you can use `write-validator-metadata` to extend and validate metadata against it directly, bypassing the study config + standards merging step:
+
+```bash
+metameq write-validator-metadata METADATA_FILE FULL_FLAT_CONFIG_FILE NAME_BASE [OPTIONS]
+```
+
+#### Required Inputs
+
+1. **METADATA_FILE**: Path to your input metadata file (same formats as above)
+2. **FULL_FLAT_CONFIG_FILE**: Path to a YAML file containing a pre-built full flat configuration dictionary
+3. **NAME_BASE**: Base name suffix for output files
+
+#### Optional Parameters
+
+- `--out_dir`: Output directory for generated files (default: current directory)
+- `--sep`: Separator character for text output files (default: "\t")
+- `--keep_internals`: Keep internal columns (`hosttype_shorthand`, `sampletype_shorthand`, `qc_note`) in output (default: removed)
+- `--suppress_fails_files`: Suppress empty validation error files (default: outputs empty files even when no errors found)
+- `--hosttype_col_name`: Alternative column name for host type shorthand
+- `--sampletype_col_name`: Alternative column name for sample type shorthand
+
+#### Example
+
+```bash
+metameq write-validator-metadata my_samples.xlsx full_flat_config.yml my_study_name --out_dir ./output
+```
+
 ## API Usage
 
 METAMEQ can also be imported and used as a Python library within your own code. This is useful for integrating metadata extension into custom workflows or pipelines.
@@ -90,9 +121,12 @@ METAMEQ can also be imported and used as a Python library within your own code. 
 
 The primary functions for programmatic use are:
 
-- **`write_extended_metadata_from_df`**: Extend metadata from a pandas DataFrame and write results to files
-- **`extend_metadata_df_from_yamls`**: Extend metadata and return DataFrames without writing to disk
-- **`extract_config_dict`**: Load and extract configuration from YAML files
+- **`write_extended_metadata`**: Extend and validate metadata from file paths to a metadata file and a study-specific config YAML, write results to files
+- **`write_extended_metadata_from_df`**: Extend and validate metadata from a pandas DataFrame and a study-specific config dict, write results to files
+- **`write_validator_metadata`**: Extend and validate metadata from file paths to a metadata file and a pre-built full flat config YAML, write results to files
+- **`extend_metadata_df_from_yamls`**: Extend metadata from a DataFrame and YAML file paths (study-specific config + standards), return DataFrames without writing to disk
+- **`build_full_flat_config_dict`**: Build a complete full flat config dict from standards, software config, and a study-specific config dict
+- **`extract_config_dict`**: Load a YAML configuration file into a dictionary
 
 ### Basic API Example
 
@@ -112,13 +146,13 @@ raw_metadata_df = pd.read_csv("my_samples.csv", dtype=str)
 raw_metadata_df[HOSTTYPE_SHORTHAND_KEY] = "human"
 raw_metadata_df[SAMPLETYPE_SHORTHAND_KEY] = "stool"
 
-# Load configuration
-config_dict = extract_config_dict("config.yml")
+# Load study-specific configuration
+study_config_dict = extract_config_dict("my_study_config.yml")
 
 # Extend metadata and write output files
 extended_df = write_extended_metadata_from_df(
     raw_metadata_df,
-    config_dict,
+    study_config_dict,
     out_dir="./output",
     out_name_base="my_study"
 )
@@ -145,7 +179,7 @@ transformers = {
 
 extended_df = write_extended_metadata_from_df(
     raw_metadata_df,
-    config_dict,
+    study_config_dict,
     out_dir="./output",
     out_name_base="my_study",
     study_specific_transformers_dict=transformers
